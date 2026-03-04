@@ -116,6 +116,15 @@ fun AboutContent(component: AboutComponent) {
                 )
 
                 SettingsItem(
+                    icon = Icons.Rounded.Public,
+                    title = "GitHub",
+                    subtitle = "View source code",
+                    iconBackgroundColor = Color(0xFF24292E),
+                    position = ItemPosition.MIDDLE,
+                    onClick = { uriHandler.openUri("https://github.com/monogram-android/monogram") }
+                )
+
+                SettingsItem(
                     icon = Icons.Rounded.Terminal,
                     title = "TDLib Version",
                     subtitle = displayTdLibVersion,
