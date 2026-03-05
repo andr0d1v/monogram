@@ -2,13 +2,11 @@ package org.monogram.data.repository
 
 import android.content.Context
 import android.util.Log
-import org.monogram.core.DispatcherProvider
-import org.monogram.core.ScopeProvider
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.drinkless.tdlib.TdApi
+import org.monogram.core.DispatcherProvider
+import org.monogram.core.ScopeProvider
 import org.monogram.data.chats.ChatCache
 import org.monogram.data.datasource.FileDataSource
 import org.monogram.data.datasource.remote.MessageRemoteDataSource
@@ -38,13 +36,8 @@ class MessageRepositoryImpl(
     scopeProvider: ScopeProvider
 ) : MessageRepository {
     private val scope = scopeProvider.appScope
-    private val _newMessageFlow = MutableSharedFlow<MessageModel>(
-        replay = 0,
-        extraBufferCapacity = 100,
-        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.SUSPEND
-    )
-    override val newMessageFlow = _newMessageFlow.asSharedFlow()
 
+    override val newMessageFlow = messageRemoteDataSource.newMessageFlow
     override val messageEditedFlow = messageRemoteDataSource.messageEditedFlow
     override val messageUploadProgressFlow = messageRemoteDataSource.messageUploadProgressFlow
     override val messageDownloadProgressFlow = messageRemoteDataSource.messageDownloadProgressFlow

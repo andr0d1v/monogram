@@ -198,7 +198,7 @@ fun ChatContent(
             val lastVisibleItem = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()
             lastVisibleItem != null && lastVisibleItem.index >= scrollState.layoutInfo.totalItemsCount - 1 && state.isLatestLoaded
         } else {
-            scrollState.firstVisibleItemIndex <= 1 && state.isLatestLoaded
+            scrollState.firstVisibleItemIndex <= 2 && state.isLatestLoaded
         }
         component.onBottomReached(isAtBottom)
 

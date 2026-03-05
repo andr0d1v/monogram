@@ -14,50 +14,64 @@ import org.monogram.presentation.chatsScreen.currentChat.DefaultChatComponent
 
 private const val PAGE_SIZE = 50
 
+private suspend fun DefaultChatComponent.updateMessagesUnsafe(
+    newMessages: List<MessageModel>,
+    replace: Boolean = false
+) {
+    val currentState = _state.value
+    val adBlockEnabled = appPreferences.isAdBlockEnabled.value
+    val keywords = appPreferences.adBlockKeywords.value
+    val whitelistedChannels = appPreferences.adBlockWhitelistedChannels.value
+    val isChannel = currentState.isChannel
+    val isWhitelisted = whitelistedChannels.contains(chatId)
+
+    val filteredNewMessages = if (adBlockEnabled && isChannel && !isWhitelisted) {
+        withContext(Dispatchers.Default) {
+            newMessages.filterNot { message ->
+                val text = when (val content = message.content) {
+                    is MessageContent.Text -> content.text
+                    is MessageContent.Photo -> content.caption
+                    is MessageContent.Video -> content.caption
+                    is MessageContent.Document -> content.caption
+                    is MessageContent.Gif -> content.caption
+                    else -> ""
+                }
+                keywords.any { text.contains(it, ignoreCase = true) }
+            }
+        }
+    } else {
+        newMessages
+    }
+
+    _state.update { state ->
+        val currentList = if (replace) {
+            state.messages.filter { it.sendingState is MessageSendingState.Pending }
+        } else {
+            state.messages
+        }
+
+        val isComments = state.rootMessage != null
+
+        val messageMap = currentList.associateBy { it.id }.toMutableMap()
+        filteredNewMessages.forEach { msg ->
+            messageMap[msg.id] = msg
+        }
+
+        val mergedMessages = messageMap.values.let {
+            if (isComments) {
+                it.sortedWith(compareBy<MessageModel> { it.date }.thenBy { it.id })
+            } else {
+                it.sortedWith(compareByDescending<MessageModel> { it.date }.thenByDescending { it.id })
+            }
+        }
+
+        state.copy(messages = mergedMessages)
+    }
+}
+
 internal suspend fun DefaultChatComponent.updateMessages(newMessages: List<MessageModel>, replace: Boolean = false) {
     messageMutex.withLock {
-        val currentState = _state.value
-        val adBlockEnabled = appPreferences.isAdBlockEnabled.value
-        val keywords = appPreferences.adBlockKeywords.value
-        val whitelistedChannels = appPreferences.adBlockWhitelistedChannels.value
-        val isChannel = currentState.isChannel
-        val isWhitelisted = whitelistedChannels.contains(chatId)
-
-        val filteredNewMessages = if (adBlockEnabled && isChannel && !isWhitelisted) {
-            withContext(Dispatchers.Default) {
-                newMessages.filterNot { message ->
-                    val text = when (val content = message.content) {
-                        is MessageContent.Text -> content.text
-                        is MessageContent.Photo -> content.caption
-                        is MessageContent.Video -> content.caption
-                        is MessageContent.Document -> content.caption
-                        is MessageContent.Gif -> content.caption
-                        else -> ""
-                    }
-                    keywords.any { text.contains(it, ignoreCase = true) }
-                }
-            }
-        } else {
-            newMessages
-        }
-
-        _state.update { state ->
-            val currentList = if (replace) {
-                state.messages.filter { it.sendingState is MessageSendingState.Pending }
-            } else {
-                state.messages
-            }
-
-            val isComments = state.rootMessage != null
-            val mergedMessages = (currentList + filteredNewMessages)
-                .distinctBy { it.id }
-                .let {
-                    if (isComments) it.sortedBy { it.id }
-                    else it.sortedByDescending { it.id }
-                }
-
-            state.copy(messages = mergedMessages)
-        }
+        updateMessagesUnsafe(newMessages, replace)
     }
 }
 
@@ -292,36 +306,14 @@ internal fun DefaultChatComponent.setupMessageCollectors() {
     repositoryMessage.newMessageFlow
         .onEach { message ->
             if (message.chatId == chatId) {
-                _state.update { currentState ->
-                    val currentMessages = currentState.messages
-                    val exists = currentMessages.any { it.id == message.id }
-
-                    if (exists) {
-                        val updated = currentMessages.map { if (it.id == message.id) message else it }
-                        currentState.copy(messages = updated)
-                    } else {
-                        val isCorrectThread =
-                            currentState.currentTopicId == null || message.threadId?.toLong() == currentState.currentTopicId
-
-                        if (isCorrectThread && (currentState.isAtBottom || currentState.isLatestLoaded || message.isOutgoing)) {
-                            // We can't call updateMessages here because it's suspend and we are in onEach
-                            // But we can update the state directly or launch a new job
-                            // For simplicity and to avoid race conditions, let's update state here
-                            val isComments = currentState.rootMessage != null
-                            val mergedMessages = (currentMessages + message)
-                                .distinctBy { it.id }
-                                .let {
-                                    if (isComments) it.sortedBy { it.id }
-                                    else it.sortedByDescending { it.id }
-                                }
-
-                            currentState.copy(
-                                messages = mergedMessages,
-                                isLatestLoaded = if (currentState.isAtBottom || currentState.isLatestLoaded) true else currentState.isLatestLoaded
-                            )
-                        } else {
-                            currentState
-                        }
+                val isCorrectThread =
+                    _state.value.currentTopicId == null || message.threadId?.toLong() == _state.value.currentTopicId
+                if (isCorrectThread) {
+                    updateMessages(listOf(message))
+                    _state.update { state ->
+                        state.copy(
+                            isLatestLoaded = if (message.isOutgoing || state.isAtBottom) true else state.isLatestLoaded
+                        )
                     }
                 }
             }
@@ -331,27 +323,34 @@ internal fun DefaultChatComponent.setupMessageCollectors() {
     repositoryMessage.messageIdUpdateFlow
         .onEach { (cId, oldId, newMessage) ->
             if (cId == chatId) {
-                _state.update { currentState ->
-                    val currentMessages = currentState.messages.toMutableList()
-                    val index = currentMessages.indexOfFirst { it.id == oldId }
+                messageMutex.withLock {
+                    _state.update { state ->
+                        val currentMessages = state.messages.toMutableList()
+                        val index = currentMessages.indexOfFirst { it.id == oldId }
 
-                    if (index != -1) {
-                        currentMessages[index] = newMessage
-                        currentState.copy(messages = currentMessages)
-                    } else if (currentState.isAtBottom || currentState.isLatestLoaded || newMessage.isOutgoing) {
-                        val isComments = currentState.rootMessage != null
-                        val mergedMessages = (currentMessages + newMessage)
-                            .distinctBy { it.id }
-                            .let {
-                                if (isComments) it.sortedBy { it.id }
-                                else it.sortedByDescending { it.id }
+                        if (index != -1) {
+                            currentMessages[index] = newMessage
+                        } else {
+                            val isCorrectThread =
+                                state.currentTopicId == null || newMessage.threadId?.toLong() == state.currentTopicId
+                            if (isCorrectThread && (state.isAtBottom || state.isLatestLoaded || newMessage.isOutgoing)) {
+                                if (currentMessages.none { it.id == newMessage.id }) {
+                                    currentMessages.add(newMessage)
+                                }
                             }
-                        currentState.copy(
-                            messages = mergedMessages,
-                            isLatestLoaded = if (currentState.isAtBottom || currentState.isLatestLoaded) true else currentState.isLatestLoaded
+                        }
+
+                        val isComments = state.rootMessage != null
+                        val distinctMessages = currentMessages.distinctBy { it.id }
+                        val sortedMessages = if (isComments) {
+                            distinctMessages.sortedWith(compareBy<MessageModel> { it.date }.thenBy { it.id })
+                        } else {
+                            distinctMessages.sortedWith(compareByDescending<MessageModel> { it.date }.thenByDescending { it.id })
+                        }
+                        state.copy(
+                            messages = sortedMessages,
+                            isLatestLoaded = if (newMessage.isOutgoing || state.isAtBottom) true else state.isLatestLoaded
                         )
-                    } else {
-                        currentState
                     }
                 }
             }
