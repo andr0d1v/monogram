@@ -104,12 +104,26 @@ class MessageMapper(
                     isSenderVerified = user.isVerified
                 }
 
-                val member = try {
-                    withTimeout(500) { userRepository.getChatMember(msg.chatId, senderId) }
-                } catch (e: Exception) {
-                    null
+                val chat = cache.getChat(msg.chatId)
+                val canGetMember = when (chat?.type) {
+                    is TdApi.ChatTypePrivate, is TdApi.ChatTypeSecret -> true
+                    is TdApi.ChatTypeBasicGroup -> true
+                    is TdApi.ChatTypeSupergroup -> {
+                        val supergroup = (chat.type as TdApi.ChatTypeSupergroup)
+                        val cachedSupergroup = cache.getSupergroup(supergroup.supergroupId)
+                        !(cachedSupergroup?.isChannel ?: false) || (chat.permissions.canSendBasicMessages)
+                    }
+                    else -> false
                 }
-                senderCustomTitle = member?.rank
+
+                if (canGetMember) {
+                    val member = try {
+                        withTimeout(500) { userRepository.getChatMember(msg.chatId, senderId) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    senderCustomTitle = member?.rank
+                }
             }
 
             is TdApi.MessageSenderChat -> {

@@ -20,12 +20,22 @@ internal fun DefaultChatComponent.handleMentionQueryChange(
 
     return scope.launch {
         delay(150)
+        val currentState = _state.value
         val suggestions = if (query.isEmpty()) {
             if (allMembers.isEmpty()) {
-                val members = userRepository.getChatMembers(chatId, 0, 200, ChatMembersFilter.Recent)
-                    .map { it.user }
-                onMembersUpdated(members)
-                members
+                val canLoadMembers = !currentState.isChannel || currentState.isAdmin
+                if (canLoadMembers && (currentState.isGroup || currentState.isChannel)) {
+                    try {
+                        val members = userRepository.getChatMembers(chatId, 0, 200, ChatMembersFilter.Recent)
+                            .map { it.user }
+                        onMembersUpdated(members)
+                        members
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
             } else {
                 allMembers
             }

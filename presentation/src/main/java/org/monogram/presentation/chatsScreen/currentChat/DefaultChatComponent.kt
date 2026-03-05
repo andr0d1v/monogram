@@ -182,6 +182,8 @@ class DefaultChatComponent(
         scope.launch {
             val currentState = _state.value
             if (currentState.isGroup || currentState.isChannel) {
+                if (currentState.isChannel && !currentState.isAdmin) return@launch
+
                 try {
                     allMembers = userRepository.getChatMembers(chatId, 0, 200, ChatMembersFilter.Recent)
                         .map { it.user }
