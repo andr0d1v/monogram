@@ -1,30 +1,28 @@
 package org.monogram.presentation.profile.admin
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.ChatsListRepository
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
+import org.monogram.presentation.util.componentScope
 
 class DefaultAdminManageComponent(
     context: AppComponentContext,
     private val chatId: Long,
     private val userId: Long,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    private val chatsListRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBackClicked: () -> Unit
 ) : AdminManageComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val userRepository: UserRepository = container.repositories.userRepository
+    private val chatsListRepository: ChatsListRepository = container.repositories.chatsListRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
+    private val scope = componentScope
     private val _state = MutableValue(AdminManageComponent.State(chatId = chatId, userId = userId))
     override val state: Value<AdminManageComponent.State> = _state
 
@@ -34,7 +32,7 @@ class DefaultAdminManageComponent(
 
     private fun loadMember() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 val chat = chatsListRepository.getChatById(chatId)
                 val member = userRepository.getChatMember(chatId, userId)
@@ -64,15 +62,17 @@ class DefaultAdminManageComponent(
                         isAnonymous = false
                     )
                 }
-                _state.value = _state.value.copy(
-                    member = member,
-                    currentStatus = initialStatus,
-                    isChannel = chat?.isChannel == true
-                )
+                _state.update {
+                    it.copy(
+                        member = member,
+                        currentStatus = initialStatus,
+                        isChannel = chat?.isChannel == true
+                    )
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -83,14 +83,14 @@ class DefaultAdminManageComponent(
 
     override fun onSave() {
         val status = _state.value.currentStatus ?: return
-        _state.value = _state.value.copy(isLoading = true)
+        _state.update { it.copy(isLoading = true) }
         scope.launch {
             try {
                 userRepository.setChatMemberStatus(chatId, userId, status)
                 onBackClicked()
             } catch (e: Exception) {
                 e.printStackTrace()
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -114,11 +114,11 @@ class DefaultAdminManageComponent(
             AdminManageComponent.Permission.DELETE_STORIES -> current.copy(canDeleteStories = !current.canDeleteStories)
             AdminManageComponent.Permission.ANONYMOUS -> current.copy(isAnonymous = !current.isAnonymous)
         }
-        _state.value = _state.value.copy(currentStatus = updated)
+        _state.update { it.copy(currentStatus = updated) }
     }
 
     override fun onUpdateCustomTitle(title: String) {
         val current = _state.value.currentStatus as? ChatMemberStatus.Administrator ?: return
-        _state.value = _state.value.copy(currentStatus = current.copy(customTitle = title))
+        _state.update { it.copy(currentStatus = current.copy(customTitle = title)) }
     }
 }

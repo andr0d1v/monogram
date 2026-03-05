@@ -21,7 +21,10 @@ enum class EmojiStyle {
     SYSTEM, APPLE, TWITTER, WINDOWS, CATMOJI, NOTO
 }
 
-class AppPreferences(private val context: Context) : AppPreferencesProvider {
+class AppPreferences(
+    private val context: Context,
+    private val externalScope: CoroutineScope
+) : AppPreferencesProvider {
     private val prefs: SharedPreferences = context.getSharedPreferences("monogram_prefs", Context.MODE_PRIVATE)
 
     private val masterKey = MasterKey.Builder(context)
@@ -260,7 +263,7 @@ class AppPreferences(private val context: Context) : AppPreferencesProvider {
 
     init {
         if (_adBlockKeywords.value.isEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
+            externalScope.launch {
                 loadBaseKeywords()
             }
         }

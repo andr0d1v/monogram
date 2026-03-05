@@ -5,8 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import coil3.annotation.ExperimentalCoilApi
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -15,6 +14,7 @@ import org.monogram.domain.repository.SettingsRepository
 import org.monogram.domain.repository.StickerRepository
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.AppPreferences
+import org.monogram.presentation.util.componentScope
 
 interface StorageUsageComponent {
     val state: Value<State>
@@ -36,37 +36,39 @@ interface StorageUsageComponent {
 
 class DefaultStorageUsageComponent(
     context: AppComponentContext,
-    private val settingsRepository: SettingsRepository = context.container.repositories.settingsRepository,
-    private val appPreferences: AppPreferences = context.container.preferences.appPreferences,
-    private val stickerRepository: StickerRepository = context.container.repositories.stickerRepository,
-    private val cacheController: CacheController = context.container.utils.cacheController,
     private val onBack: () -> Unit
 ) : StorageUsageComponent, AppComponentContext by context {
+
+    private val settingsRepository: SettingsRepository = container.repositories.settingsRepository
+    private val appPreferences: AppPreferences = container.preferences.appPreferences
+    private val stickerRepository: StickerRepository = container.repositories.stickerRepository
+    private val cacheController: CacheController = container.utils.cacheController
+
     private val _state = MutableValue(StorageUsageComponent.State())
     override val state: Value<StorageUsageComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         loadStatistics()
-        appPreferences.cacheLimitSize.onEach {
-            _state.value = _state.value.copy(cacheLimitSize = it)
+        appPreferences.cacheLimitSize.onEach { value ->
+            _state.update { it.copy(cacheLimitSize = value) }
         }.launchIn(scope)
 
-        appPreferences.autoClearCacheTime.onEach {
-            _state.value = _state.value.copy(autoClearCacheTime = it)
+        appPreferences.autoClearCacheTime.onEach { value ->
+            _state.update { it.copy(autoClearCacheTime = value) }
         }.launchIn(scope)
 
         scope.launch {
             val enabled = settingsRepository.getStorageOptimizerEnabled()
-            _state.value = _state.value.copy(isStorageOptimizerEnabled = enabled)
+            _state.update { it.copy(isStorageOptimizerEnabled = enabled) }
         }
     }
 
     private fun loadStatistics() {
-        _state.value = _state.value.copy(isLoading = true)
+        _state.update { it.copy(isLoading = true) }
         scope.launch {
             val usage = settingsRepository.getStorageUsage()
-            _state.value = _state.value.copy(usage = usage, isLoading = false)
+            _state.update { it.copy(usage = usage, isLoading = false) }
         }
     }
 
@@ -119,7 +121,7 @@ class DefaultStorageUsageComponent(
     override fun onStorageOptimizerChanged(enabled: Boolean) {
         scope.launch {
             settingsRepository.setStorageOptimizerEnabled(enabled)
-            _state.value = _state.value.copy(isStorageOptimizerEnabled = enabled)
+            _state.update { it.copy(isStorageOptimizerEnabled = enabled) }
         }
     }
 }

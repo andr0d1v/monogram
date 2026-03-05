@@ -2,14 +2,14 @@ package org.monogram.presentation.settingsScreens.privacy
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.UserModel
 import org.monogram.domain.repository.PrivacyRepository
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.monogram.presentation.util.componentScope
 
 interface BlockedUsersComponent {
     val state: Value<State>
@@ -27,17 +27,18 @@ interface BlockedUsersComponent {
 
 class DefaultBlockedUsersComponent(
     context: AppComponentContext,
-    private val privacyRepository: PrivacyRepository = context.container.repositories.privacyRepository,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBack: () -> Unit,
     private val onProfileClick: (Long) -> Unit,
     private val onAddBlockedUser: () -> Unit
 ) : BlockedUsersComponent, AppComponentContext by context {
 
+    private val privacyRepository: PrivacyRepository = container.repositories.privacyRepository
+    private val userRepository: UserRepository = container.repositories.userRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
     private val _state = MutableValue(BlockedUsersComponent.State())
     override val state: Value<BlockedUsersComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         loadBlockedUsers()
@@ -45,7 +46,7 @@ class DefaultBlockedUsersComponent(
 
     private fun loadBlockedUsers() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 val blockedIds = privacyRepository.getBlockedUsers()
                 val users = blockedIds.mapNotNull { id ->
@@ -55,11 +56,11 @@ class DefaultBlockedUsersComponent(
                         null
                     }
                 }
-                _state.value = _state.value.copy(blockedUsers = users)
+                _state.update { it.copy(blockedUsers = users) }
             } catch (e: Exception) {
                 // Handle error
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }

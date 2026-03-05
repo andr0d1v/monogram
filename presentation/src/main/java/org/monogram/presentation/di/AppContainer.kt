@@ -1,6 +1,5 @@
 package org.monogram.presentation.di
 
-import android.content.Context
 import coil3.ImageLoader
 import org.monogram.core.DispatcherProvider
 import org.monogram.core.Logger
@@ -18,7 +17,6 @@ interface AppContainer {
     val repositories: RepositoriesContainer
     val utils: UtilsContainer
     val cacheProvider: CacheProvider
-    val context: Context
 }
 
 interface PreferencesContainer {

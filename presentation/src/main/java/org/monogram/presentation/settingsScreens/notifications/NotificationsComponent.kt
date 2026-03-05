@@ -5,8 +5,6 @@ import com.arkivanov.decompose.router.stack.*
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.decompose.value.update
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -20,6 +18,7 @@ import org.monogram.domain.repository.SettingsRepository.TdNotificationScope
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.AppPreferences
+import org.monogram.presentation.util.componentScope
 
 interface NotificationsComponent {
     val state: Value<State>
@@ -77,14 +76,15 @@ interface NotificationsComponent {
 
 class DefaultNotificationsComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferences = context.container.preferences.appPreferences,
-    private val settingsRepository: SettingsRepository = context.container.repositories.settingsRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
-    private val distrManager: DistrManager = context.container.utils.distrManager(),
     private val onBack: () -> Unit
 ) : NotificationsComponent, AppComponentContext by context {
-    private val scope = CoroutineScope(Dispatchers.Main)
 
+    private val appPreferences: AppPreferences = container.preferences.appPreferences
+    private val settingsRepository: SettingsRepository = container.repositories.settingsRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+    private val distrManager: DistrManager = container.utils.distrManager()
+
+    private val scope = componentScope
     private val navigation = StackNavigation<Config>()
 
     override val childStack: Value<ChildStack<*, NotificationsComponent.Child>> = childStack(
@@ -105,64 +105,64 @@ class DefaultNotificationsComponent(
     override val state: Value<NotificationsComponent.State> = _state
 
     init {
-        appPreferences.privateChatsNotifications.onEach {
-            _state.value = _state.value.copy(privateChatsEnabled = it)
+        appPreferences.privateChatsNotifications.onEach { value ->
+            _state.update { it.copy(privateChatsEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.groupsNotifications.onEach {
-            _state.value = _state.value.copy(groupsEnabled = it)
+        appPreferences.groupsNotifications.onEach { value ->
+            _state.update { it.copy(groupsEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.channelsNotifications.onEach {
-            _state.value = _state.value.copy(channelsEnabled = it)
+        appPreferences.channelsNotifications.onEach { value ->
+            _state.update { it.copy(channelsEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.inAppSounds.onEach {
-            _state.value = _state.value.copy(inAppSounds = it)
+        appPreferences.inAppSounds.onEach { value ->
+            _state.update { it.copy(inAppSounds = value) }
         }.launchIn(scope)
 
-        appPreferences.inAppVibrate.onEach {
-            _state.value = _state.value.copy(inAppVibrate = it)
+        appPreferences.inAppVibrate.onEach { value ->
+            _state.update { it.copy(inAppVibrate = value) }
         }.launchIn(scope)
 
-        appPreferences.inAppPreview.onEach {
-            _state.value = _state.value.copy(inAppPreview = it)
+        appPreferences.inAppPreview.onEach { value ->
+            _state.update { it.copy(inAppPreview = value) }
         }.launchIn(scope)
 
-        appPreferences.contactJoinedNotifications.onEach {
-            _state.value = _state.value.copy(contactJoined = it)
+        appPreferences.contactJoinedNotifications.onEach { value ->
+            _state.update { it.copy(contactJoined = value) }
         }.launchIn(scope)
 
-        appPreferences.pinnedMessagesNotifications.onEach {
-            _state.value = _state.value.copy(pinnedMessages = it)
+        appPreferences.pinnedMessagesNotifications.onEach { value ->
+            _state.update { it.copy(pinnedMessages = value) }
         }.launchIn(scope)
 
-        appPreferences.backgroundServiceEnabled.onEach {
-            _state.value = _state.value.copy(backgroundServiceEnabled = it)
+        appPreferences.backgroundServiceEnabled.onEach { value ->
+            _state.update { it.copy(backgroundServiceEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.hideForegroundNotification.onEach {
-            _state.value = _state.value.copy(hideForegroundNotification = it)
+        appPreferences.hideForegroundNotification.onEach { value ->
+            _state.update { it.copy(hideForegroundNotification = value) }
         }.launchIn(scope)
 
-        appPreferences.notificationVibrationPattern.onEach {
-            _state.value = _state.value.copy(vibrationPattern = it)
+        appPreferences.notificationVibrationPattern.onEach { value ->
+            _state.update { it.copy(vibrationPattern = value) }
         }.launchIn(scope)
 
-        appPreferences.notificationPriority.onEach {
-            _state.value = _state.value.copy(priority = it)
+        appPreferences.notificationPriority.onEach { value ->
+            _state.update { it.copy(priority = value) }
         }.launchIn(scope)
 
-        appPreferences.repeatNotifications.onEach {
-            _state.value = _state.value.copy(repeatNotifications = it)
+        appPreferences.repeatNotifications.onEach { value ->
+            _state.update { it.copy(repeatNotifications = value) }
         }.launchIn(scope)
 
-        appPreferences.showSenderOnly.onEach {
-            _state.value = _state.value.copy(showSenderOnly = it)
+        appPreferences.showSenderOnly.onEach { value ->
+            _state.update { it.copy(showSenderOnly = value) }
         }.launchIn(scope)
 
-        appPreferences.pushProvider.onEach {
-            _state.value = _state.value.copy(pushProvider = it)
+        appPreferences.pushProvider.onEach { value ->
+            _state.update { it.copy(pushProvider = value) }
         }.launchIn(scope)
 
         _state.update { it.copy(isGmsAvailable = distrManager.isGmsAvailable()) }
@@ -185,18 +185,22 @@ class DefaultNotificationsComponent(
 
     private fun loadExceptions(scope: TdNotificationScope) {
         this.scope.launch {
-            _state.value = when (scope) {
-                TdNotificationScope.PRIVATE_CHATS -> _state.value.copy(privateExceptions = null)
-                TdNotificationScope.GROUPS -> _state.value.copy(groupExceptions = null)
-                TdNotificationScope.CHANNELS -> _state.value.copy(channelExceptions = null)
+            _state.update {
+                when (scope) {
+                    TdNotificationScope.PRIVATE_CHATS -> it.copy(privateExceptions = null)
+                    TdNotificationScope.GROUPS -> it.copy(groupExceptions = null)
+                    TdNotificationScope.CHANNELS -> it.copy(channelExceptions = null)
+                }
             }
 
             val exceptions = settingsRepository.getExceptions(scope)
 
-            _state.value = when (scope) {
-                TdNotificationScope.PRIVATE_CHATS -> _state.value.copy(privateExceptions = exceptions)
-                TdNotificationScope.GROUPS -> _state.value.copy(groupExceptions = exceptions)
-                TdNotificationScope.CHANNELS -> _state.value.copy(channelExceptions = exceptions)
+            _state.update {
+                when (scope) {
+                    TdNotificationScope.PRIVATE_CHATS -> it.copy(privateExceptions = exceptions)
+                    TdNotificationScope.GROUPS -> it.copy(groupExceptions = exceptions)
+                    TdNotificationScope.CHANNELS -> it.copy(channelExceptions = exceptions)
+                }
             }
         }
     }

@@ -3,11 +3,11 @@ package org.monogram.presentation.settingsScreens.sessions
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.decompose.value.update
-import com.arkivanov.essenty.lifecycle.doOnDestroy
 import org.monogram.domain.models.SessionModel
 import org.monogram.domain.repository.SettingsRepository
 import org.monogram.presentation.root.AppComponentContext
 import kotlinx.coroutines.*
+import org.monogram.presentation.util.componentScope
 
 interface SessionsComponent {
     val state: Value<State>
@@ -30,17 +30,15 @@ interface SessionsComponent {
 
 class DefaultSessionsComponent(
     context: AppComponentContext,
-    private val repository: SettingsRepository = context.container.repositories.settingsRepository,
     private val onBack: () -> Unit
 ) : SessionsComponent, AppComponentContext by context {
 
+    private val repository: SettingsRepository = container.repositories.settingsRepository
     private val _state = MutableValue(SessionsComponent.State())
     override val state: Value<SessionsComponent.State> = _state
-
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val scope = componentScope
 
     init {
-        lifecycle.doOnDestroy { scope.cancel() }
         refresh()
     }
 

@@ -1,11 +1,9 @@
 package org.monogram.presentation.chatsScreen.chatList
 
 import com.arkivanov.decompose.value.Value
-import com.arkivanov.essenty.lifecycle.doOnDestroy
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import org.monogram.domain.models.BotMenuButtonModel
 import org.monogram.domain.models.UpdateState
 import org.monogram.domain.repository.*
@@ -13,16 +11,10 @@ import org.monogram.presentation.chatsScreen.ChatListComponent
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.AppPreferences
+import org.monogram.presentation.util.componentScope
 
 class DefaultChatListComponent(
     context: AppComponentContext,
-    private val repository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    private val repositoryUser: UserRepository = context.container.repositories.userRepository,
-    private val settingsRepository: SettingsRepository = context.container.repositories.settingsRepository,
-    private val externalProxyRepository: ExternalProxyRepository = context.container.repositories.externalProxyRepository,
-    private val updateRepository: UpdateRepository = context.container.repositories.updateRepository,
-    override val appPreferences: AppPreferences = context.container.preferences.appPreferences,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onSelect: (Long, Long?) -> Unit,
     private val onProfileSelect: (Long) -> Unit,
     private val onSettingsClick: () -> Unit,
@@ -33,10 +25,18 @@ class DefaultChatListComponent(
     activeChatId: Value<Long>
 ) : ChatListComponent, AppComponentContext by context {
 
-    private val _state = MutableStateFlow(ChatListComponent.State(isForwarding = isForwarding))
-    override val state: StateFlow<ChatListComponent.State> = _state
+    private val repository: ChatsListRepository = container.repositories.chatsListRepository
+    private val repositoryUser: UserRepository = container.repositories.userRepository
+    private val settingsRepository: SettingsRepository = container.repositories.settingsRepository
+    private val externalProxyRepository: ExternalProxyRepository = container.repositories.externalProxyRepository
+    private val updateRepository: UpdateRepository = container.repositories.updateRepository
+    override val appPreferences: AppPreferences = container.preferences.appPreferences
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
 
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val _state = MutableStateFlow(ChatListComponent.State(isForwarding = isForwarding))
+    override val state: StateFlow<ChatListComponent.State> = _state.asStateFlow()
+
+    private val scope = componentScope
     private var searchJob: Job? = null
     private var isFetchingMoreMessages = false
     private var nextMessagesOffset = ""
@@ -46,77 +46,69 @@ class DefaultChatListComponent(
             _state.update { it.copy(activeChatId = id) }
         }
 
-        lifecycle.doOnDestroy {
-            scope.cancel()
-        }
-
-        scope.launch {
-            repositoryUser.currentUserFlow
-                .collect { user ->
-                    if (user != null) {
-                        _state.update { it.copy(currentUser = user) }
-                    }
+        repositoryUser.currentUserFlow
+            .onEach { user ->
+                if (user != null) {
+                    _state.update { it.copy(currentUser = user) }
                 }
-        }
+            }
+            .launchIn(scope)
 
         scope.launch {
             repositoryUser.getMe()
         }
 
-        scope.launch {
-            repository.chatListFlow
-                .collect { list ->
-                    val distinctList = list.distinctBy { it.id }
-                    _state.update {
-                        val newChatsByFolder = it.chatsByFolder.toMutableMap()
-                        newChatsByFolder[it.selectedFolderId] = distinctList
-                        it.copy(chatsByFolder = newChatsByFolder)
-                    }
+        repository.chatListFlow
+            .onEach { list ->
+                val distinctList = list.distinctBy { it.id }
+                _state.update {
+                    val newChatsByFolder = it.chatsByFolder.toMutableMap()
+                    newChatsByFolder[it.selectedFolderId] = distinctList
+                    it.copy(chatsByFolder = newChatsByFolder)
                 }
-        }
+            }
+            .launchIn(scope)
 
-        scope.launch {
-            repository.foldersFlow
-                .collect { folders ->
-                    _state.update { it.copy(folders = folders) }
+        repository.foldersFlow
+            .onEach { folders ->
+                _state.update { it.copy(folders = folders) }
+            }
+            .launchIn(scope)
+
+        repository.isLoadingFlow
+            .onEach { isLoading ->
+                _state.update {
+                    val newLoadingByFolder = it.isLoadingByFolder.toMutableMap()
+                    newLoadingByFolder[it.selectedFolderId] = isLoading
+                    it.copy(isLoadingByFolder = newLoadingByFolder)
                 }
-        }
+            }
+            .launchIn(scope)
 
-        scope.launch {
-            repository.isLoadingFlow
-                .collect { isLoading ->
-                    _state.update {
-                        val newLoadingByFolder = it.isLoadingByFolder.toMutableMap()
-                        newLoadingByFolder[it.selectedFolderId] = isLoading
-                        it.copy(isLoadingByFolder = newLoadingByFolder)
-                    }
-                }
-        }
-
-        scope.launch {
-            repository.connectionStateFlow.collect { status ->
+        repository.connectionStateFlow
+            .onEach { status ->
                 _state.update { it.copy(connectionStatus = status) }
                 updateProxyStatus()
             }
-        }
+            .launchIn(scope)
 
-        scope.launch {
-            repository.isArchivePinned.collect { isPinned ->
+        repository.isArchivePinned
+            .onEach { isPinned ->
                 _state.update { it.copy(isArchivePinned = isPinned) }
             }
-        }
+            .launchIn(scope)
 
-        scope.launch {
-            repository.isArchiveAlwaysVisible.collect { alwaysVisible ->
+        repository.isArchiveAlwaysVisible
+            .onEach { alwaysVisible ->
                 _state.update { it.copy(isArchiveAlwaysVisible = alwaysVisible) }
             }
-        }
+            .launchIn(scope)
 
-        scope.launch {
-            repository.searchHistory.collect { history ->
+        repository.searchHistory
+            .onEach { history ->
                 _state.update { it.copy(searchHistory = history) }
             }
-        }
+            .launchIn(scope)
 
         scope.launch {
             while (isActive) {
@@ -125,8 +117,8 @@ class DefaultChatListComponent(
             }
         }
 
-        scope.launch {
-            settingsRepository.getAttachMenuBots().collect { bots ->
+        settingsRepository.getAttachMenuBots()
+            .onEach { bots ->
                 _state.update { it.copy(attachMenuBots = bots) }
 
                 bots.firstOrNull()?.let { bot ->
@@ -144,13 +136,13 @@ class DefaultChatListComponent(
                     }
                 }
             }
-        }
+            .launchIn(scope)
 
-        scope.launch {
-            updateRepository.updateState.collect { updateState ->
+        updateRepository.updateState
+            .onEach { updateState ->
                 _state.update { it.copy(updateState = updateState) }
             }
-        }
+            .launchIn(scope)
 
         scope.launch {
             updateRepository.checkForUpdates()

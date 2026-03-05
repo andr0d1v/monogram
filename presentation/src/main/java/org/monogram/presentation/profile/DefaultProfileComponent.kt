@@ -1,9 +1,8 @@
 package org.monogram.presentation.profile
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import com.arkivanov.essenty.lifecycle.doOnDestroy
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.*
 import org.monogram.domain.repository.*
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
@@ -11,19 +10,13 @@ import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.IDownloadUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import org.monogram.presentation.util.componentScope
 
 class DefaultProfileComponent(
     context: AppComponentContext,
     private val chatId: Long,
-    private val chatsListRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    override val messageRepository: MessageRepository = context.container.repositories.messageRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
-    private val locationRepository: LocationRepository = context.container.repositories.locationRepository,
-    private val botPreferences: BotPreferencesProvider = context.container.preferences.botPreferencesProvider,
-    override val downloadUtils: IDownloadUtils = context.container.utils.downloadUtils(),
     private val onBackClicked: () -> Unit,
     private val onMessageClicked: (MessageModel) -> Unit = {},
     private val onMessageLongClicked: (MessageModel) -> Unit = {},
@@ -35,7 +28,15 @@ class DefaultProfileComponent(
     private val onMemberLongClicked: (Long, Long) -> Unit = { _, _ -> }
 ) : ProfileComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val chatsListRepository: ChatsListRepository = container.repositories.chatsListRepository
+    private val userRepository: UserRepository = container.repositories.userRepository
+    override val messageRepository: MessageRepository = container.repositories.messageRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+    private val locationRepository: LocationRepository = container.repositories.locationRepository
+    private val botPreferences: BotPreferencesProvider = container.preferences.botPreferencesProvider
+    override val downloadUtils: IDownloadUtils = container.utils.downloadUtils()
+
+    private val scope = componentScope
     private val _state = MutableValue(ProfileComponent.State(chatId = chatId))
     override val state: Value<ProfileComponent.State> = _state
 
@@ -45,9 +46,6 @@ class DefaultProfileComponent(
     private var isCurrentlyLoadingMedia = false
 
     init {
-        lifecycle.doOnDestroy {
-            scope.cancel()
-        }
         loadData()
         loadMediaNextPage(isFirstLoad = true)
         observeProfilePhotos()
@@ -57,7 +55,7 @@ class DefaultProfileComponent(
 
     private fun loadData() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 val chat = chatsListRepository.getChatById(chatId)
                 val user = if (chat != null && !chat.isGroup && !chat.isChannel) {
@@ -88,31 +86,33 @@ class DefaultProfileComponent(
                     chatsListRepository.getChatById(it)
                 }
 
-                _state.value = _state.value.copy(
-                    chat = chat,
-                    user = user,
-                    fullInfo = fullInfo,
-                    about = description,
-                    publicLink = link,
-                    botWebAppUrl = botWebAppUrl,
-                    botWebAppName = botWebAppName,
-                    qrContent = link ?: "",
-                    personalAvatarPath = user?.personalAvatarPath,
-                    linkedChat = linkedChat,
-                    isTOSAccepted = isTOSAccepted
-                )
+                _state.update {
+                    it.copy(
+                        chat = chat,
+                        user = user,
+                        fullInfo = fullInfo,
+                        about = description,
+                        publicLink = link,
+                        botWebAppUrl = botWebAppUrl,
+                        botWebAppName = botWebAppName,
+                        qrContent = link ?: "",
+                        personalAvatarPath = user?.personalAvatarPath,
+                        linkedChat = linkedChat,
+                        isTOSAccepted = isTOSAccepted
+                    )
+                }
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
 
     private fun observeCurrentUser() {
-        scope.launch {
-            userRepository.currentUserFlow.collectLatest { user ->
-                _state.value = _state.value.copy(currentUser = user)
+        userRepository.currentUserFlow
+            .onEach { user ->
+                _state.update { it.copy(currentUser = user) }
             }
-        }
+            .launchIn(scope)
     }
 
     override fun onLoadMoreMedia() {
@@ -162,7 +162,7 @@ class DefaultProfileComponent(
                                     if (index != -1 && index < currentImages.size) {
                                         val newImages = currentImages.toMutableList()
                                         newImages[index] = fileInfo.local.path
-                                        _state.value = _state.value.copy(fullScreenImages = newImages)
+                                        _state.update { it.copy(fullScreenImages = newImages) }
                                     }
                                 }
                             }
@@ -189,21 +189,22 @@ class DefaultProfileComponent(
         }
 
         if (updatedMedia != currentState.mediaMessages || updatedFiles != currentState.fileMessages) {
-            var nextState = currentState.copy(
-                mediaMessages = updatedMedia,
-                fileMessages = updatedFiles
-            )
-
-            if (currentState.fullScreenImages != null && !currentState.isViewingProfilePhotos) {
-                val allPhotos = updatedMedia.filter { it.content is MessageContent.Photo }
-                val paths = allPhotos.mapNotNull { (it.content as? MessageContent.Photo)?.path }
-
-                nextState = nextState.copy(
-                    fullScreenImages = paths
+            _state.update {
+                var nextState = it.copy(
+                    mediaMessages = updatedMedia,
+                    fileMessages = updatedFiles
                 )
-            }
 
-            _state.value = nextState
+                if (it.fullScreenImages != null && !it.isViewingProfilePhotos) {
+                    val allPhotos = updatedMedia.filter { it.content is MessageContent.Photo }
+                    val paths = allPhotos.mapNotNull { (it.content as? MessageContent.Photo)?.path }
+
+                    nextState = nextState.copy(
+                        fullScreenImages = paths
+                    )
+                }
+                nextState
+            }
         }
     }
 
@@ -233,24 +234,26 @@ class DefaultProfileComponent(
         if (_state.value.isLoadingMembers || !_state.value.canLoadMoreMembers) return
 
         scope.launch {
-            _state.value = _state.value.copy(isLoadingMembers = true)
+            _state.update { it.copy(isLoadingMembers = true) }
             try {
                 val limit = 20
                 val newMembers = userRepository.getChatMembers(chatId, membersOffset, limit, ChatMembersFilter.Recent)
 
                 if (newMembers.isEmpty()) {
-                    _state.value = _state.value.copy(canLoadMoreMembers = false)
+                    _state.update { it.copy(canLoadMoreMembers = false) }
                 } else {
                     membersOffset += newMembers.size
-                    _state.value = _state.value.copy(
-                        members = _state.value.members + newMembers,
-                        canLoadMoreMembers = newMembers.size >= limit
-                    )
+                    _state.update {
+                        it.copy(
+                            members = it.members + newMembers,
+                            canLoadMoreMembers = newMembers.size >= limit
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
-                _state.value = _state.value.copy(isLoadingMembers = false)
+                _state.update { it.copy(isLoadingMembers = false) }
             }
         }
     }
@@ -276,10 +279,12 @@ class DefaultProfileComponent(
 
         scope.launch {
             isCurrentlyLoadingMedia = true
-            _state.value = _state.value.copy(
-                isLoadingMedia = isFirstLoad,
-                isLoadingMoreMedia = !isFirstLoad
-            )
+            _state.update {
+                it.copy(
+                    isLoadingMedia = isFirstLoad,
+                    isLoadingMoreMedia = !isFirstLoad
+                )
+            }
 
             try {
                 val messages = messageRepository.getProfileMedia(
@@ -290,18 +295,20 @@ class DefaultProfileComponent(
                 )
 
                 if (messages.isEmpty()) {
-                    _state.value = _state.value.copy(canLoadMoreMedia = false)
+                    _state.update { it.copy(canLoadMoreMedia = false) }
                 } else {
-                    _state.value = appendMessagesToState(_state.value, filter, messages)
+                    _state.update { appendMessagesToState(it, filter, messages) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
                 isCurrentlyLoadingMedia = false
-                _state.value = _state.value.copy(
-                    isLoadingMedia = false,
-                    isLoadingMoreMedia = false
-                )
+                _state.update {
+                    it.copy(
+                        isLoadingMedia = false,
+                        isLoadingMoreMedia = false
+                    )
+                }
             }
         }
     }
@@ -368,11 +375,13 @@ class DefaultProfileComponent(
     override fun onTabSelected(index: Int) {
         if (_state.value.selectedTabIndex == index) return
 
-        _state.value = _state.value.copy(
-            selectedTabIndex = index,
-            canLoadMoreMedia = true,
-            isLoadingMedia = false
-        )
+        _state.update {
+            it.copy(
+                selectedTabIndex = index,
+                canLoadMoreMedia = true,
+                isLoadingMedia = false
+            )
+        }
 
         val isGroup = _state.value.chat?.let { it.isGroup || it.isChannel } ?: false
         if (isGroup && index == 1) {
@@ -395,33 +404,24 @@ class DefaultProfileComponent(
         }
     }
 
-    private fun isAudioFile(fileName: String): Boolean {
-        return fileName.endsWith(".mp3", ignoreCase = true) ||
-                fileName.endsWith(".m4a", ignoreCase = true) ||
-                fileName.endsWith(".flac", ignoreCase = true) ||
-                fileName.endsWith(".wav", ignoreCase = true) ||
-                fileName.endsWith(".ogg", ignoreCase = true)
-    }
-
     private fun observeUserUpdates() {
-        scope.launch {
-            userRepository.getUserFlow(chatId).collectLatest { user ->
+        userRepository.getUserFlow(chatId)
+            .onEach { user ->
                 if (user != null) {
-                    _state.value =
-                        _state.value.copy(user = user, personalAvatarPath = user.personalAvatarPath)
+                    _state.update { it.copy(user = user, personalAvatarPath = user.personalAvatarPath) }
                 }
             }
-        }
+            .launchIn(scope)
     }
 
     private fun observeProfilePhotos() {
-        scope.launch {
-            userRepository.getUserProfilePhotosFlow(chatId).collectLatest { photos ->
+        userRepository.getUserProfilePhotosFlow(chatId)
+            .onEach { photos ->
                 if (photos.isNotEmpty()) {
-                    _state.value = _state.value.copy(profilePhotos = photos)
+                    _state.update { it.copy(profilePhotos = photos) }
                 }
             }
-        }
+            .launchIn(scope)
     }
 
     override fun onBack() {
@@ -449,7 +449,7 @@ class DefaultProfileComponent(
                                         if (index != -1 && index < currentImages.size) {
                                             val newImages = currentImages.toMutableList()
                                             newImages[index] = fileInfo.local.path
-                                            _state.value = _state.value.copy(fullScreenImages = newImages)
+                                            _state.update { it.copy(fullScreenImages = newImages) }
                                         }
                                     }
                                 }
@@ -469,36 +469,44 @@ class DefaultProfileComponent(
 
                     val startIndex = paths.indexOf(clickedPath).takeIf { it != -1 } ?: 0
 
-                    _state.value = _state.value.copy(
-                        fullScreenImages = paths,
-                        fullScreenCaptions = captions,
-                        fullScreenStartIndex = startIndex,
-                        isViewingProfilePhotos = false
-                    )
+                    _state.update {
+                        it.copy(
+                            fullScreenImages = paths,
+                            fullScreenCaptions = captions,
+                            fullScreenStartIndex = startIndex,
+                            isViewingProfilePhotos = false
+                        )
+                    }
                 }
             }
             is MessageContent.Video -> {
                 content.path?.let { path ->
-                    _state.value = _state.value.copy(
-                        fullScreenVideoPath = path,
-                        fullScreenVideoCaption = content.caption
-                    )
+                    _state.update {
+                        it.copy(
+                            fullScreenVideoPath = path,
+                            fullScreenVideoCaption = content.caption
+                        )
+                    }
                 }
             }
             is MessageContent.Gif -> {
                 content.path?.let { path ->
-                    _state.value = _state.value.copy(
-                        fullScreenVideoPath = path,
-                        fullScreenVideoCaption = content.caption
-                    )
+                    _state.update {
+                        it.copy(
+                            fullScreenVideoPath = path,
+                            fullScreenVideoCaption = content.caption
+                        )
+                    }
                 }
             }
             is MessageContent.VideoNote -> {
                 content.path?.let { path ->
-                    _state.value = _state.value.copy(
-                        fullScreenVideoPath = path,
-                        fullScreenVideoCaption = null
-                    )
+                    _state.update {
+                        it.copy(
+                            fullScreenVideoPath = path,
+                            fullScreenVideoCaption = null
+                        )
+                    }
                 }
             }
             is MessageContent.Location -> {
@@ -521,49 +529,57 @@ class DefaultProfileComponent(
         if (photos.isNotEmpty()) {
             val firstPhoto = photos.first()
             if (firstPhoto.endsWith(".mp4", ignoreCase = true)) {
-                _state.value = _state.value.copy(
-                    fullScreenVideoPath = firstPhoto,
-                    fullScreenVideoCaption = null
-                )
+                _state.update {
+                    it.copy(
+                        fullScreenVideoPath = firstPhoto,
+                        fullScreenVideoCaption = null
+                    )
+                }
             } else {
-                _state.value = _state.value.copy(
-                    fullScreenImages = photos.filter { !it.endsWith(".mp4", ignoreCase = true) },
-                    fullScreenCaptions = photos.map { null },
-                    fullScreenStartIndex = 0,
-                    isViewingProfilePhotos = true
-                )
+                _state.update {
+                    it.copy(
+                        fullScreenImages = photos.filter { !it.endsWith(".mp4", ignoreCase = true) },
+                        fullScreenCaptions = photos.map { null },
+                        fullScreenStartIndex = 0,
+                        isViewingProfilePhotos = true
+                    )
+                }
             }
         } else {
             val avatarPath =
                 _state.value.personalAvatarPath ?: _state.value.chat?.avatarPath
                 ?: _state.value.user?.avatarPath
             avatarPath?.let { path ->
-                _state.value = _state.value.copy(
-                    fullScreenImages = listOf(path),
-                    fullScreenCaptions = listOf(null),
-                    fullScreenStartIndex = 0,
-                    isViewingProfilePhotos = true
-                )
+                _state.update {
+                    it.copy(
+                        fullScreenImages = listOf(path),
+                        fullScreenCaptions = listOf(null),
+                        fullScreenStartIndex = 0,
+                        isViewingProfilePhotos = true
+                    )
+                }
             }
         }
     }
 
     override fun onDismissViewer() {
-        _state.value = _state.value.copy(
-            fullScreenImages = null,
-            fullScreenCaptions = emptyList(),
-            fullScreenVideoPath = null,
-            fullScreenVideoCaption = null,
-            isViewingProfilePhotos = false
-        )
+        _state.update {
+            it.copy(
+                fullScreenImages = null,
+                fullScreenCaptions = emptyList(),
+                fullScreenVideoPath = null,
+                fullScreenVideoCaption = null,
+                isViewingProfilePhotos = false
+            )
+        }
     }
 
     override fun onOpenMiniApp(url: String, name: String, chatId: Long) {
-        _state.value = _state.value.copy(miniAppUrl = url, miniAppName = name, chatId = chatId)
+        _state.update { it.copy(miniAppUrl = url, miniAppName = name, chatId = chatId) }
     }
 
     override fun onDismissMiniApp() {
-        _state.value = _state.value.copy(miniAppUrl = null, miniAppName = null)
+        _state.update { it.copy(miniAppUrl = null, miniAppName = null) }
     }
 
     override fun onToggleMute() {
@@ -581,11 +597,11 @@ class DefaultProfileComponent(
     }
 
     override fun onShowQRCode() {
-        _state.value = _state.value.copy(isQrVisible = true)
+        _state.update { it.copy(isQrVisible = true) }
     }
 
     override fun onDismissQRCode() {
-        _state.value = _state.value.copy(isQrVisible = false)
+        _state.update { it.copy(isQrVisible = false) }
     }
 
     override fun onSendMessage() {
@@ -610,17 +626,17 @@ class DefaultProfileComponent(
         scope.launch(Dispatchers.IO) {
             chatsListRepository.reportChat(chatId, reason)
             withContext(Dispatchers.Main) {
-                _state.value = _state.value.copy(isReportVisible = false)
+                _state.update { it.copy(isReportVisible = false) }
             }
         }
     }
 
     override fun onDismissReport() {
-        _state.value = _state.value.copy(isReportVisible = false)
+        _state.update { it.copy(isReportVisible = false) }
     }
 
     override fun onShowReport() {
-        _state.value = _state.value.copy(isReportVisible = true)
+        _state.update { it.copy(isReportVisible = true) }
     }
 
     override fun onShowLogs() {
@@ -686,7 +702,7 @@ class DefaultProfileComponent(
         scope.launch {
             userRepository.setChatMemberStatus(chatId, userId, status)
             membersOffset = 0
-            _state.value = _state.value.copy(members = emptyList(), canLoadMoreMembers = true)
+            _state.update { it.copy(members = emptyList(), canLoadMoreMembers = true) }
             loadMembersNextPage()
         }
     }
@@ -694,25 +710,28 @@ class DefaultProfileComponent(
     override fun onShowStatistics() {
         scope.launch {
             val stats = userRepository.getChatStatistics(chatId, false)
-            _state.value = _state.value.copy(statistics = stats, isStatisticsVisible = true)
+            _state.update { it.copy(statistics = stats, isStatisticsVisible = true) }
         }
     }
 
     override fun onShowRevenueStatistics() {
         scope.launch {
             val stats = userRepository.getChatRevenueStatistics(chatId, false)
-            _state.value =
-                _state.value.copy(revenueStatistics = stats, isRevenueStatisticsVisible = true)
+            _state.update {
+                it.copy(revenueStatistics = stats, isRevenueStatisticsVisible = true)
+            }
         }
     }
 
     override fun onDismissStatistics() {
-        _state.value = _state.value.copy(
-            isStatisticsVisible = false,
-            isRevenueStatisticsVisible = false,
-            statistics = null,
-            revenueStatistics = null
-        )
+        _state.update {
+            it.copy(
+                isStatisticsVisible = false,
+                isRevenueStatisticsVisible = false,
+                statistics = null,
+                revenueStatistics = null
+            )
+        }
     }
 
     override fun onLoadStatisticsGraph(token: String) {
@@ -723,7 +742,7 @@ class DefaultProfileComponent(
 
             if (graph != null) {
                 val updatedStats = updateStatisticsWithGraph(stats, token, graph)
-                _state.value = _state.value.copy(statistics = updatedStats)
+                _state.update { it.copy(statistics = updatedStats) }
             }
         }
     }
@@ -739,11 +758,11 @@ class DefaultProfileComponent(
             "Biometry" to botPreferences.getWebappPermission(botId, "biometry"),
             "Terms of Service" to botPreferences.getWebappPermission(botId, "tos_accepted")
         )
-        _state.value = _state.value.copy(isPermissionsVisible = true, botPermissions = permissions)
+        _state.update { it.copy(isPermissionsVisible = true, botPermissions = permissions) }
     }
 
     override fun onDismissPermissions() {
-        _state.value = _state.value.copy(isPermissionsVisible = false)
+        _state.update { it.copy(isPermissionsVisible = false) }
     }
 
     override fun onTogglePermission(permission: String) {
@@ -758,7 +777,7 @@ class DefaultProfileComponent(
         botPreferences.setWebappPermission(botId, key, !current)
 
         if (key == "tos_accepted") {
-            _state.value = _state.value.copy(isTOSAccepted = !current)
+            _state.update { it.copy(isTOSAccepted = !current) }
         }
 
         onShowPermissions()
@@ -767,23 +786,27 @@ class DefaultProfileComponent(
     override fun onAcceptTOS() {
         val botId = _state.value.user?.id ?: return
         scope.launch {
-            _state.value = _state.value.copy(isAcceptingTOS = true)
+            _state.update { it.copy(isAcceptingTOS = true) }
             delay(1000) // Animation delay
             botPreferences.setWebappPermission(botId, "tos_accepted", true)
-            _state.value = _state.value.copy(
-                isTOSVisible = false,
-                isTOSAccepted = true,
-                isAcceptingTOS = false
-            )
+            _state.update {
+                it.copy(
+                    isTOSVisible = false,
+                    isTOSAccepted = true,
+                    isAcceptingTOS = false
+                )
+            }
         }
     }
 
     override fun onDismissTOS() {
-        _state.value = _state.value.copy(
-            isTOSVisible = false,
-            pendingMiniAppUrl = null,
-            pendingMiniAppName = null
-        )
+        _state.update {
+            it.copy(
+                isTOSVisible = false,
+                pendingMiniAppUrl = null,
+                pendingMiniAppName = null
+            )
+        }
     }
 
     override fun onLocationClick(lat: Double, lon: Double, address: String) {
@@ -795,14 +818,16 @@ class DefaultProfileComponent(
                     finalAddress = reverse.address?.city ?: reverse.address?.toString() ?: "Location"
                 }
             }
-            _state.value = _state.value.copy(
-                selectedLocation = ProfileComponent.LocationData(lat, lon, finalAddress)
-            )
+            _state.update {
+                it.copy(
+                    selectedLocation = ProfileComponent.LocationData(lat, lon, finalAddress)
+                )
+            }
         }
     }
 
     override fun onDismissLocation() {
-        _state.value = _state.value.copy(selectedLocation = null)
+        _state.update { it.copy(selectedLocation = null) }
     }
 
     private fun updateStatisticsWithGraph(
@@ -834,7 +859,7 @@ class DefaultProfileComponent(
         scope.launch {
             val updatedChat = chatsListRepository.getChatById(chatId)
             withContext(Dispatchers.Main) {
-                _state.value = _state.value.copy(chat = updatedChat)
+                _state.update { it.copy(chat = updatedChat) }
             }
         }
     }

@@ -2,8 +2,7 @@ package org.monogram.presentation.settingsScreens.privacy
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -14,6 +13,7 @@ import org.monogram.domain.repository.AppPreferencesProvider
 import org.monogram.domain.repository.PrivacyKey
 import org.monogram.domain.repository.PrivacyRepository
 import org.monogram.presentation.root.AppComponentContext
+import org.monogram.presentation.util.componentScope
 
 interface PrivacyListComponent {
     val state: Value<State>
@@ -57,9 +57,6 @@ interface PrivacyListComponent {
 
 class DefaultPrivacyListComponent(
     context: AppComponentContext,
-    private val privacyRepository: PrivacyRepository = context.container.repositories.privacyRepository,
-    private val appPreferences: AppPreferencesProvider = context.container.preferences.appPreferences,
-    private val distrManager: DistrManager = context.container.utils.distrManager(),
     private val onBack: () -> Unit,
     private val onNavigateToPrivacySetting: (PrivacyKey) -> Unit,
     private val onNavigateToBlockedUsers: () -> Unit,
@@ -67,9 +64,13 @@ class DefaultPrivacyListComponent(
     private val onPasscodeClick: () -> Unit
 ) : PrivacyListComponent, AppComponentContext by context {
 
+    private val privacyRepository: PrivacyRepository = container.repositories.privacyRepository
+    private val appPreferences: AppPreferencesProvider = container.preferences.appPreferences
+    private val distrManager: DistrManager = container.utils.distrManager()
+
     private val _state = MutableValue(PrivacyListComponent.State())
     override val state: Value<PrivacyListComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         loadPrivacySettings()
@@ -79,7 +80,7 @@ class DefaultPrivacyListComponent(
 
     private fun loadPrivacySettings() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 val blockedUsers = privacyRepository.getBlockedUsers()
                 val ttl = privacyRepository.getAccountTtl()
@@ -87,53 +88,55 @@ class DefaultPrivacyListComponent(
                 val canShowSensitive = privacyRepository.canShowSensitiveContent()
                 val isSensitiveEnabled = privacyRepository.isShowSensitiveContentEnabled()
 
-                _state.value = _state.value.copy(
-                    blockedUsersCount = blockedUsers.size,
-                    accountTtlDays = ttl,
-                    isTwoStepVerificationEnabled = isTwoStepEnabled,
-                    canShowSensitiveContent = canShowSensitive,
-                    isSensitiveContentEnabled = isSensitiveEnabled,
-                    isInstalledFromGooglePlay = distrManager.isInstalledFromGooglePlay()
-                )
+                _state.update {
+                    it.copy(
+                        blockedUsersCount = blockedUsers.size,
+                        accountTtlDays = ttl,
+                        isTwoStepVerificationEnabled = isTwoStepEnabled,
+                        canShowSensitiveContent = canShowSensitive,
+                        isSensitiveContentEnabled = isSensitiveEnabled,
+                        isInstalledFromGooglePlay = distrManager.isInstalledFromGooglePlay()
+                    )
+                }
             } catch (e: Exception) {
                 // Handle error
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
 
     private fun observePrivacyRules() {
         observeRule(PrivacyKey.PHONE_NUMBER) { rules ->
-            _state.value = _state.value.copy(phoneNumberPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(phoneNumberPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.LAST_SEEN) { rules ->
-            _state.value = _state.value.copy(lastSeenPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(lastSeenPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.PROFILE_PHOTO) { rules ->
-            _state.value = _state.value.copy(profilePhotoPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(profilePhotoPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.BIO) { rules ->
-            _state.value = _state.value.copy(bioPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(bioPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.FORWARDED_MESSAGES) { rules ->
-            _state.value = _state.value.copy(forwardedMessagesPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(forwardedMessagesPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.CALLS) { rules ->
-            _state.value = _state.value.copy(callsPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(callsPrivacy = rules.toPrivacyValue()) }
         }
         observeRule(PrivacyKey.GROUPS_AND_CHANNELS) { rules ->
-            _state.value = _state.value.copy(groupsAndChannelsPrivacy = rules.toPrivacyValue())
+            _state.update { it.copy(groupsAndChannelsPrivacy = rules.toPrivacyValue()) }
         }
     }
 
     private fun observeAppPreferences() {
         appPreferences.passcode.onEach { passcode ->
-            _state.value = _state.value.copy(isPasscodeEnabled = passcode != null)
+            _state.update { it.copy(isPasscodeEnabled = passcode != null) }
         }.launchIn(scope)
 
         appPreferences.isBiometricEnabled.onEach { enabled ->
-            _state.value = _state.value.copy(isBiometricEnabled = enabled)
+            _state.update { it.copy(isBiometricEnabled = enabled) }
         }.launchIn(scope)
     }
 
@@ -197,14 +200,14 @@ class DefaultPrivacyListComponent(
 
     override fun onDeleteAccountClicked(reason: String) {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.update { it.copy(isLoading = true, error = null) }
             try {
                 privacyRepository.deleteAccount(reason, "")
                 onBack()
             } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message)
+                _state.update { it.copy(error = e.message) }
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -213,7 +216,7 @@ class DefaultPrivacyListComponent(
         scope.launch {
             try {
                 privacyRepository.setAccountTtl(days)
-                _state.value = _state.value.copy(accountTtlDays = days)
+                _state.update { it.copy(accountTtlDays = days) }
             } catch (e: Exception) {
                 // Handle error
             }
@@ -224,7 +227,7 @@ class DefaultPrivacyListComponent(
         scope.launch {
             try {
                 privacyRepository.setShowSensitiveContent(enabled)
-                _state.value = _state.value.copy(isSensitiveContentEnabled = enabled)
+                _state.update { it.copy(isSensitiveContentEnabled = enabled) }
             } catch (e: Exception) {
                 // Handle error
             }

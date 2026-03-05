@@ -1,8 +1,8 @@
 package org.monogram.presentation.settingsScreens.privacy
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.repository.AppPreferencesProvider
 import org.monogram.presentation.root.AppComponentContext
 
@@ -20,10 +20,10 @@ interface PasscodeComponent {
 
 class DefaultPasscodeComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferencesProvider = context.container.preferences.appPreferences,
     private val onBack: () -> Unit
 ) : PasscodeComponent, AppComponentContext by context {
 
+    private val appPreferences: AppPreferencesProvider = container.preferences.appPreferences
     private val _state = MutableValue(PasscodeComponent.State(isPasscodeSet = appPreferences.passcode.value != null))
     override val state: Value<PasscodeComponent.State> = _state
 
@@ -33,18 +33,18 @@ class DefaultPasscodeComponent(
 
     override fun onPasscodeEntered(passcode: String) {
         if (passcode.length < 4) {
-            _state.value = _state.value.copy(error = "Passcode must be at least 4 digits")
+            _state.update { it.copy(error = "Passcode must be at least 4 digits") }
             return
         }
         appPreferences.setPasscode(passcode)
-        _state.value = _state.value.copy(isPasscodeSet = true, error = null)
+        _state.update { it.copy(isPasscodeSet = true, error = null) }
         onBack()
     }
 
     override fun onClearPasscode() {
         appPreferences.setPasscode(null)
         appPreferences.setBiometricEnabled(false)
-        _state.value = _state.value.copy(isPasscodeSet = false)
+        _state.update { it.copy(isPasscodeSet = false) }
         onBack()
     }
 }

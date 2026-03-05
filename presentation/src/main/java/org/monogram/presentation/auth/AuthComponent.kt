@@ -2,14 +2,13 @@ package org.monogram.presentation.auth
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.monogram.domain.repository.AuthRepository
 import org.monogram.domain.repository.AuthStep
 import org.monogram.presentation.root.AppComponentContext
+import org.monogram.presentation.util.componentScope
 
 interface AuthComponent {
     val model: Value<Model>
@@ -44,16 +43,16 @@ interface AuthComponent {
 
 class DefaultAuthComponent(
     context: AppComponentContext,
-    private val repository: AuthRepository = context.container.repositories.authRepository,
     private val onOpenProxy: () -> Unit
 ) : AuthComponent, AppComponentContext by context {
+
+    private val repository: AuthRepository = container.repositories.authRepository
+    private val scope = componentScope
 
     private val _model = MutableValue(
         AuthComponent.Model(authState = AuthComponent.AuthState.InputPhone)
     )
     override val model: Value<AuthComponent.Model> = _model
-
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     init {
         repository.authState
@@ -70,31 +69,35 @@ class DefaultAuthComponent(
                     else -> null
                 }
                 if (newAuthState != null) {
-                    _model.value = _model.value.copy(
-                        authState = newAuthState,
-                        isSubmitting = false
-                    )
+                    _model.update {
+                        it.copy(
+                            authState = newAuthState,
+                            isSubmitting = false
+                        )
+                    }
                 }
             }
             .launchIn(scope)
 
         repository.errors
             .onEach { errorMessage ->
-                _model.value = _model.value.copy(
-                    error = errorMessage,
-                    isSubmitting = false
-                )
+                _model.update {
+                    it.copy(
+                        error = errorMessage,
+                        isSubmitting = false
+                    )
+                }
             }
             .launchIn(scope)
     }
 
     override fun onPhoneEntered(phone: String) {
-        _model.value = _model.value.copy(isSubmitting = true, phoneNumber = phone)
+        _model.update { it.copy(isSubmitting = true, phoneNumber = phone) }
         repository.sendPhone(phone)
     }
 
     override fun onCodeEntered(code: String) {
-        _model.value = _model.value.copy(isSubmitting = true)
+        _model.update { it.copy(isSubmitting = true) }
         repository.sendCode(code)
     }
 
@@ -103,12 +106,12 @@ class DefaultAuthComponent(
     }
 
     override fun onPasswordEntered(password: String) {
-        _model.value = _model.value.copy(isSubmitting = true)
+        _model.update { it.copy(isSubmitting = true) }
         repository.sendPassword(password)
     }
 
     override fun onBackToPhone() {
-        _model.value = _model.value.copy(error = null)
+        _model.update { it.copy(error = null) }
         repository.reset()
     }
 
@@ -117,11 +120,11 @@ class DefaultAuthComponent(
     }
 
     override fun dismissError() {
-        _model.value = _model.value.copy(error = null)
+        _model.update { it.copy(error = null) }
     }
 
     override fun onReset() {
-        _model.value = _model.value.copy(error = null)
+        _model.update { it.copy(error = null) }
         repository.reset()
     }
 }

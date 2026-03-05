@@ -1,23 +1,17 @@
 package org.monogram.presentation.settingsScreens.privacy
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.*
 import com.arkivanov.decompose.value.Value
 import org.monogram.domain.models.PrivacyRule
-import org.monogram.domain.repository.AppPreferencesProvider
 import org.monogram.domain.repository.PrivacyKey
 import org.monogram.domain.repository.PrivacyRepository
-import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.settingsScreens.privacy.userSelection.DefaultUserSelectionComponent
 import org.monogram.presentation.settingsScreens.privacy.userSelection.UserSelectionComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.get
+import org.monogram.presentation.util.componentScope
 
 interface PrivacyComponent {
     val childStack: Value<ChildStack<*, Child>>
@@ -32,15 +26,15 @@ interface PrivacyComponent {
 
 class DefaultPrivacyComponent(
     context: AppComponentContext,
-    private val privacyRepository: PrivacyRepository = context.container.repositories.privacyRepository,
     private val onBack: () -> Unit,
     private val onSessionsClick: () -> Unit,
     private val onProfileClick: (Long) -> Unit,
     private val onPasscodeClick: () -> Unit
 ) : PrivacyComponent, AppComponentContext by context {
 
+    private val privacyRepository: PrivacyRepository = container.repositories.privacyRepository
     private val navigation = StackNavigation<Config>()
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     override val childStack: Value<ChildStack<*, PrivacyComponent.Child>> = childStack(
         source = navigation,

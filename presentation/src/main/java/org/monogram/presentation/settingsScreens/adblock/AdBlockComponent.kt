@@ -2,7 +2,7 @@ package org.monogram.presentation.settingsScreens.adblock
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import com.arkivanov.essenty.lifecycle.doOnDestroy
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.repository.ChatsListRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.monogram.domain.managers.AssetsManager
 import org.monogram.domain.managers.ClipManager
+import org.monogram.presentation.util.componentScope
 
 interface AdBlockComponent {
     val state: Value<State>
@@ -43,14 +44,14 @@ interface AdBlockComponent {
 
 class DefaultAdBlockComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferences = context.container.preferences.appPreferences,
-    private val chatsRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    private val clipManager: ClipManager = context.container.utils.clipManager,
-    private val assetsManager: AssetsManager = context.container.utils.assetsManager(),
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBack: () -> Unit
 ) : AdBlockComponent, AppComponentContext by context {
 
+    private val appPreferences: AppPreferences = container.preferences.appPreferences
+    private val chatsRepository: ChatsListRepository = container.repositories.chatsListRepository
+    private val clipManager: ClipManager = container.utils.clipManager
+    private val assetsManager: AssetsManager = container.utils.assetsManager()
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
 
     private val _state = MutableValue(
         AdBlockComponent.State(
@@ -60,26 +61,24 @@ class DefaultAdBlockComponent(
         )
     )
     override val state: Value<AdBlockComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val scope = componentScope
 
     init {
-        lifecycle.doOnDestroy { scope.cancel() }
-
         appPreferences.isAdBlockEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isEnabled = enabled)
+                _state.update { it.copy(isEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.adBlockKeywords
             .onEach { keywords ->
-                _state.value = _state.value.copy(keywords = keywords)
+                _state.update { it.copy(keywords = keywords) }
             }
             .launchIn(scope)
 
         appPreferences.adBlockWhitelistedChannels
             .onEach { channels ->
-                _state.value = _state.value.copy(whitelistedChannels = channels)
+                _state.update { it.copy(whitelistedChannels = channels) }
                 if (_state.value.showWhitelistedSheet) {
                     loadWhitelistedModels(channels)
                 }
@@ -90,7 +89,7 @@ class DefaultAdBlockComponent(
     private fun loadWhitelistedModels(channels: Set<Long>) {
         scope.launch {
             val models = channels.mapNotNull { chatsRepository.getChatById(it) }
-            _state.value = _state.value.copy(whitelistedChannelModels = models)
+            _state.update { it.copy(whitelistedChannelModels = models) }
         }
     }
 
@@ -144,7 +143,7 @@ class DefaultAdBlockComponent(
 
     override fun onLoadFromAssets() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             val keywords = withContext(Dispatchers.IO) {
                 try {
                     assetsManager.getAssets("adblock_keywords.txt").bufferedReader().useLines { lines ->
@@ -157,24 +156,26 @@ class DefaultAdBlockComponent(
             val current = appPreferences.adBlockKeywords.value.toMutableSet()
             current.addAll(keywords)
             appPreferences.setAdBlockKeywords(current)
-            _state.value = _state.value.copy(isLoading = false)
+            _state.update { it.copy(isLoading = false) }
         }
     }
 
     override fun onWhitelistedChannelsClicked() {
-        _state.value = _state.value.copy(showWhitelistedSheet = true)
+        _state.update { it.copy(showWhitelistedSheet = true) }
         loadWhitelistedModels(_state.value.whitelistedChannels)
     }
 
     override fun onAddKeywordClicked() {
-        _state.value = _state.value.copy(showAddKeywordSheet = true)
+        _state.update { it.copy(showAddKeywordSheet = true) }
     }
 
     override fun onDismissBottomSheet() {
-        _state.value = _state.value.copy(
-            showWhitelistedSheet = false,
-            showAddKeywordSheet = false,
-            whitelistedChannelModels = emptyList()
-        )
+        _state.update {
+            it.copy(
+                showWhitelistedSheet = false,
+                showAddKeywordSheet = false,
+                whitelistedChannelModels = emptyList()
+            )
+        }
     }
 }

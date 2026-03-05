@@ -2,21 +2,20 @@ package org.monogram.presentation.profile.admin
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.repository.ChatsListRepository
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.monogram.presentation.util.componentScope
 
 class DefaultChatPermissionsComponent(
     context: AppComponentContext,
     private val chatId: Long,
-    private val chatsListRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
     private val onBackClicked: () -> Unit
 ) : ChatPermissionsComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val chatsListRepository: ChatsListRepository = container.repositories.chatsListRepository
+    private val scope = componentScope
     private val _state = MutableValue(ChatPermissionsComponent.State(chatId = chatId))
     override val state: Value<ChatPermissionsComponent.State> = _state
 
@@ -28,7 +27,7 @@ class DefaultChatPermissionsComponent(
         scope.launch {
             val chat = chatsListRepository.getChatById(chatId)
             if (chat != null) {
-                _state.value = _state.value.copy(permissions = chat.permissions)
+                _state.update { it.copy(permissions = chat.permissions) }
             }
         }
     }
@@ -55,6 +54,6 @@ class DefaultChatPermissionsComponent(
             ChatPermissionsComponent.Permission.CHANGE_INFO -> current.copy(canChangeInfo = !current.canChangeInfo)
             ChatPermissionsComponent.Permission.MANAGE_TOPICS -> current.copy(canManageTopics = !current.canManageTopics)
         }
-        _state.value = _state.value.copy(permissions = updated)
+        _state.update { it.copy(permissions = updated) }
     }
 }

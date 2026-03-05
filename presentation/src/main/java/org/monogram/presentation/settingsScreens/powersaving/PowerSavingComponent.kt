@@ -1,14 +1,13 @@
 package org.monogram.presentation.settingsScreens.powersaving
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.repository.AppPreferencesProvider
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.monogram.presentation.util.componentScope
 
 interface PowerSavingComponent {
     val state: Value<State>
@@ -31,33 +30,33 @@ interface PowerSavingComponent {
 
 class DefaultPowerSavingComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferencesProvider = context.container.preferences.appPreferences,
     private val onBack: () -> Unit
 ) : PowerSavingComponent, AppComponentContext by context {
 
+    private val appPreferences: AppPreferencesProvider = container.preferences.appPreferences
     private val _state = MutableValue(PowerSavingComponent.State())
     override val state: Value<PowerSavingComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
-        appPreferences.isChatAnimationsEnabled.onEach {
-            _state.value = _state.value.copy(isChatAnimationsEnabled = it)
+        appPreferences.isChatAnimationsEnabled.onEach { value ->
+            _state.update { it.copy(isChatAnimationsEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.backgroundServiceEnabled.onEach {
-            _state.value = _state.value.copy(backgroundServiceEnabled = it)
+        appPreferences.backgroundServiceEnabled.onEach { value ->
+            _state.update { it.copy(backgroundServiceEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.isPowerSavingMode.onEach {
-            _state.value = _state.value.copy(isPowerSavingModeEnabled = it)
+        appPreferences.isPowerSavingMode.onEach { value ->
+            _state.update { it.copy(isPowerSavingModeEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.isWakeLockEnabled.onEach {
-            _state.value = _state.value.copy(isWakeLockEnabled = it)
+        appPreferences.isWakeLockEnabled.onEach { value ->
+            _state.update { it.copy(isWakeLockEnabled = value) }
         }.launchIn(scope)
 
-        appPreferences.batteryOptimizationEnabled.onEach {
-            _state.value = _state.value.copy(batteryOptimizationEnabled = it)
+        appPreferences.batteryOptimizationEnabled.onEach { value ->
+            _state.update { it.copy(batteryOptimizationEnabled = value) }
         }.launchIn(scope)
     }
 

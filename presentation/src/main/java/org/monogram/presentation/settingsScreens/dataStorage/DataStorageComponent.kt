@@ -2,12 +2,12 @@ package org.monogram.presentation.settingsScreens.dataStorage
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.AppPreferences
+import org.monogram.presentation.util.componentScope
 
 interface DataStorageComponent {
     val state: Value<State>
@@ -39,51 +39,51 @@ interface DataStorageComponent {
 
 class DefaultDataStorageComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferences = context.container.preferences.appPreferences,
     private val onBack: () -> Unit,
     private val onStorageUsage: () -> Unit,
     private val onNetworkUsage: () -> Unit
 ) : DataStorageComponent, AppComponentContext by context {
 
+    private val appPreferences: AppPreferences = container.preferences.appPreferences
     private val _state = MutableValue(DataStorageComponent.State())
     override val state: Value<DataStorageComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
-        appPreferences.autoDownloadMobile.onEach {
-            _state.value = _state.value.copy(autoDownloadMobile = it)
+        appPreferences.autoDownloadMobile.onEach { value ->
+            _state.update { it.copy(autoDownloadMobile = value) }
         }.launchIn(scope)
 
-        appPreferences.autoDownloadWifi.onEach {
-            _state.value = _state.value.copy(autoDownloadWifi = it)
+        appPreferences.autoDownloadWifi.onEach { value ->
+            _state.update { it.copy(autoDownloadWifi = value) }
         }.launchIn(scope)
 
-        appPreferences.autoDownloadRoaming.onEach {
-            _state.value = _state.value.copy(autoDownloadRoaming = it)
+        appPreferences.autoDownloadRoaming.onEach { value ->
+            _state.update { it.copy(autoDownloadRoaming = value) }
         }.launchIn(scope)
 
-        appPreferences.autoDownloadFiles.onEach {
-            _state.value = _state.value.copy(autoDownloadFiles = it)
+        appPreferences.autoDownloadFiles.onEach { value ->
+            _state.update { it.copy(autoDownloadFiles = value) }
         }.launchIn(scope)
 
-        appPreferences.autoDownloadStickers.onEach {
-            _state.value = _state.value.copy(autoDownloadStickers = it)
+        appPreferences.autoDownloadStickers.onEach { value ->
+            _state.update { it.copy(autoDownloadStickers = value) }
         }.launchIn(scope)
 
-        appPreferences.autoDownloadVideoNotes.onEach {
-            _state.value = _state.value.copy(autoDownloadVideoNotes = it)
+        appPreferences.autoDownloadVideoNotes.onEach { value ->
+            _state.update { it.copy(autoDownloadVideoNotes = value) }
         }.launchIn(scope)
 
-        appPreferences.autoplayGifs.onEach {
-            _state.value = _state.value.copy(autoplayGifs = it)
+        appPreferences.autoplayGifs.onEach { value ->
+            _state.update { it.copy(autoplayGifs = value) }
         }.launchIn(scope)
 
-        appPreferences.autoplayVideos.onEach {
-            _state.value = _state.value.copy(autoplayVideos = it)
+        appPreferences.autoplayVideos.onEach { value ->
+            _state.update { it.copy(autoplayVideos = value) }
         }.launchIn(scope)
 
-        appPreferences.enableStreaming.onEach {
-            _state.value = _state.value.copy(enableStreaming = it)
+        appPreferences.enableStreaming.onEach { value ->
+            _state.update { it.copy(enableStreaming = value) }
         }.launchIn(scope)
     }
 

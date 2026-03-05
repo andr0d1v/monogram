@@ -2,7 +2,7 @@ package org.monogram.presentation.settingsScreens.premium
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import com.arkivanov.essenty.lifecycle.doOnDestroy
+import com.arkivanov.decompose.value.update
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -11,6 +11,7 @@ import org.monogram.domain.models.PremiumLimitType
 import org.monogram.domain.models.PremiumSource
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.root.AppComponentContext
+import org.monogram.presentation.util.componentScope
 
 interface PremiumComponent {
     val state: Value<State>
@@ -34,20 +35,19 @@ interface PremiumComponent {
 
 class DefaultPremiumComponent(
     context: AppComponentContext,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
     private val onBack: () -> Unit
 ) : PremiumComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val userRepository: UserRepository = container.repositories.userRepository
+    private val scope = componentScope
 
     private val _state = MutableValue(PremiumComponent.State())
     override val state: Value<PremiumComponent.State> = _state
 
     init {
-        lifecycle.doOnDestroy { scope.cancel() }
         userRepository.currentUserFlow.onEach { user ->
             if (user != null) {
-                _state.value = _state.value.copy(isPremium = user.isPremium)
+                _state.update { it.copy(isPremium = user.isPremium) }
             }
         }.launchIn(scope)
 
@@ -56,7 +56,7 @@ class DefaultPremiumComponent(
 
     private fun loadPremiumState() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
 
             val premiumState = userRepository.getPremiumState()
             val features = userRepository.getPremiumFeatures(PremiumSource.SETTINGS)
@@ -65,11 +65,13 @@ class DefaultPremiumComponent(
                 mapToPremiumFeature(featureType)
             }
 
-            _state.value = _state.value.copy(
-                features = mappedFeatures,
-                statusText = premiumState?.state,
-                isLoading = false
-            )
+            _state.update {
+                it.copy(
+                    features = mappedFeatures,
+                    statusText = premiumState?.state,
+                    isLoading = false
+                )
+            }
         }
     }
 

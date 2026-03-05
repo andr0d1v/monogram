@@ -99,14 +99,16 @@ class App : Application(), SingletonImageLoader.Factory {
 val appModule = module {
     includes(uiModule, dataModule)
 
+    // Utils
+    single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+
     // Preferences
-    single<AppPreferencesProvider> { AppPreferences(androidContext()) }
+    single<AppPreferencesProvider> { AppPreferences(androidContext(), get()) }
     single { get<AppPreferencesProvider>() as AppPreferences }
     single<CacheProvider> { CachePreferences(androidContext()) }
     single<BotPreferencesProvider> { BotPreferences(androidContext()) }
 
     // Utils
-    single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { TdNotificationManager(androidContext(), get(), get()) }
     single { ExoPlayerCache() }
     single { CacheController(androidContext(), get()) }

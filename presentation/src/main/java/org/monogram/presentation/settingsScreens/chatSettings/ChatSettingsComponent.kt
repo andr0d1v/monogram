@@ -3,10 +3,10 @@ package org.monogram.presentation.settingsScreens.chatSettings
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.decompose.value.update
-import com.arkivanov.essenty.lifecycle.doOnDestroy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.monogram.domain.managers.AssetsManager
 import org.monogram.domain.managers.DistrManager
 import org.monogram.domain.models.WallpaperModel
 import org.monogram.domain.repository.SettingsRepository
@@ -17,6 +17,7 @@ import org.monogram.presentation.util.AppPreferences
 import org.monogram.presentation.util.EmojiStyle
 import org.monogram.presentation.util.IDownloadUtils
 import org.monogram.presentation.util.NightMode
+import org.monogram.presentation.util.componentScope
 import java.io.File
 import java.net.URL
 
@@ -105,15 +106,18 @@ interface ChatSettingsComponent {
 
 class DefaultChatSettingsComponent(
     context: AppComponentContext,
-    private val appPreferences: AppPreferences = context.container.preferences.appPreferences,
-    override val downloadUtils: IDownloadUtils = context.container.utils.downloadUtils(),
-    private val settingsRepository: SettingsRepository = context.container.repositories.settingsRepository,
-    private val stickerRepository: StickerRepository = context.container.repositories.stickerRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
-    distrManager: DistrManager = context.container.utils.distrManager(),
     private val onBack: () -> Unit,
     private val onAdBlock: () -> Unit
 ) : ChatSettingsComponent, AppComponentContext by context {
+
+    private val appPreferences: AppPreferences = container.preferences.appPreferences
+    override val downloadUtils: IDownloadUtils = container.utils.downloadUtils()
+    private val settingsRepository: SettingsRepository = container.repositories.settingsRepository
+    private val stickerRepository: StickerRepository = container.repositories.stickerRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+    private val distrManager: DistrManager = container.utils.distrManager()
+    private val assetsManager: AssetsManager = container.utils.assetsManager()
+
     private val _state = MutableValue(
         ChatSettingsComponent.State(
             fontSize = appPreferences.fontSize.value,
@@ -151,194 +155,192 @@ class DefaultChatSettingsComponent(
         )
     )
     override val state: Value<ChatSettingsComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val scope = componentScope
 
     init {
-        lifecycle.doOnDestroy { scope.cancel() }
-
         appPreferences.fontSize
             .onEach { size ->
-                _state.value = _state.value.copy(fontSize = size)
+                _state.update { it.copy(fontSize = size) }
             }
             .launchIn(scope)
 
         appPreferences.bubbleRadius
             .onEach { radius ->
-                _state.value = _state.value.copy(bubbleRadius = radius)
+                _state.update { it.copy(bubbleRadius = radius) }
             }
             .launchIn(scope)
 
         appPreferences.wallpaper
             .onEach { wallpaper ->
-                _state.value = _state.value.copy(wallpaper = wallpaper)
+                _state.update { it.copy(wallpaper = wallpaper) }
             }
             .launchIn(scope)
 
         appPreferences.isWallpaperBlurred
             .onEach { blurred ->
-                _state.value = _state.value.copy(isWallpaperBlurred = blurred)
+                _state.update { it.copy(isWallpaperBlurred = blurred) }
             }
             .launchIn(scope)
 
         appPreferences.wallpaperBlurIntensity
             .onEach { intensity ->
-                _state.value = _state.value.copy(wallpaperBlurIntensity = intensity)
+                _state.update { it.copy(wallpaperBlurIntensity = intensity) }
             }
             .launchIn(scope)
 
         appPreferences.isWallpaperMoving
             .onEach { moving ->
-                _state.value = _state.value.copy(isWallpaperMoving = moving)
+                _state.update { it.copy(isWallpaperMoving = moving) }
             }
             .launchIn(scope)
 
         appPreferences.wallpaperDimming
             .onEach { dimming ->
-                _state.value = _state.value.copy(wallpaperDimming = dimming)
+                _state.update { it.copy(wallpaperDimming = dimming) }
             }
             .launchIn(scope)
 
         appPreferences.isWallpaperGrayscale
             .onEach { grayscale ->
-                _state.value = _state.value.copy(isWallpaperGrayscale = grayscale)
+                _state.update { it.copy(isWallpaperGrayscale = grayscale) }
             }
             .launchIn(scope)
 
         appPreferences.isPlayerGesturesEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isPlayerGesturesEnabled = enabled)
+                _state.update { it.copy(isPlayerGesturesEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.isPlayerDoubleTapSeekEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isPlayerDoubleTapSeekEnabled = enabled)
+                _state.update { it.copy(isPlayerDoubleTapSeekEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.playerSeekDuration
             .onEach { duration ->
-                _state.value = _state.value.copy(playerSeekDuration = duration)
+                _state.update { it.copy(playerSeekDuration = duration) }
             }
             .launchIn(scope)
 
         appPreferences.isPlayerZoomEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isPlayerZoomEnabled = enabled)
+                _state.update { it.copy(isPlayerZoomEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.isArchivePinned
             .onEach { pinned ->
-                _state.value = _state.value.copy(isArchivePinned = pinned)
+                _state.update { it.copy(isArchivePinned = pinned) }
             }
             .launchIn(scope)
 
         appPreferences.isArchiveAlwaysVisible
             .onEach { enabled ->
-                _state.value = _state.value.copy(isArchiveAlwaysVisible = enabled)
+                _state.update { it.copy(isArchiveAlwaysVisible = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.showLinkPreviews
             .onEach { enabled ->
-                _state.value = _state.value.copy(showLinkPreviews = enabled)
+                _state.update { it.copy(showLinkPreviews = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.nightMode
             .onEach { mode ->
-                _state.value = _state.value.copy(nightMode = mode)
+                _state.update { it.copy(nightMode = mode) }
             }
             .launchIn(scope)
 
         appPreferences.isDynamicColorsEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isDynamicColorsEnabled = enabled)
+                _state.update { it.copy(isDynamicColorsEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.nightModeStartTime
             .onEach { time ->
-                _state.value = _state.value.copy(nightModeStartTime = time)
+                _state.update { it.copy(nightModeStartTime = time) }
             }
             .launchIn(scope)
 
         appPreferences.nightModeEndTime
             .onEach { time ->
-                _state.value = _state.value.copy(nightModeEndTime = time)
+                _state.update { it.copy(nightModeEndTime = time) }
             }
             .launchIn(scope)
 
         appPreferences.nightModeBrightnessThreshold
             .onEach { threshold ->
-                _state.value = _state.value.copy(nightModeBrightnessThreshold = threshold)
+                _state.update { it.copy(nightModeBrightnessThreshold = threshold) }
             }
             .launchIn(scope)
 
         appPreferences.isDragToBackEnabled
             .onEach { enabled ->
-                _state.value = _state.value.copy(isDragToBackEnabled = enabled)
+                _state.update { it.copy(isDragToBackEnabled = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.emojiStyle
             .onEach { style ->
-                _state.value = _state.value.copy(emojiStyle = style)
+                _state.update { it.copy(emojiStyle = style) }
             }
             .launchIn(scope)
 
         appPreferences.isAppleEmojiDownloaded
             .onEach { downloaded ->
-                _state.value = _state.value.copy(isAppleEmojiDownloaded = downloaded)
+                _state.update { it.copy(isAppleEmojiDownloaded = downloaded) }
             }
             .launchIn(scope)
 
         appPreferences.isTwitterEmojiDownloaded
             .onEach { downloaded ->
-                _state.value = _state.value.copy(isTwitterEmojiDownloaded = downloaded)
+                _state.update { it.copy(isTwitterEmojiDownloaded = downloaded) }
             }
             .launchIn(scope)
 
         appPreferences.isWindowsEmojiDownloaded
             .onEach { downloaded ->
-                _state.value = _state.value.copy(isWindowsEmojiDownloaded = downloaded)
+                _state.update { it.copy(isWindowsEmojiDownloaded = downloaded) }
             }
             .launchIn(scope)
 
         appPreferences.isCatmojiEmojiDownloaded
             .onEach { downloaded ->
-                _state.value = _state.value.copy(isCatmojiEmojiDownloaded = downloaded)
+                _state.update { it.copy(isCatmojiEmojiDownloaded = downloaded) }
             }
             .launchIn(scope)
 
         appPreferences.isNotoEmojiDownloaded
             .onEach { downloaded ->
-                _state.value = _state.value.copy(isNotoEmojiDownloaded = downloaded)
+                _state.update { it.copy(isNotoEmojiDownloaded = downloaded) }
             }
             .launchIn(scope)
 
         appPreferences.compressPhotos
             .onEach { enabled ->
-                _state.value = _state.value.copy(compressPhotos = enabled)
+                _state.update { it.copy(compressPhotos = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.compressVideos
             .onEach { enabled ->
-                _state.value = _state.value.copy(compressVideos = enabled)
+                _state.update { it.copy(compressVideos = enabled) }
             }
             .launchIn(scope)
 
         appPreferences.chatListMessageLines
             .onEach { lines ->
-                _state.value = _state.value.copy(chatListMessageLines = lines)
+                _state.update { it.copy(chatListMessageLines = lines) }
             }
             .launchIn(scope)
 
         appPreferences.showChatListPhotos
             .onEach { enabled ->
-                _state.value = _state.value.copy(showChatListPhotos = enabled)
+                _state.update { it.copy(showChatListPhotos = enabled) }
             }
             .launchIn(scope)
 
@@ -347,11 +349,12 @@ class DefaultChatSettingsComponent(
     }
 
     private fun checkEmojiFiles() {
-        val appleFile = File(container.context.filesDir, "fonts/apple.ttf")
-        val twitterFile = File(container.context.filesDir, "fonts/twemoji.ttf")
-        val windowsFile = File(container.context.filesDir, "fonts/win11.ttf")
-        val catmojiFile = File(container.context.filesDir, "fonts/catmoji.ttf")
-        val notoFile = File(container.context.filesDir, "fonts/notoemoji.ttf")
+        val filesDir = assetsManager.getFilesDir()
+        val appleFile = File(filesDir, "fonts/apple.ttf")
+        val twitterFile = File(filesDir, "fonts/twemoji.ttf")
+        val windowsFile = File(filesDir, "fonts/win11.ttf")
+        val catmojiFile = File(filesDir, "fonts/catmoji.ttf")
+        val notoFile = File(filesDir, "fonts/notoemoji.ttf")
 
         val isAppleDownloaded = appleFile.exists()
         val isTwitterDownloaded = twitterFile.exists()
@@ -385,7 +388,7 @@ class DefaultChatSettingsComponent(
     private fun loadWallpapers() {
         settingsRepository.getWallpapers()
             .onEach { wallpapers ->
-                _state.value = _state.value.copy(availableWallpapers = wallpapers)
+                _state.update { it.copy(availableWallpapers = wallpapers) }
             }
             .launchIn(scope)
     }
@@ -425,9 +428,7 @@ class DefaultChatSettingsComponent(
     }
 
     override fun onWallpaperBlurChanged(wallpaper: WallpaperModel, isBlurred: Boolean) {
-        _state.value = _state.value.copy(
-            isWallpaperBlurred = isBlurred
-        )
+        _state.update { it.copy(isWallpaperBlurred = isBlurred) }
         appPreferences.setWallpaperBlurred(isBlurred)
     }
 
@@ -436,9 +437,7 @@ class DefaultChatSettingsComponent(
     }
 
     override fun onWallpaperMotionChanged(wallpaper: WallpaperModel, isMoving: Boolean) {
-        _state.value = _state.value.copy(
-            isWallpaperMoving = isMoving
-        )
+        _state.update { it.copy(isWallpaperMoving = isMoving) }
         appPreferences.setWallpaperMoving(isMoving)
     }
 
@@ -570,7 +569,7 @@ class DefaultChatSettingsComponent(
         }
 
         scope.launch(Dispatchers.IO) {
-            val fontsDir = File(container.context.filesDir, "fonts")
+            val fontsDir = File(assetsManager.getFilesDir(), "fonts")
             val file = File(fontsDir, fileName)
             if (file.exists()) {
                 file.delete()
@@ -620,7 +619,7 @@ class DefaultChatSettingsComponent(
 
         scope.launch(Dispatchers.IO) {
             try {
-                val fontsDir = File(container.context.filesDir, "fonts")
+                val fontsDir = File(assetsManager.getFilesDir(), "fonts")
                 if (!fontsDir.exists()) fontsDir.mkdirs()
                 val file = File(fontsDir, fileName)
 

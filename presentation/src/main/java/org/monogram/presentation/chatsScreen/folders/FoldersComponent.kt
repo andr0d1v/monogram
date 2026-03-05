@@ -2,16 +2,16 @@ package org.monogram.presentation.chatsScreen.folders
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.FolderModel
 import org.monogram.domain.repository.ChatsListRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.monogram.presentation.util.componentScope
 
 interface FoldersComponent {
     val state: Value<State>
@@ -38,22 +38,23 @@ interface FoldersComponent {
 
 class DefaultFoldersComponent(
     context: AppComponentContext,
-    private val repository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBack: () -> Unit
 ) : FoldersComponent, AppComponentContext by context {
 
+    private val repository: ChatsListRepository = container.repositories.chatsListRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
     private val _state = MutableValue(FoldersComponent.State())
     override val state: Value<FoldersComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         repository.foldersFlow.onEach { folders ->
-            _state.value = _state.value.copy(folders = folders)
+            _state.update { it.copy(folders = folders) }
         }.launchIn(scope)
 
         repository.chatListFlow.onEach { chats ->
-            _state.value = _state.value.copy(availableChats = chats)
+            _state.update { it.copy(availableChats = chats) }
         }.launchIn(scope)
     }
 
@@ -62,38 +63,40 @@ class DefaultFoldersComponent(
     }
 
     override fun onCreateFolderClicked() {
-        _state.value = _state.value.copy(showAddFolderDialog = true, selectedChatIds = emptyList())
+        _state.update { it.copy(showAddFolderDialog = true, selectedChatIds = emptyList()) }
     }
 
     override fun onFolderClicked(folderId: Int) {
         val folder = _state.value.folders.find { it.id == folderId }
         if (folder != null) {
-            _state.value = _state.value.copy(
-                showEditFolderDialog = true,
-                selectedFolder = folder,
-                selectedChatIds = folder.includedChatIds
-            )
+            _state.update {
+                it.copy(
+                    showEditFolderDialog = true,
+                    selectedFolder = folder,
+                    selectedChatIds = folder.includedChatIds
+                )
+            }
         }
     }
 
     override fun onDeleteFolder(folderId: Int) {
         scope.launch {
             repository.deleteFolder(folderId)
-            _state.value = _state.value.copy(showEditFolderDialog = false, selectedFolder = null)
+            _state.update { it.copy(showEditFolderDialog = false, selectedFolder = null) }
         }
     }
 
     override fun onEditFolder(folderId: Int, newTitle: String, iconName: String?, includedChatIds: List<Long>) {
         scope.launch {
             repository.updateFolder(folderId, newTitle, iconName, includedChatIds)
-            _state.value = _state.value.copy(showEditFolderDialog = false, selectedFolder = null)
+            _state.update { it.copy(showEditFolderDialog = false, selectedFolder = null) }
         }
     }
 
     override fun onAddFolder(title: String, iconName: String?, includedChatIds: List<Long>) {
         scope.launch {
             repository.createFolder(title, iconName, includedChatIds)
-            _state.value = _state.value.copy(showAddFolderDialog = false)
+            _state.update { it.copy(showAddFolderDialog = false) }
         }
     }
 
@@ -104,7 +107,7 @@ class DefaultFoldersComponent(
         val folder = folders.removeAt(fromIndex)
         folders.add(toIndex, folder)
 
-        _state.value = _state.value.copy(folders = folders)
+        _state.update { it.copy(folders = folders) }
 
         scope.launch {
             val newUserFolderIds = folders
@@ -118,12 +121,13 @@ class DefaultFoldersComponent(
     override fun onSearchChats(query: String) {
         scope.launch {
             val results = repository.searchChats(query)
-            _state.value = _state.value.copy(availableChats = results)
+            _state.update { it.copy(availableChats = results) }
         }
     }
 
     fun dismissDialog() {
-        _state.value =
-            _state.value.copy(showAddFolderDialog = false, showEditFolderDialog = false, selectedFolder = null)
+        _state.update {
+            it.copy(showAddFolderDialog = false, showEditFolderDialog = false, selectedFolder = null)
+        }
     }
 }

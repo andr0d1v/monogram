@@ -2,6 +2,7 @@ package org.monogram.presentation.settingsScreens.privacy
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.PrivacyRule
 import org.monogram.domain.models.PrivacyValue
@@ -12,11 +13,10 @@ import org.monogram.domain.repository.PrivacyRepository
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.monogram.presentation.util.componentScope
 
 interface PrivacySettingComponent {
     val state: Value<State>
@@ -44,20 +44,21 @@ interface PrivacySettingComponent {
 
 class DefaultPrivacySettingComponent(
     context: AppComponentContext,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    private val privacyRepository: PrivacyRepository = context.container.repositories.privacyRepository,
-    private val chatsRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val privacyKey: PrivacyKey,
     private val onBack: () -> Unit,
     private val onProfileClick: (Long) -> Unit,
     private val onUserSelect: (Boolean) -> Unit
 ) : PrivacySettingComponent, AppComponentContext by context {
 
+    private val userRepository: UserRepository = container.repositories.userRepository
+    private val privacyRepository: PrivacyRepository = container.repositories.privacyRepository
+    private val chatsRepository: ChatsListRepository = container.repositories.chatsListRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
     private val _state =
         MutableValue(PrivacySettingComponent.State(title = getTitle(privacyKey), privacyKey = privacyKey))
     override val state: Value<PrivacySettingComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         observePrivacyRules()
@@ -117,13 +118,15 @@ class DefaultPrivacySettingComponent(
                     }
                 }
 
-                _state.value = _state.value.copy(
-                    selectedValue = selectedValue,
-                    allowUsers = allowUsers,
-                    disallowUsers = disallowUsers,
-                    allowChats = allowChats,
-                    disallowChats = disallowChats
-                )
+                _state.update {
+                    it.copy(
+                        selectedValue = selectedValue,
+                        allowUsers = allowUsers,
+                        disallowUsers = disallowUsers,
+                        allowChats = allowChats,
+                        disallowChats = disallowChats
+                    )
+                }
             }
             .launchIn(scope)
     }
@@ -131,7 +134,7 @@ class DefaultPrivacySettingComponent(
     private fun observeSearchPrivacyRules() {
         privacyRepository.getPrivacyRules(PrivacyKey.PHONE_NUMBER_SEARCH)
             .onEach { rules ->
-                _state.value = _state.value.copy(searchSelectedValue = rules.toPrivacyValue())
+                _state.update { it.copy(searchSelectedValue = rules.toPrivacyValue()) }
             }
             .launchIn(scope)
     }

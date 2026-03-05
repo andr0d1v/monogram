@@ -2,11 +2,13 @@ package org.monogram.presentation.settingsScreens.privacy.userSelection
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.UserModel
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
 import kotlinx.coroutines.*
+import org.monogram.presentation.util.componentScope
 
 interface UserSelectionComponent {
     val state: Value<State>
@@ -24,15 +26,16 @@ interface UserSelectionComponent {
 
 class DefaultUserSelectionComponent(
     context: AppComponentContext,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBack: () -> Unit,
     private val onUserSelected: (Long) -> Unit
 ) : UserSelectionComponent, AppComponentContext by context {
 
+    private val userRepository: UserRepository = container.repositories.userRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
     private val _state = MutableValue(UserSelectionComponent.State())
     override val state: Value<UserSelectionComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
     private var searchJob: Job? = null
 
     override fun onBackClicked() {
@@ -40,34 +43,34 @@ class DefaultUserSelectionComponent(
     }
 
     override fun onSearchQueryChanged(query: String) {
-        _state.value = _state.value.copy(searchQuery = query)
+        _state.update { it.copy(searchQuery = query) }
         searchJob?.cancel()
 
         if (query.isBlank()) {
-            _state.value = _state.value.copy(users = emptyList())
+            _state.update { it.copy(users = emptyList()) }
             return
         }
 
         searchJob = scope.launch {
             delay(500) // Debounce
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 val userId = query.toLongOrNull()
                 if (userId != null) {
                     val user = userRepository.getUser(userId)
                     if (user != null) {
-                        _state.value = _state.value.copy(users = listOf(user))
+                        _state.update { it.copy(users = listOf(user)) }
                     } else {
-                        _state.value = _state.value.copy(users = emptyList())
+                        _state.update { it.copy(users = emptyList()) }
                     }
                 } else {
                     // TODO: Implement proper search in UserRepository
-                    _state.value = _state.value.copy(users = emptyList())
+                    _state.update { it.copy(users = emptyList()) }
                 }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(users = emptyList())
+                _state.update { it.copy(users = emptyList()) }
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }

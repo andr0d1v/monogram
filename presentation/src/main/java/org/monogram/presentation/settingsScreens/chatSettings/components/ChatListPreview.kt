@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -32,23 +33,25 @@ fun ChatListPreview(
     position: ItemPosition = ItemPosition.STANDALONE
 ) {
     val cornerRadius = 24.dp
-    val shape = when (position) {
-        ItemPosition.TOP -> RoundedCornerShape(
-            topStart = cornerRadius,
-            topEnd = cornerRadius,
-            bottomStart = 4.dp,
-            bottomEnd = 4.dp
-        )
+    val shape = remember(position) {
+        when (position) {
+            ItemPosition.TOP -> RoundedCornerShape(
+                topStart = cornerRadius,
+                topEnd = cornerRadius,
+                bottomStart = 4.dp,
+                bottomEnd = 4.dp
+            )
 
-        ItemPosition.MIDDLE -> RoundedCornerShape(4.dp)
-        ItemPosition.BOTTOM -> RoundedCornerShape(
-            bottomStart = cornerRadius,
-            bottomEnd = cornerRadius,
-            topStart = 4.dp,
-            topEnd = 4.dp
-        )
+            ItemPosition.MIDDLE -> RoundedCornerShape(4.dp)
+            ItemPosition.BOTTOM -> RoundedCornerShape(
+                bottomStart = cornerRadius,
+                bottomEnd = cornerRadius,
+                topStart = 4.dp,
+                topEnd = 4.dp
+            )
 
-        ItemPosition.STANDALONE -> RoundedCornerShape(cornerRadius)
+            ItemPosition.STANDALONE -> RoundedCornerShape(cornerRadius)
+        }
     }
 
     Column(modifier = modifier) {
@@ -72,7 +75,7 @@ fun ChatListPreview(
                     .padding(16.dp)
                     .animateContentSize(
                         animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessLow
                         )
                     )

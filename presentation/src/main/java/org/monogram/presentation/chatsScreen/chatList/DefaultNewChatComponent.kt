@@ -9,17 +9,19 @@ import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
 import kotlinx.coroutines.*
+import org.monogram.presentation.util.componentScope
 
 class DefaultNewChatComponent(
     context: AppComponentContext,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    private val chatsListRepository: ChatsListRepository = context.container.repositories.chatsListRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBackClicked: () -> Unit,
     private val onChatCreated: (Long) -> Unit
 ) : NewChatComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val userRepository: UserRepository = container.repositories.userRepository
+    private val chatsListRepository: ChatsListRepository = container.repositories.chatsListRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
+    private val scope = componentScope
     private val _state = MutableValue(NewChatComponent.State())
     override val state: Value<NewChatComponent.State> = _state
 

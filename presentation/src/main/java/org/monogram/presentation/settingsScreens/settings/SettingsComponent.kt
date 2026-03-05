@@ -4,8 +4,6 @@ import android.os.Build
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.decompose.value.update
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.monogram.domain.managers.DomainManager
 import org.monogram.domain.models.UserModel
@@ -13,6 +11,7 @@ import org.monogram.domain.repository.ExternalNavigator
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.root.AppComponentContext
+import org.monogram.presentation.util.componentScope
 
 interface SettingsComponent {
     val state: Value<State>
@@ -50,10 +49,6 @@ interface SettingsComponent {
 
 class DefaultSettingsComponent(
     context: AppComponentContext,
-    private val repository: UserRepository = context.container.repositories.userRepository,
-    val externalNavigator: ExternalNavigator = context.container.utils.externalNavigator(),
-    private val domainManager: DomainManager = context.container.utils.domainManager(),
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBack: () -> Unit,
     private val onEditProfileClick: () -> Unit,
     private val onDevicesClick: () -> Unit,
@@ -70,9 +65,14 @@ class DefaultSettingsComponent(
     private val onDebugClick: () -> Unit
 ) : SettingsComponent, AppComponentContext by context {
 
+    private val repository: UserRepository = container.repositories.userRepository
+    private val externalNavigator: ExternalNavigator = container.utils.externalNavigator()
+    private val domainManager: DomainManager = container.utils.domainManager()
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
     private val _state = MutableValue(SettingsComponent.State())
     override val state: Value<SettingsComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         scope.launch {
@@ -80,12 +80,14 @@ class DefaultSettingsComponent(
                 val me = repository.getMe()
                 val link =
                     if (me.username?.isNotEmpty() == true) "https://t.me/${me.username}" else ""
-                _state.value = _state.value.copy(
-                    currentUser = me,
-                    qrContent = link
-                )
+                _state.update {
+                    it.copy(
+                        currentUser = me,
+                        qrContent = link
+                    )
+                }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(currentUser = null)
+                _state.update { it.copy(currentUser = null) }
             }
         }
         checkLinkStatus()
@@ -104,7 +106,7 @@ class DefaultSettingsComponent(
     }
 
     override fun onNotificationToggled(enabled: Boolean) {
-        _state.value = _state.value.copy(areNotificationsEnabled = enabled)
+        _state.update { it.copy(areNotificationsEnabled = enabled) }
     }
 
     override fun onDevicesClicked() {
@@ -146,15 +148,15 @@ class DefaultSettingsComponent(
     }
 
     override fun checkLinkStatus() {
-            _state.update { it.copy(isTMeLinkEnabled = domainManager.isEnabled() ) }
+        _state.update { it.copy(isTMeLinkEnabled = domainManager.isEnabled() ) }
     }
 
     override fun onQrCodeClicked() {
-        _state.value = _state.value.copy(isQrVisible = true)
+        _state.update { it.copy(isQrVisible = true) }
     }
 
     override fun onQrCodeDismissed() {
-        _state.value = _state.value.copy(isQrVisible = false)
+        _state.update { it.copy(isQrVisible = false) }
     }
 
     override fun onProxySettingsClicked() {

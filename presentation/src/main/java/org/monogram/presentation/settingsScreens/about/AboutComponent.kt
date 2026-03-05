@@ -1,6 +1,5 @@
 package org.monogram.presentation.settingsScreens.about
 
-import com.arkivanov.essenty.lifecycle.doOnDestroy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -8,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.monogram.domain.models.UpdateState
 import org.monogram.domain.repository.UpdateRepository
 import org.monogram.presentation.root.AppComponentContext
+import org.monogram.presentation.util.componentScope
 
 interface AboutComponent {
     val updateState: StateFlow<UpdateState>
@@ -29,7 +29,7 @@ class DefaultAboutComponent(
     private val onOpenSourceLicenses: () -> Unit
 ) : AboutComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val scope = componentScope
 
     private val _tdLibVersion = MutableStateFlow("Loading...")
     override val tdLibVersion: StateFlow<String> = _tdLibVersion.asStateFlow()
@@ -38,10 +38,6 @@ class DefaultAboutComponent(
     override val tdLibCommitHash: StateFlow<String> = _tdLibCommitHash.asStateFlow()
 
     init {
-        lifecycle.doOnDestroy {
-            scope.cancel()
-        }
-
         scope.launch {
             _tdLibVersion.value = updateRepository.getTdLibVersion()
             _tdLibCommitHash.value = updateRepository.getTdLibCommitHash()

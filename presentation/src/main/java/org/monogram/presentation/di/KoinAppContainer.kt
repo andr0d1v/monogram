@@ -1,6 +1,5 @@
 package org.monogram.presentation.di
 
-import android.content.Context
 import coil3.ImageLoader
 import org.monogram.core.DispatcherProvider
 import org.monogram.core.Logger
@@ -19,7 +18,6 @@ class KoinAppContainer(koin: Koin) : AppContainer {
     override val cacheProvider: CacheProvider by lazy { koin.get() }
     override val repositories = KoinRepositoriesContainer(koin)
     override val utils = KoinUtilsContainer(koin)
-    override val context: Context by lazy { koin.get() }
 }
 
 class KoinPreferencesContainer(private val koin: Koin) : PreferencesContainer {

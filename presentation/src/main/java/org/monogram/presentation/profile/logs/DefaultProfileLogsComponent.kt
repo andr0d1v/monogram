@@ -2,7 +2,7 @@ package org.monogram.presentation.profile.logs
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
-import com.arkivanov.essenty.lifecycle.doOnDestroy
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.ChatEventActionModel
 import org.monogram.domain.models.MessageSenderModel
 import org.monogram.domain.repository.MessageRepository
@@ -11,37 +11,36 @@ import org.monogram.presentation.chatsScreen.currentChat.components.VideoPlayerP
 import org.monogram.presentation.root.AppComponentContext
 import org.monogram.presentation.util.IDownloadUtils
 import kotlinx.coroutines.*
+import org.monogram.presentation.util.componentScope
 
 class DefaultProfileLogsComponent(
     context: AppComponentContext,
     private val chatId: Long,
-    override val messageRepository: MessageRepository = context.container.repositories.messageRepository,
-    private val userRepository: UserRepository = context.container.repositories.userRepository,
-    override val videoPlayerPool: VideoPlayerPool = context.container.utils.videoPlayerPool,
     private val onBackClicked: () -> Unit,
     private val onUserClicked: (Long) -> Unit,
     override val downloadUtils: IDownloadUtils
 ) : ProfileLogsComponent, AppComponentContext by context {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    override val messageRepository: MessageRepository = container.repositories.messageRepository
+    private val userRepository: UserRepository = container.repositories.userRepository
+    override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
+
+    private val scope = componentScope
     private val _state = MutableValue(ProfileLogsComponent.State())
     override val state: Value<ProfileLogsComponent.State> = _state
 
     private val PAGE_SIZE = 50
 
     init {
-        lifecycle.doOnDestroy {
-            scope.cancel()
-        }
         loadLogs(isFirstLoad = true)
     }
 
     private fun loadLogs(isFirstLoad: Boolean) {
         if (isFirstLoad) {
-            _state.value = _state.value.copy(isLoading = true, logs = emptyList(), canLoadMore = true)
+            _state.update { it.copy(isLoading = true, logs = emptyList(), canLoadMore = true) }
         } else {
             if (_state.value.isLoadingMore || !_state.value.canLoadMore) return
-            _state.value = _state.value.copy(isLoadingMore = true)
+            _state.update { it.copy(isLoadingMore = true) }
         }
 
         scope.launch {
@@ -81,15 +80,17 @@ class DefaultProfileLogsComponent(
                     }
                 }.toMap()
 
-                _state.value = _state.value.copy(
-                    logs = if (isFirstLoad) newLogs else _state.value.logs + newLogs,
-                    isLoading = false,
-                    isLoadingMore = false,
-                    canLoadMore = newLogs.size >= PAGE_SIZE,
-                    senderInfo = _state.value.senderInfo + newSenderInfo
-                )
+                _state.update {
+                    it.copy(
+                        logs = if (isFirstLoad) newLogs else it.logs + newLogs,
+                        isLoading = false,
+                        isLoadingMore = false,
+                        canLoadMore = newLogs.size >= PAGE_SIZE,
+                        senderInfo = it.senderInfo + newSenderInfo
+                    )
+                }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(isLoading = false, isLoadingMore = false)
+                _state.update { it.copy(isLoading = false, isLoadingMore = false) }
             }
         }
     }
@@ -120,7 +121,7 @@ class DefaultProfileLogsComponent(
             ProfileLogsComponent.FilterType.FORUM_CHANGES -> current.copy(forumChanges = !current.forumChanges)
             ProfileLogsComponent.FilterType.SUBSCRIPTION_EXTENSIONS -> current.copy(subscriptionExtensions = !current.subscriptionExtensions)
         }
-        _state.value = _state.value.copy(pendingFilters = next)
+        _state.update { it.copy(pendingFilters = next) }
     }
 
     override fun onToggleUserFilter(userId: Long) {
@@ -130,45 +131,51 @@ class DefaultProfileLogsComponent(
         } else {
             current.userIds + userId
         }
-        _state.value = _state.value.copy(pendingFilters = current.copy(userIds = newUserIds))
+        _state.update { it.copy(pendingFilters = current.copy(userIds = newUserIds)) }
     }
 
     override fun onApplyFilters() {
-        _state.value = _state.value.copy(filters = _state.value.pendingFilters, isFiltersVisible = false)
+        _state.update { it.copy(filters = it.pendingFilters, isFiltersVisible = false) }
         loadLogs(isFirstLoad = true)
     }
 
     override fun onDismissFilters() {
-        _state.value = _state.value.copy(isFiltersVisible = false)
+        _state.update { it.copy(isFiltersVisible = false) }
     }
 
     override fun onShowFilters() {
-        _state.value = _state.value.copy(isFiltersVisible = true, pendingFilters = _state.value.filters)
+        _state.update { it.copy(isFiltersVisible = true, pendingFilters = it.filters) }
     }
 
     override fun onPhotoClick(path: String, caption: String) {
-        _state.value = _state.value.copy(
-            fullScreenPhotoPath = path,
-            fullScreenPhotoCaption = caption
-        )
+        _state.update {
+            it.copy(
+                fullScreenPhotoPath = path,
+                fullScreenPhotoCaption = caption
+            )
+        }
     }
 
     override fun onVideoClick(path: String, caption: String, fileId: Int, supportsStreaming: Boolean) {
-        _state.value = _state.value.copy(
-            fullScreenVideoPath = path,
-            fullScreenVideoCaption = caption,
-            fullScreenVideoFileId = fileId,
-            fullScreenVideoSupportsStreaming = supportsStreaming
-        )
+        _state.update {
+            it.copy(
+                fullScreenVideoPath = path,
+                fullScreenVideoCaption = caption,
+                fullScreenVideoFileId = fileId,
+                fullScreenVideoSupportsStreaming = supportsStreaming
+            )
+        }
     }
 
     override fun onDismissViewer() {
-        _state.value = _state.value.copy(
-            fullScreenPhotoPath = null,
-            fullScreenPhotoCaption = null,
-            fullScreenVideoPath = null,
-            fullScreenVideoCaption = null
-        )
+        _state.update {
+            it.copy(
+                fullScreenPhotoPath = null,
+                fullScreenPhotoCaption = null,
+                fullScreenVideoPath = null,
+                fullScreenVideoCaption = null
+            )
+        }
     }
 
     override fun onUserClick(userId: Long) {

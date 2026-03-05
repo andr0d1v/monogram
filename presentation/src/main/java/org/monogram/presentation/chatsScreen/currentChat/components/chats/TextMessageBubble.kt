@@ -48,16 +48,18 @@ fun TextMessageBubble(
     val smallCorner = (bubbleRadius / 4f).coerceAtLeast(4f).dp
     val tailCorner = 2.dp
 
-    val bubbleShape = RoundedCornerShape(
-        topStart = if (!isOutgoing && isSameSenderAbove) smallCorner else cornerRadius,
-        topEnd = if (isOutgoing && isSameSenderAbove) smallCorner else cornerRadius,
-        bottomStart = if (!isOutgoing) {
-            if (isSameSenderBelow) smallCorner else tailCorner
-        } else cornerRadius,
-        bottomEnd = if (isOutgoing) {
-            if (isSameSenderBelow) smallCorner else tailCorner
-        } else cornerRadius
-    )
+    val bubbleShape = remember(isOutgoing, isSameSenderAbove, isSameSenderBelow, cornerRadius, smallCorner) {
+        RoundedCornerShape(
+            topStart = if (!isOutgoing && isSameSenderAbove) smallCorner else cornerRadius,
+            topEnd = if (isOutgoing && isSameSenderAbove) smallCorner else cornerRadius,
+            bottomStart = if (!isOutgoing) {
+                if (isSameSenderBelow) smallCorner else tailCorner
+            } else cornerRadius,
+            bottomEnd = if (isOutgoing) {
+                if (isSameSenderBelow) smallCorner else tailCorner
+            } else cornerRadius
+        )
+    }
 
     val backgroundColor =
         if (isOutgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh

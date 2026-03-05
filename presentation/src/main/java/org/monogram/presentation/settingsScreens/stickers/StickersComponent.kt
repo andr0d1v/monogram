@@ -1,16 +1,14 @@
 package org.monogram.presentation.settingsScreens.stickers
 
-import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.value.update
 import org.monogram.domain.models.StickerSetModel
-import org.monogram.domain.repository.LinkHandlerRepository
 import org.monogram.domain.repository.StickerRepository
 import org.monogram.presentation.root.AppComponentContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.monogram.presentation.util.componentScope
 
 interface StickersComponent {
     val state: Value<State>
@@ -43,12 +41,11 @@ interface StickersComponent {
 
 class DefaultStickersComponent(
     context: AppComponentContext,
-    private val stickerRepository: StickerRepository = context.container.repositories.stickerRepository,
     private val onBack: () -> Unit,
-    private val linkHandler: LinkHandlerRepository = context.container.repositories.linkHandlerRepository,
     private val onStickerSetSelect: (StickerSetModel) -> Unit
 ) : StickersComponent, AppComponentContext by context {
 
+    private val stickerRepository: StickerRepository = container.repositories.stickerRepository
     private val _state = MutableValue(
         StickersComponent.State(
             stickerSets = stickerRepository.installedStickerSets.value,
@@ -59,7 +56,7 @@ class DefaultStickersComponent(
         )
     )
     override val state: Value<StickersComponent.State> = _state
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = componentScope
 
     init {
         scope.launch {
@@ -71,34 +68,42 @@ class DefaultStickersComponent(
 
         scope.launch {
             stickerRepository.installedStickerSets.collectLatest { sets ->
-                _state.value = _state.value.copy(
-                    stickerSets = sets,
-                    isLoading = false
-                )
+                _state.update {
+                    it.copy(
+                        stickerSets = sets,
+                        isLoading = false
+                    )
+                }
             }
         }
 
         scope.launch {
             stickerRepository.customEmojiStickerSets.collectLatest { sets ->
-                _state.value = _state.value.copy(
-                    emojiSets = sets
-                )
+                _state.update {
+                    it.copy(
+                        emojiSets = sets
+                    )
+                }
             }
         }
 
         scope.launch {
             stickerRepository.archivedStickerSets.collectLatest { sets ->
-                _state.value = _state.value.copy(
-                    archivedStickerSets = sets
-                )
+                _state.update {
+                    it.copy(
+                        archivedStickerSets = sets
+                    )
+                }
             }
         }
 
         scope.launch {
             stickerRepository.archivedEmojiSets.collectLatest { sets ->
-                _state.value = _state.value.copy(
-                    archivedEmojiSets = sets
-                )
+                _state.update {
+                    it.copy(
+                        archivedEmojiSets = sets
+                    )
+                }
             }
         }
     }
@@ -136,11 +141,11 @@ class DefaultStickersComponent(
     }
 
     override fun onTabSelected(index: Int) {
-        _state.value = _state.value.copy(selectedTabIndex = index)
+        _state.update { it.copy(selectedTabIndex = index) }
     }
 
     override fun onSearchQueryChanged(query: String) {
-        _state.value = _state.value.copy(searchQuery = query)
+        _state.update { it.copy(searchQuery = query) }
     }
 
     override fun onMoveStickerSet(fromIndex: Int, toIndex: Int) {
@@ -154,9 +159,9 @@ class DefaultStickersComponent(
         }
 
         if (currentTabIndex == 0) {
-            _state.value = _state.value.copy(stickerSets = newList)
+            _state.update { it.copy(stickerSets = newList) }
         } else {
-            _state.value = _state.value.copy(emojiSets = newList)
+            _state.update { it.copy(emojiSets = newList) }
         }
 
         scope.launch {
@@ -170,18 +175,22 @@ class DefaultStickersComponent(
     }
 
     override fun onAddStickersClicked() {
-        _state.value = _state.value.copy(
-            miniAppUrl = "menu://https://webappinternal.telegram.org/stickers",
-            miniAppName = "Stickers",
-            miniAppBotUserId = 429000L
-        )
+        _state.update {
+            it.copy(
+                miniAppUrl = "menu://https://webappinternal.telegram.org/stickers",
+                miniAppName = "Stickers",
+                miniAppBotUserId = 429000L
+            )
+        }
     }
 
     override fun onDismissMiniApp() {
-        _state.value = _state.value.copy(
-            miniAppUrl = null,
-            miniAppName = null,
-            miniAppBotUserId = 0L
-        )
+        _state.update {
+            it.copy(
+                miniAppUrl = null,
+                miniAppName = null,
+                miniAppBotUserId = 0L
+            )
+        }
     }
 }
