@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.oss.licenses)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -97,4 +98,6 @@ dependencies {
     implementation(project(":presentation"))
     implementation(project(":data"))
     implementation(project(":core"))
+
+    baselineProfile(project(":baselineprofile"))
 }

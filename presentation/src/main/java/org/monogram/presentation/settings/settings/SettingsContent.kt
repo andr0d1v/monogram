@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -184,6 +186,7 @@ fun SettingsContent(component: SettingsComponent) {
     )
 
     Scaffold(
+        modifier = Modifier.semantics { contentDescription = "SettingsContent" },
         topBar = {
             TopAppBar(
                 title = {
@@ -344,7 +347,7 @@ fun SettingsContent(component: SettingsComponent) {
                 val bottomPadding = navBarInsets.calculateBottomPadding() + 80.dp
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().semantics { contentDescription = "SettingsList" },
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,

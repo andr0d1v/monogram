@@ -22,6 +22,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -80,7 +82,8 @@ fun ChatListItem(
             .clip(RoundedCornerShape(24))
             .background(backgroundColor)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .semantics { contentDescription = chat.title },
         verticalAlignment = Alignment.CenterVertically
     ) {
         AnimatedVisibility(
@@ -220,7 +223,8 @@ private fun ChatListItemHeader(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { contentDescription = "ChatTitle" }
             )
 
             if (!isSavedMessages && chat.isMuted) {

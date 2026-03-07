@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -434,7 +436,8 @@ fun ChatContent(
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { alpha = contentAlpha; translationY = contentOffset.toPx() },
+                        .graphicsLayer { alpha = contentAlpha; translationY = contentOffset.toPx() }
+                        .semantics { contentDescription = "ChatContent" },
                     containerColor = Color.Transparent,
                     topBar = {
                         ChatContentTopBar(

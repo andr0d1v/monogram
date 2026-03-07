@@ -37,6 +37,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -590,7 +592,7 @@ fun ChatListContent(component: ChatListComponent) {
 
                 LazyColumn(
                     state = scrollState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().semantics { contentDescription = "ChatList" },
                     contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp),
                 ) {
                     if (state.isSearchActive) {
@@ -873,7 +875,7 @@ fun ChatListContent(component: ChatListComponent) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = scrollState,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().semantics { contentDescription = "ChatList" },
                             contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp)
                         ) {
                             if (folderChats.isEmpty() && !isFolderLoading) {
