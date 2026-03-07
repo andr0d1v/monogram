@@ -397,7 +397,7 @@ fun ChatContent(
                                         if (isDragging) {
                                             val width = containerSize.width.toFloat()
                                             coroutineScope.launch {
-                                                if (dragOffsetX.value > width * 0.20f) {
+                                                if (dragOffsetX.value > width * 0.15f) {
                                                     dragOffsetX.animateTo(width, tween(200))
                                                     component.onBackClicked()
                                                 } else {
