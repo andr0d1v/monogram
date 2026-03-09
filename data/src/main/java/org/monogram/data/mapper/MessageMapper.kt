@@ -116,7 +116,7 @@ class MessageMapper(
                     is TdApi.ChatTypeSupergroup -> {
                         val supergroup = (chat.type as TdApi.ChatTypeSupergroup)
                         val cachedSupergroup = cache.getSupergroup(supergroup.supergroupId)
-                        !(cachedSupergroup?.isChannel ?: false) || (chat.permissions.canSendBasicMessages)
+                        !(cachedSupergroup?.isChannel ?: false) || (chat.permissions?.canSendBasicMessages ?: false)
                     }
                     else -> false
                 }
