@@ -23,6 +23,7 @@ interface DataStorageComponent {
     fun onEnableStreamingChanged(enabled: Boolean)
     fun onStorageUsageClicked()
     fun onNetworkUsageClicked()
+    fun onClearDatabaseClicked()
 
     data class State(
         val autoDownloadMobile: Boolean = true,
@@ -33,7 +34,8 @@ interface DataStorageComponent {
         val autoDownloadVideoNotes: Boolean = true,
         val autoplayGifs: Boolean = true,
         val autoplayVideos: Boolean = true,
-        val enableStreaming: Boolean = true
+        val enableStreaming: Boolean = true,
+        val databaseSize: String = "0 B"
     )
 }
 
@@ -45,6 +47,7 @@ class DefaultDataStorageComponent(
 ) : DataStorageComponent, AppComponentContext by context {
 
     private val appPreferences: AppPreferences = container.preferences.appPreferences
+    private val chatsRepository = container.repositories.chatsListRepository
     private val _state = MutableValue(DataStorageComponent.State())
     override val state: Value<DataStorageComponent.State> = _state
     private val scope = componentScope
@@ -85,6 +88,20 @@ class DefaultDataStorageComponent(
         appPreferences.enableStreaming.onEach { value ->
             _state.update { it.copy(enableStreaming = value) }
         }.launchIn(scope)
+
+        updateDatabaseSize()
+    }
+
+    private fun updateDatabaseSize() {
+        val size = chatsRepository.getDatabaseSize()
+        _state.update { it.copy(databaseSize = formatSize(size)) }
+    }
+
+    private fun formatSize(size: Long): String {
+        if (size <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
+        return String.format("%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
     }
 
     override fun onBackClicked() {
@@ -133,5 +150,10 @@ class DefaultDataStorageComponent(
 
     override fun onNetworkUsageClicked() {
         onNetworkUsage()
+    }
+
+    override fun onClearDatabaseClicked() {
+        chatsRepository.clearDatabase()
+        updateDatabaseSize()
     }
 }

@@ -3,6 +3,7 @@ package org.monogram.data.repository
 import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import org.drinkless.tdlib.TdApi
 import org.monogram.core.DispatcherProvider
@@ -28,8 +29,8 @@ import org.monogram.domain.repository.AppPreferencesProvider
 import org.monogram.domain.repository.CacheProvider
 import org.monogram.domain.repository.ChatsListRepository
 import org.monogram.domain.repository.SearchMessagesResult
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 class ChatsListRepositoryImpl(
     private val remoteDataSource: ChatsRemoteDataSource,
@@ -46,7 +47,8 @@ class ChatsListRepositoryImpl(
     private val gateway: TelegramGateway,
     scopeProvider: ScopeProvider,
     private val chatLocalDataSource: ChatLocalDataSource,
-    private val connectionManager: ConnectionManager
+    private val connectionManager: ConnectionManager,
+    private val databaseFile: File
 ) : ChatsListRepository {
 
     private val TAG = "ChatsListRepo"
@@ -118,13 +120,14 @@ class ChatsListRepositoryImpl(
     private var myUserId: Long = 0L
 
     @Volatile private var activeChatList: TdApi.ChatList = TdApi.ChatListMain()
-    private val needEmit = AtomicBoolean(false)
+    private val updateChannel = Channel<Unit>(Channel.CONFLATED)
     private var currentLimit = 50
 
     private val lastSavedEntities = ConcurrentHashMap<Long, ChatEntity>()
     private val pendingSaveJobs = ConcurrentHashMap<Long, Job>()
     private val modelCache = ConcurrentHashMap<Long, ChatModel>()
     private val invalidatedModels = ConcurrentHashMap.newKeySet<Long>()
+    private var lastList: List<ChatModel>? = null
 
     init {
         scope.launch(dispatchers.io) {
@@ -134,63 +137,27 @@ class ChatsListRepositoryImpl(
         scope.launch(dispatchers.io) {
             val entities = chatLocalDataSource.getAllChats().first()
             if (entities.isNotEmpty()) {
-                var added = false
-                entities.forEach { entity ->
-                    if (!cache.allChats.containsKey(entity.id)) {
-                        cache.putChatFromEntity(entity)
-                        lastSavedEntities[entity.id] = entity
-                        added = true
-                    }
+                val (pinned, others) = entities.partition { it.isPinned }
+
+                pinned.forEach { entity ->
+                    cache.putChatFromEntity(entity)
+                    lastSavedEntities[entity.id] = entity
                 }
-                if (added) {
-                    updateActiveListPositionsFromCache()
-                    triggerUpdate()
+                updateActiveListPositionsFromCache()
+                rebuildAndEmit()
+
+                others.forEach { entity ->
+                    cache.putChatFromEntity(entity)
+                    lastSavedEntities[entity.id] = entity
                 }
+                updateActiveListPositionsFromCache()
+                rebuildAndEmit()
             }
         }
 
         scope.launch(dispatchers.io) {
-            var lastList: List<ChatModel>? = null
-            while (isActive) {
-                if (needEmit.getAndSet(false)) {
-                    runCatching {
-                        val newList = listManager.rebuildChatList(currentLimit) { chat, order, isPinned ->
-                            val cached = modelCache[chat.id]
-                            if (cached != null && cached.order == order && cached.isPinned == isPinned && !invalidatedModels.contains(
-                                    chat.id
-                                )
-                            ) {
-                                cached
-                            } else {
-                                modelFactory.mapChatToModel(chat, order, isPinned).also {
-                                    modelCache[chat.id] = it
-                                    invalidatedModels.remove(chat.id)
-                                }
-                            }
-                        }
-                        if (newList != lastList) {
-                            _chatListFlow.value = newList
-                            lastList = newList
-
-                            val toSave = newList.map { chatMapper.mapToEntity(it) }
-                                .filter { entity ->
-                                    val last = lastSavedEntities[entity.id]
-                                    if (last == null || isEntityChanged(last, entity)) {
-                                        lastSavedEntities[entity.id] = entity
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-
-                            if (toSave.isNotEmpty()) {
-                                chatLocalDataSource.insertChats(toSave)
-                            }
-                        }
-                    }.onFailure { e ->
-                        Log.e(TAG, "Error rebuilding chat list", e)
-                    }
-                }
+            for (u in updateChannel) {
+                rebuildAndEmit()
                 delay(250)
             }
         }
@@ -204,6 +171,46 @@ class ChatsListRepositoryImpl(
                 Log.d(TAG, "UpdateChatFolders received via dedicated flow")
                 folderManager.handleChatFoldersUpdate(update)
             }
+        }
+    }
+
+    private suspend fun rebuildAndEmit() {
+        runCatching {
+            val newList = listManager.rebuildChatList(currentLimit) { chat, order, isPinned ->
+                val cached = modelCache[chat.id]
+                if (cached != null && cached.order == order && cached.isPinned == isPinned && !invalidatedModels.contains(
+                        chat.id
+                    )
+                ) {
+                    cached
+                } else {
+                    modelFactory.mapChatToModel(chat, order, isPinned).also {
+                        modelCache[chat.id] = it
+                        invalidatedModels.remove(chat.id)
+                    }
+                }
+            }
+            if (newList != lastList) {
+                _chatListFlow.value = newList
+                lastList = newList
+
+                val toSave = newList.map { chatMapper.mapToEntity(it) }
+                    .filter { entity ->
+                        val last = lastSavedEntities[entity.id]
+                        if (last == null || isEntityChanged(last, entity)) {
+                            lastSavedEntities[entity.id] = entity
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                if (toSave.isNotEmpty()) {
+                    chatLocalDataSource.insertChats(toSave)
+                }
+            }
+        }.onFailure { e ->
+            Log.e(TAG, "Error rebuilding chat list", e)
         }
     }
 
@@ -427,7 +434,7 @@ class ChatsListRepositoryImpl(
 
     private fun triggerUpdate(chatId: Long? = null) {
         chatId?.let { invalidatedModels.add(it) }
-        needEmit.set(true)
+        updateChannel.trySend(Unit)
     }
 
     private fun refreshActiveForumTopics() {
@@ -506,6 +513,7 @@ class ChatsListRepositoryImpl(
         val chatObj = cache.getChat(chatId)
             ?: chatLocalDataSource.getChat(chatId)?.let { entity ->
                 cache.putChatFromEntity(entity)
+                lastSavedEntities[entity.id] = entity
                 cache.getChat(chatId)
             }
             ?: remoteDataSource.getChat(chatId)?.also {
@@ -679,6 +687,20 @@ class ChatsListRepositoryImpl(
     override suspend fun setChatSlowModeDelay(chatId: Long, slowModeDelay: Int) = chatRemoteSource.setChatSlowModeDelay(chatId, slowModeDelay)
     override suspend fun toggleChatIsForum(chatId: Long, isForum: Boolean) = chatRemoteSource.toggleChatIsForum(chatId, isForum)
     override suspend fun toggleChatIsTranslatable(chatId: Long, isTranslatable: Boolean) = chatRemoteSource.toggleChatIsTranslatable(chatId, isTranslatable)
+
+    override fun getDatabaseSize(): Long {
+        return if (databaseFile.exists()) databaseFile.length() else 0L
+    }
+
+    override fun clearDatabase() {
+        scope.launch(dispatchers.io) {
+            chatLocalDataSource.clearAll()
+            lastSavedEntities.clear()
+            modelCache.clear()
+            invalidatedModels.clear()
+            triggerUpdate()
+        }
+    }
 
     private fun fetchUser(userId: Long) {
         if (cache.pendingUsers.add(userId)) {

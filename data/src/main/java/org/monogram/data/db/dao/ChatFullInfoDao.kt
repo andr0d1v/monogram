@@ -17,6 +17,9 @@ interface ChatFullInfoDao {
     @Query("DELETE FROM chat_full_info WHERE chatId = :chatId")
     suspend fun deleteChatFullInfo(chatId: Long)
 
+    @Query("DELETE FROM chat_full_info")
+    suspend fun clearAll()
+
     @Query("DELETE FROM chat_full_info WHERE createdAt < :timestamp")
     suspend fun deleteExpired(timestamp: Long)
 }

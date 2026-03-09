@@ -27,6 +27,7 @@ fun DataStorageContent(component: DataStorageComponent) {
     val greenColor = Color(0xFF34A853)
     val orangeColor = Color(0xFFF9AB00)
     val pinkColor = Color(0xFFFF6D66)
+    val redColor = Color(0xFFEA4335)
 
     Scaffold(
         topBar = {
@@ -76,6 +77,26 @@ fun DataStorageContent(component: DataStorageComponent) {
                     iconColor = blueColor,
                     position = ItemPosition.BOTTOM,
                     onClick = component::onNetworkUsageClicked
+                )
+            }
+
+            item {
+                SectionHeader("Database")
+                SettingsTile(
+                    icon = Icons.Rounded.Storage,
+                    title = "Database Size",
+                    subtitle = state.databaseSize,
+                    iconColor = greenColor,
+                    position = ItemPosition.TOP,
+                    onClick = {}
+                )
+                SettingsTile(
+                    icon = Icons.Rounded.DeleteSweep,
+                    title = "Clear Database",
+                    subtitle = "Delete all cached chats and messages",
+                    iconColor = redColor,
+                    position = ItemPosition.BOTTOM,
+                    onClick = component::onClearDatabaseClicked
                 )
             }
 

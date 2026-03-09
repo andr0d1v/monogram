@@ -37,6 +37,13 @@ class InMemoryChatLocalDataSource : ChatLocalDataSource {
         chats.value = emptyMap()
     }
 
+    override suspend fun clearAll() {
+        chats.value = emptyMap()
+        messages.clear()
+        fullInfos.clear()
+        topics.clear()
+    }
+
     override fun getMessagesForChat(chatId: Long): Flow<List<MessageEntity>> =
         messages.getOrPut(chatId) { MutableStateFlow(emptyMap()) }
             .map { it.values.sortedByDescending { msg -> msg.date } }

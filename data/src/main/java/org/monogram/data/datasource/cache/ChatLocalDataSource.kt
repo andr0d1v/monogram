@@ -13,6 +13,7 @@ interface ChatLocalDataSource {
     suspend fun insertChats(chats: List<ChatEntity>)
     suspend fun deleteChat(chatId: Long)
     suspend fun clearAllChats()
+    suspend fun clearAll()
 
     fun getMessagesForChat(chatId: Long): Flow<List<MessageEntity>>
     suspend fun getMessagesOlder(chatId: Long, fromMessageId: Long, limit: Int): List<MessageEntity>

@@ -9,11 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +32,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -59,6 +56,7 @@ import org.monogram.domain.repository.ConnectionStatus
 import org.monogram.presentation.core.ui.Avatar
 import org.monogram.presentation.features.chats.ChatListComponent
 import org.monogram.presentation.features.chats.chatList.components.*
+import org.monogram.presentation.features.chats.currentChat.components.chats.getEmojiFontFamily
 import org.monogram.presentation.features.instantview.InstantViewer
 import org.monogram.presentation.features.webapp.MiniAppViewer
 import kotlin.math.abs
@@ -362,6 +360,15 @@ fun ChatListContent(component: ChatListComponent) {
 
     val scrollStates = remember { mutableMapOf<Int, LazyListState>() }
 
+    val context = LocalContext.current
+    val emojiStyle by component.appPreferences.emojiStyle.collectAsState()
+    val emojiFontFamily = remember(context, emojiStyle) { getEmojiFontFamily(context, emojiStyle) }
+    val messageLines by component.appPreferences.chatListMessageLines.collectAsState()
+    val showPhotos by component.appPreferences.showChatListPhotos.collectAsState()
+
+    val onChatClicked = remember(component) { { id: Long -> component.onChatClicked(id) } }
+    val onChatLongClicked = remember(component) { { id: Long -> component.onChatLongClicked(id) } }
+
     Scaffold(
         containerColor = if (isTablet) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.nestedScroll(nestedScrollConnection),
@@ -636,7 +643,9 @@ fun ChatListContent(component: ChatListComponent) {
 
                 LazyColumn(
                     state = scrollState,
-                    modifier = Modifier.fillMaxSize().semantics { contentDescription = "ChatList" },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics { contentDescription = "ChatList" },
                     contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp),
                 ) {
                     if (state.isSearchActive) {
@@ -680,7 +689,7 @@ fun ChatListContent(component: ChatListComponent) {
                                                 modifier = Modifier
                                                     .width(64.dp)
                                                     .combinedClickable(
-                                                        onClick = { component.onChatClicked(chat.id) },
+                                                        onClick = { onChatClicked(chat.id) },
                                                         onLongClick = { component.onRemoveSearchHistoryItem(chat.id) }
                                                     ),
                                                 horizontalAlignment = Alignment.CenterHorizontally
@@ -734,9 +743,11 @@ fun ChatListContent(component: ChatListComponent) {
                                         chat = chat,
                                         currentUserId = state.currentUser?.id,
                                         isSelected = false,
-                                        onClick = { component.onChatClicked(chat.id) },
+                                        onClick = { onChatClicked(chat.id) },
                                         onLongClick = { component.onRemoveSearchHistoryItem(chat.id) },
-                                        appPreferences = component.appPreferences,
+                                        emojiFontFamily = emojiFontFamily,
+                                        messageLines = messageLines,
+                                        showPhotos = showPhotos,
                                         videoPlayerPool = component.videoPlayerPool
                                     )
                                 }
@@ -758,9 +769,11 @@ fun ChatListContent(component: ChatListComponent) {
                                     chat = chat,
                                     currentUserId = state.currentUser?.id,
                                     isSelected = state.selectedChatIds.contains(chat.id),
-                                    onClick = { component.onChatClicked(chat.id) },
-                                    onLongClick = { component.onChatLongClicked(chat.id) },
-                                    appPreferences = component.appPreferences,
+                                    onClick = { onChatClicked(chat.id) },
+                                    onLongClick = { onChatLongClicked(chat.id) },
+                                    emojiFontFamily = emojiFontFamily,
+                                    messageLines = messageLines,
+                                    showPhotos = showPhotos,
                                     videoPlayerPool = component.videoPlayerPool
                                 )
                             }
@@ -785,9 +798,11 @@ fun ChatListContent(component: ChatListComponent) {
                                     chat = chat,
                                     currentUserId = state.currentUser?.id,
                                     isSelected = state.selectedChatIds.contains(chat.id),
-                                    onClick = { component.onChatClicked(chat.id) },
-                                    onLongClick = { component.onChatLongClicked(chat.id) },
-                                    appPreferences = component.appPreferences,
+                                    onClick = { onChatClicked(chat.id) },
+                                    onLongClick = { onChatLongClicked(chat.id) },
+                                    emojiFontFamily = emojiFontFamily,
+                                    messageLines = messageLines,
+                                    showPhotos = showPhotos,
                                     videoPlayerPool = component.videoPlayerPool
                                 )
                             }
@@ -877,10 +892,12 @@ fun ChatListContent(component: ChatListComponent) {
                                 chat = chat,
                                 currentUserId = state.currentUser?.id,
                                 isSelected = state.selectedChatIds.contains(chat.id),
-                                onClick = { component.onChatClicked(chat.id) },
-                                onLongClick = { component.onChatLongClicked(chat.id) },
+                                onClick = { onChatClicked(chat.id) },
+                                onLongClick = { onChatLongClicked(chat.id) },
                                 isTabletSelected = isTablet && state.activeChatId == chat.id,
-                                appPreferences = component.appPreferences,
+                                emojiFontFamily = emojiFontFamily,
+                                messageLines = messageLines,
+                                showPhotos = showPhotos,
                                 videoPlayerPool = component.videoPlayerPool
                             )
                         }
@@ -941,7 +958,9 @@ fun ChatListContent(component: ChatListComponent) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = scrollState,
-                            modifier = Modifier.fillMaxSize().semantics { contentDescription = "ChatList" },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .semantics { contentDescription = "ChatList" },
                             contentPadding = PaddingValues(top = 12.dp, bottom = 88.dp)
                         ) {
                             if (folderChats.isEmpty() && !isFolderLoading) {
@@ -963,11 +982,13 @@ fun ChatListContent(component: ChatListComponent) {
                                     chat = chat,
                                     currentUserId = state.currentUser?.id,
                                     isSelected = state.selectedChatIds.contains(chat.id),
-                                    onClick = { component.onChatClicked(chat.id) },
-                                    onLongClick = { component.onChatLongClicked(chat.id) },
+                                    onClick = { onChatClicked(chat.id) },
+                                    onLongClick = { onChatLongClicked(chat.id) },
                                     isTabletSelected = isTablet && state.activeChatId == chat.id,
                                     videoPlayerPool = component.videoPlayerPool,
-                                    appPreferences = component.appPreferences
+                                    emojiFontFamily = emojiFontFamily,
+                                    messageLines = messageLines,
+                                    showPhotos = showPhotos
                                 )
                             }
                         }

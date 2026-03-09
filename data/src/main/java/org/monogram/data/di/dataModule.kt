@@ -93,11 +93,19 @@ val dataModule = module {
     single { get<MonogramDatabase>().userFullInfoDao() }
 
     single<UserLocalDataSource> {
-        InMemoryUserLocalDataSource()
+        RoomUserLocalDataSource(
+            userDao = get(),
+            userFullInfoDao = get()
+        )
     }
 
     single<ChatLocalDataSource> {
-        InMemoryChatLocalDataSource()
+        RoomChatLocalDataSource(
+            chatDao = get(),
+            messageDao = get(),
+            chatFullInfoDao = get(),
+            topicDao = get()
+        )
     }
 
     single<UserRepository> {
@@ -188,7 +196,8 @@ val dataModule = module {
             gateway = get(),
             scopeProvider = get(),
             chatLocalDataSource = get(),
-            connectionManager = get()
+            connectionManager = get(),
+            databaseFile = androidContext().getDatabasePath("monogram_db")
         )
     }
 

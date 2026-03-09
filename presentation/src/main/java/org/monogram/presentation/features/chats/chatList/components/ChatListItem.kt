@@ -13,15 +13,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -35,11 +32,9 @@ import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.MessageEntityType
 import org.monogram.presentation.core.ui.AvatarForChat
 import org.monogram.presentation.core.ui.TypingDots
-import org.monogram.presentation.core.util.AppPreferences
 import org.monogram.presentation.features.chats.currentChat.components.VideoPlayerPool
 import org.monogram.presentation.features.chats.currentChat.components.chats.addEmojiStyle
 import org.monogram.presentation.features.chats.currentChat.components.chats.buildAnnotatedMessageTextWithEmoji
-import org.monogram.presentation.features.chats.currentChat.components.chats.getEmojiFontFamily
 import org.monogram.presentation.features.chats.currentChat.components.chats.rememberMessageInlineContent
 import org.monogram.presentation.features.stickers.ui.view.StickerImage
 
@@ -51,19 +46,14 @@ fun ChatListItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    appPreferences: AppPreferences,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
     videoPlayerPool: VideoPlayerPool,
     modifier: Modifier = Modifier,
     isTabletSelected: Boolean = false
 ) {
     val isSavedMessages = chat.id == currentUserId
-
-    val context = LocalContext.current
-    val emojiStyle by appPreferences.emojiStyle.collectAsState()
-    val emojiFontFamily = remember(context, emojiStyle) { getEmojiFontFamily(context, emojiStyle) }
-
-    val messageLines by appPreferences.chatListMessageLines.collectAsState()
-    val showPhotos by appPreferences.showChatListPhotos.collectAsState()
 
     val backgroundColor by animateColorAsState(
         targetValue = when {

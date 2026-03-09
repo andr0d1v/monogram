@@ -3,11 +3,13 @@ package org.monogram.presentation.core.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,15 +34,23 @@ fun Avatar(
     fontSize: Int = 14,
     isOnline: Boolean = false,
     isLocal: Boolean = false,
-    onClick:() -> Unit = {}
+    onClick: () -> Unit = {}
 ) {
     val combinedModifier = modifier
         .size(size)
         .clip(CircleShape)
         .clickable { onClick() }
 
-    Box(modifier = modifier
-        .size(size),) {
+    Box(modifier = modifier.size(size)) {
+        val placeholder = @Composable {
+            PlaceholderAvatar(
+                name = name,
+                fontSize = fontSize,
+                color = generateColorFromHash(name),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
         if (path != null) {
             if (isLocal) {
                 AsyncImage(
@@ -50,32 +60,29 @@ fun Avatar(
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                val avatarFile = File(path)
-                if (avatarFile.exists()) {
-                    if (path.endsWith(".mp4", ignoreCase = true)) {
-                        AvatarPlayer(
-                            path = path,
-                            modifier = combinedModifier,
-                            contentScale = ContentScale.Crop,
-                            videoPlayerPool = videoPlayerPool
-                        )
-                    } else {
-                        AsyncImage(
-                            model = avatarFile,
-                            contentDescription = null,
-                            modifier = combinedModifier,
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                val isVideo = remember(path) { path.endsWith(".mp4", ignoreCase = true) }
+                if (isVideo) {
+                    AvatarPlayer(
+                        path = path,
+                        modifier = combinedModifier,
+                        contentScale = ContentScale.Crop,
+                        videoPlayerPool = videoPlayerPool
+                    )
                 } else {
                     Box(modifier = combinedModifier) {
-                        PlaceholderAvatar(name, fontSize, generateColorFromHash(name))
+                        placeholder()
+                        AsyncImage(
+                            model = remember(path) { File(path) },
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
                     }
                 }
             }
         } else {
             Box(modifier = combinedModifier) {
-                PlaceholderAvatar(name, fontSize, generateColorFromHash(name))
+                placeholder()
             }
         }
 
@@ -91,6 +98,7 @@ fun Avatar(
         }
     }
 }
+
 @Composable
 fun AvatarForChat(
     path: String?,
@@ -106,9 +114,16 @@ fun AvatarForChat(
         .size(size)
         .clip(CircleShape)
 
-    Box(modifier = modifier
-        .size(size)
-     ) {
+    Box(modifier = modifier.size(size)) {
+        val placeholder = @Composable {
+            PlaceholderAvatar(
+                name = name,
+                fontSize = fontSize,
+                color = generateColorFromHash(name),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
         if (path != null) {
             if (isLocal) {
                 AsyncImage(
@@ -118,32 +133,29 @@ fun AvatarForChat(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                val avatarFile = File(path)
-                if (avatarFile.exists()) {
-                    if (path.endsWith(".mp4", ignoreCase = true)) {
-                        AvatarPlayer(
-                            path = path,
-                            modifier = combinedModifier,
-                            contentScale = ContentScale.Crop,
-                            videoPlayerPool = videoPlayerPool
-                        )
-                    } else {
-                        AsyncImage(
-                            model = avatarFile,
-                            contentDescription = null,
-                            modifier = combinedModifier,
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                val isVideo = remember(path) { path.endsWith(".mp4", ignoreCase = true) }
+                if (isVideo) {
+                    AvatarPlayer(
+                        path = path,
+                        modifier = combinedModifier,
+                        contentScale = ContentScale.Crop,
+                        videoPlayerPool = videoPlayerPool
+                    )
                 } else {
                     Box(modifier = combinedModifier) {
-                        PlaceholderAvatar(name, fontSize, generateColorFromHash(name))
+                        placeholder()
+                        AsyncImage(
+                            model = remember(path) { File(path) },
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
                     }
                 }
             }
         } else {
             Box(modifier = combinedModifier) {
-                PlaceholderAvatar(name, fontSize, generateColorFromHash(name))
+                placeholder()
             }
         }
 

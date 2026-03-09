@@ -24,6 +24,9 @@ interface TopicDao {
     @Query("DELETE FROM topics WHERE chatId = :chatId")
     suspend fun clearTopicsForChat(chatId: Long)
 
+    @Query("DELETE FROM topics")
+    suspend fun clearAll()
+
     @Query("DELETE FROM topics WHERE createdAt < :timestamp")
     suspend fun deleteExpired(timestamp: Long)
 }

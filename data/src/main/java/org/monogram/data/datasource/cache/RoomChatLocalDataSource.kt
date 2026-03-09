@@ -28,6 +28,13 @@ class RoomChatLocalDataSource(
 
     override suspend fun clearAllChats() = chatDao.clearAll()
 
+    override suspend fun clearAll() {
+        chatDao.clearAll()
+        messageDao.clearAll()
+        chatFullInfoDao.clearAll()
+        topicDao.clearAll()
+    }
+
     override fun getMessagesForChat(chatId: Long): Flow<List<MessageEntity>> = messageDao.getMessagesForChat(chatId)
 
     override suspend fun getMessagesOlder(chatId: Long, fromMessageId: Long, limit: Int) = messageDao.getMessagesOlder(chatId, fromMessageId, limit)

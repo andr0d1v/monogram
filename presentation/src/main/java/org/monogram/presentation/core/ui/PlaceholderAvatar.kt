@@ -12,10 +12,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun PlaceholderAvatar(name: String, fontSize: Int, color: Color) {
+fun PlaceholderAvatar(
+    name: String,
+    fontSize: Int,
+    color: Color,
+    modifier: Modifier = Modifier.fillMaxSize()
+) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
             .background(color.copy(alpha = 0.15f)),
         contentAlignment = Alignment.Center
     ) {
