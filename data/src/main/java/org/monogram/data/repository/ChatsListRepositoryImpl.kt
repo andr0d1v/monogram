@@ -17,13 +17,17 @@ import org.monogram.data.db.model.ChatEntity
 import org.monogram.data.db.model.TopicEntity
 import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.gateway.UpdateDispatcher
+import org.monogram.data.infra.ConnectionManager
 import org.monogram.data.mapper.MessageMapper
 import org.monogram.data.mapper.user.toEntity
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.ChatPermissionsModel
 import org.monogram.domain.models.FolderModel
 import org.monogram.domain.models.TopicModel
-import org.monogram.domain.repository.*
+import org.monogram.domain.repository.AppPreferencesProvider
+import org.monogram.domain.repository.CacheProvider
+import org.monogram.domain.repository.ChatsListRepository
+import org.monogram.domain.repository.SearchMessagesResult
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -41,7 +45,8 @@ class ChatsListRepositoryImpl(
     private val messageMapper: MessageMapper,
     private val gateway: TelegramGateway,
     scopeProvider: ScopeProvider,
-    private val chatLocalDataSource: ChatLocalDataSource
+    private val chatLocalDataSource: ChatLocalDataSource,
+    private val connectionManager: ConnectionManager
 ) : ChatsListRepository {
 
     private val TAG = "ChatsListRepo"
@@ -87,8 +92,7 @@ class ChatsListRepositoryImpl(
     private val _isLoadingFlow = MutableStateFlow(false)
     override val isLoadingFlow = _isLoadingFlow.asStateFlow()
 
-    private val _connectionStateFlow = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Connecting)
-    override val connectionStateFlow = _connectionStateFlow.asStateFlow()
+    override val connectionStateFlow = connectionManager.connectionStateFlow
 
     private val _forumTopicsFlow = MutableSharedFlow<Pair<Long, List<TopicModel>>>(
         replay = 1, extraBufferCapacity = 10, onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -111,7 +115,6 @@ class ChatsListRepositoryImpl(
     }
 
     private var activeForumChatId: Long? = null
-    private var retryJob: Job? = null
     private var myUserId: Long = 0L
 
     @Volatile private var activeChatList: TdApi.ChatList = TdApi.ChatListMain()
@@ -198,16 +201,6 @@ class ChatsListRepositoryImpl(
         }
 
         scope.launch {
-            appPreferences.enabledProxyId.value?.let { proxyRemoteSource.enableProxy(it) }
-            while (isActive) {
-                if (appPreferences.isAutoBestProxyEnabled.value) {
-                    runCatching { selectBestProxy() }
-                }
-                delay(300_000)
-            }
-        }
-
-        scope.launch {
             updates.chatFolders.collect { update ->
                 Log.d(TAG, "UpdateChatFolders received via dedicated flow")
                 folderManager.handleChatFoldersUpdate(update)
@@ -217,7 +210,6 @@ class ChatsListRepositoryImpl(
 
     private fun handleUpdate(update: TdApi.Update) {
         when (update) {
-            is TdApi.UpdateConnectionState -> handleConnectionState(update.state)
             is TdApi.UpdateNewChat -> {
                 cache.putChat(update.chat)
                 listManager.updateActiveListPositions(update.chat.id, update.chat.positions, activeChatList)
@@ -444,47 +436,8 @@ class ChatsListRepositoryImpl(
         scope.launch { getForumTopics(chatId) }
     }
 
-    private fun handleConnectionState(state: TdApi.ConnectionState) {
-        val status = when (state) {
-            is TdApi.ConnectionStateReady -> ConnectionStatus.Connected
-            is TdApi.ConnectionStateConnecting -> ConnectionStatus.Connecting
-            is TdApi.ConnectionStateUpdating -> ConnectionStatus.Updating
-            is TdApi.ConnectionStateWaitingForNetwork -> ConnectionStatus.WaitingForNetwork
-            is TdApi.ConnectionStateConnectingToProxy -> ConnectionStatus.ConnectingToProxy
-            else -> ConnectionStatus.Connecting
-        }
-        Log.d(TAG, "Connection state changed: $status")
-        _connectionStateFlow.value = status
-        retryJob?.cancel()
-        if (status is ConnectionStatus.WaitingForNetwork) {
-            retryJob = scope.launch {
-                delay(5000)
-                while (isActive) { retryConnection(); delay(10000) }
-            }
-        }
-    }
-
-    private suspend fun selectBestProxy() {
-        val proxies = proxyRemoteSource.getProxies()
-        if (proxies.isEmpty()) return
-
-        val best = coroutineScope {
-            proxies.map { proxy ->
-                async { proxy to proxyRemoteSource.pingProxy(proxy.server, proxy.port, proxy.type) }
-            }.awaitAll()
-        }.minByOrNull { it.second } ?: return
-
-        if (best.second == Long.MAX_VALUE) return
-        val currentEnabled = proxies.find { it.isEnabled }
-        if (best.first != currentEnabled) {
-            if (proxyRemoteSource.enableProxy(best.first.id)) {
-                appPreferences.setEnabledProxyId(best.first.id)
-            }
-        }
-    }
-
     override fun retryConnection() {
-        scope.launch(dispatchers.io) { chatRemoteSource.setNetworkType() }
+        connectionManager.retryConnection()
     }
 
     override fun selectFolder(folderId: Int) {

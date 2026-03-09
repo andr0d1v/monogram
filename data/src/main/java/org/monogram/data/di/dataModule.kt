@@ -161,6 +161,17 @@ val dataModule = module {
         )
     }
 
+    single {
+        ConnectionManager(
+            chatRemoteSource = get(),
+            proxyRemoteSource = get(),
+            updates = get(),
+            appPreferences = get(),
+            dispatchers = get(),
+            scopeProvider = get()
+        )
+    }
+
     single<ChatsListRepository> {
         ChatsListRepositoryImpl(
             remoteDataSource = get(),
@@ -176,7 +187,8 @@ val dataModule = module {
             messageMapper = get(),
             gateway = get(),
             scopeProvider = get(),
-            chatLocalDataSource = get()
+            chatLocalDataSource = get(),
+            connectionManager = get()
         )
     }
 
