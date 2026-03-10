@@ -50,6 +50,7 @@ interface AppPreferencesProvider {
     val passcode: StateFlow<String?>
 
     val isPermissionRequested: StateFlow<Boolean>
+    val isSupportViewed: StateFlow<Boolean>
 
     fun setAutoDownloadMobile(enabled: Boolean)
     fun setAutoDownloadWifi(enabled: Boolean)
@@ -94,4 +95,5 @@ interface AppPreferencesProvider {
     fun setPasscode(passcode: String?)
 
     fun setPermissionRequested(requested: Boolean)
+    fun setSupportViewed(viewed: Boolean)
 }

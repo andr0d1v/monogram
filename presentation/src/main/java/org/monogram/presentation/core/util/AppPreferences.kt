@@ -264,6 +264,9 @@ class AppPreferences(
     private val _isPermissionRequested = MutableStateFlow(prefs.getBoolean(KEY_PERMISSION_REQUESTED, false))
     override val isPermissionRequested: StateFlow<Boolean> = _isPermissionRequested
 
+    private val _isSupportViewed = MutableStateFlow(prefs.getBoolean(KEY_SUPPORT_VIEWED, false))
+    override val isSupportViewed: StateFlow<Boolean> = _isSupportViewed
+
     init {
         if (_adBlockKeywords.value.isEmpty()) {
             externalScope.launch {
@@ -653,6 +656,11 @@ class AppPreferences(
         _isPermissionRequested.value = requested
     }
 
+    override fun setSupportViewed(viewed: Boolean) {
+        prefs.edit().putBoolean(KEY_SUPPORT_VIEWED, viewed).apply()
+        _isSupportViewed.value = viewed
+    }
+
     companion object {
         private const val KEY_FONT_SIZE = "font_size"
         private const val KEY_BUBBLE_RADIUS = "bubble_radius"
@@ -734,5 +742,6 @@ class AppPreferences(
         private const val KEY_PASSCODE = "passcode"
 
         private const val KEY_PERMISSION_REQUESTED = "permission_requested"
+        private const val KEY_SUPPORT_VIEWED = "support_viewed"
     }
 }
