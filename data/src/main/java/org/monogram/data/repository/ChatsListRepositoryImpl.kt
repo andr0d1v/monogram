@@ -22,6 +22,7 @@ import org.monogram.data.db.model.TopicEntity
 import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.gateway.UpdateDispatcher
 import org.monogram.data.infra.ConnectionManager
+import org.monogram.data.infra.FileDownloadQueue
 import org.monogram.data.mapper.ChatMapper
 import org.monogram.data.mapper.MessageMapper
 import org.monogram.data.mapper.user.toEntity
@@ -29,10 +30,7 @@ import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.ChatPermissionsModel
 import org.monogram.domain.models.FolderModel
 import org.monogram.domain.models.TopicModel
-import org.monogram.domain.repository.AppPreferencesProvider
-import org.monogram.domain.repository.CacheProvider
-import org.monogram.domain.repository.ChatsListRepository
-import org.monogram.domain.repository.SearchMessagesResult
+import org.monogram.domain.repository.*
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -54,7 +52,9 @@ class ChatsListRepositoryImpl(
     private val connectionManager: ConnectionManager,
     private val databaseFile: File,
     private val searchHistoryDao: SearchHistoryDao,
-    private val chatFolderDao: ChatFolderDao
+    private val chatFolderDao: ChatFolderDao,
+    private val fileQueue: FileDownloadQueue,
+    private val stringProvider: StringProvider
 ) : ChatsListRepository {
 
     private val TAG = "ChatsListRepo"
@@ -64,12 +64,14 @@ class ChatsListRepositoryImpl(
         gateway = gateway,
         dispatchers = dispatchers,
         scopeProvider = scopeProvider,
+        fileQueue = fileQueue,
         onUpdate = { triggerUpdate(); refreshActiveForumTopics() }
     )
     private val typingManager = ChatTypingManager(
         scope = scope,
         usersCache = cache.usersCache,
         allChats = cache.allChats,
+        stringProvider = stringProvider,
         onUpdate = { triggerUpdate() },
         onUserNeeded = { userId -> fetchUser(userId) }
     )

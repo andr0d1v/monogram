@@ -60,7 +60,7 @@ interface ChatComponent {
     fun onHighlightConsumed()
     fun onTyping()
     fun onSendReaction(messageId: Long, reaction: String)
-    suspend fun getMessageReadDate(chatId: Long, messageId: Long): Int
+    suspend fun getMessageReadDate(chatId: Long, messageId: Long, messageDate: Int): Int
     fun toProfile(id: Long)
     fun onToggleMessageSelection(messageId: Long)
     fun onClearSelection()
@@ -241,6 +241,7 @@ interface ChatComponent {
         val botMenuButton: BotMenuButtonModel = BotMenuButtonModel.Default,
         val showBotCommands: Boolean = false,
         val currentUser: UserModel? = null,
+        val otherUser: UserModel? = null,
         val invoiceSlug: String? = null,
         val invoiceMessageId: Long? = null,
         val mentionSuggestions: List<UserModel> = emptyList(),
