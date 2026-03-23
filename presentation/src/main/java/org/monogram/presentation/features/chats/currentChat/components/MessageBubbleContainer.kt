@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import kotlinx.coroutines.delay
 import org.monogram.domain.models.InlineKeyboardButtonModel
 import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageModel
@@ -100,7 +101,8 @@ fun MessageBubbleContainer(
     LaunchedEffect(highlighted) {
         if (highlighted) {
             animatedColor.animateTo(highlightColor, animationSpec = tween(300))
-            animatedColor.animateTo(Color.Transparent, animationSpec = tween(1000))
+            delay(450)
+            animatedColor.animateTo(Color.Transparent, animationSpec = tween(1800))
             onHighlightConsumed()
         }
     }

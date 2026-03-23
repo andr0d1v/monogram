@@ -8,9 +8,12 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +67,7 @@ import org.monogram.presentation.features.chats.currentChat.components.ChatInput
 import org.monogram.presentation.features.chats.currentChat.components.ChatInputBarState
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.abs
 
 @Composable
 fun ChatContent(
@@ -131,11 +135,10 @@ fun ChatContent(
                     if (state.rootMessage != null) index + 1 else index
                 } else index
 
-                if (state.isChatAnimationsEnabled) {
-                    scrollState.animateScrollToItem(targetIndex)
-                } else {
-                    scrollState.scrollToItem(targetIndex)
-                }
+                scrollState.scrollMessageToCenter(
+                    index = targetIndex,
+                    animated = state.isChatAnimationsEnabled
+                )
             }
         } else {
             component.onClearMessages()
@@ -187,11 +190,10 @@ fun ChatContent(
                     if (state.rootMessage != null) index + 1 else index
                 } else index
 
-                if (state.isChatAnimationsEnabled) {
-                    scrollState.animateScrollToItem(targetIndex)
-                } else {
-                    scrollState.scrollToItem(targetIndex)
-                }
+                scrollState.scrollMessageToCenter(
+                    index = targetIndex,
+                    animated = state.isChatAnimationsEnabled
+                )
                 component.onScrollToMessageConsumed()
             }
         }
@@ -952,6 +954,26 @@ fun ChatContent(
                 else if (state.webViewUrl != null) component.onDismissWebView()
                 else if (state.currentTopicId != null) component.onBackClicked()
             }
+        }
+    }
+}
+
+private suspend fun LazyListState.scrollMessageToCenter(
+    index: Int,
+    animated: Boolean
+) {
+    if (animated) animateScrollToItem(index) else scrollToItem(index)
+
+    val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+    val itemCenter = itemInfo.offset + (itemInfo.size / 2)
+    val delta = (itemCenter - viewportCenter).toFloat()
+
+    if (abs(delta) > 1f) {
+        if (animated) {
+            animateScrollBy(delta)
+        } else {
+            scrollBy(delta)
         }
     }
 }

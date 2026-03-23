@@ -27,6 +27,7 @@ import org.monogram.presentation.features.chats.currentChat.chatContent.shouldSh
 import org.monogram.presentation.features.chats.currentChat.components.channels.*
 import org.monogram.presentation.features.chats.currentChat.components.chats.DocumentMessageBubble
 import org.monogram.presentation.features.chats.currentChat.components.chats.ReplyMarkupView
+import kotlinx.coroutines.delay
 
 @Composable
 fun ChannelMessageBubbleContainer(
@@ -80,7 +81,8 @@ fun ChannelMessageBubbleContainer(
     LaunchedEffect(highlighted) {
         if (highlighted) {
             animatedColor.animateTo(highlightColor, animationSpec = tween(300))
-            animatedColor.animateTo(Color.Transparent, animationSpec = tween(1000))
+            delay(450)
+            animatedColor.animateTo(Color.Transparent, animationSpec = tween(1800))
             onHighlightConsumed()
         }
     }
