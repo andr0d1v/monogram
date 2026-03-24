@@ -725,8 +725,12 @@
     <string name="passcode_change_description">您的应用当前受锁屏码保护。输入新代码以修改。</string>
     <string name="passcode_set_description">输入 4 位锁屏码以锁定应用并保护您的隐私。</string>
     <string name="passcode_label">锁屏码</string>
+    <string name="passcode_current_label">当前锁屏码</string>
     <string name="passcode_save_action">保存锁屏码</string>
     <string name="passcode_off_action">关闭锁屏码</string>
+    <string name="passcode_verify_title">验证锁屏码</string>
+    <string name="passcode_verify_description">更改或关闭锁屏码前，请先输入当前锁屏码。</string>
+    <string name="passcode_verify_error">锁屏码不正确。</string>
 
     <!-- AdBlock -->
     <string name="cd_add_keyword">添加关键词</string>

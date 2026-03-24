@@ -729,8 +729,12 @@
     <string name="passcode_change_description">Ваш застосунок захищено кодом. Введіть новий код.</string>
     <string name="passcode_set_description">Введіть 4-значний код для захисту застосунку.</string>
     <string name="passcode_label">Код-пароль</string>
+    <string name="passcode_current_label">Поточний код-пароль</string>
     <string name="passcode_save_action">Зберегти</string>
     <string name="passcode_off_action">Вимкнути код-пароль</string>
+    <string name="passcode_verify_title">Підтвердити код-пароль</string>
+    <string name="passcode_verify_description">Перш ніж змінити або вимкнути код-пароль, введіть поточний.</string>
+    <string name="passcode_verify_error">Неправильний код-пароль.</string>
 
     <!-- AdBlock -->
     <string name="cd_add_keyword">Додати ключове слово</string>

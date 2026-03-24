@@ -21,8 +21,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import org.monogram.domain.models.PrivacyValue
 import org.monogram.presentation.R
@@ -47,6 +50,13 @@ fun PrivacyListContent(component: PrivacyListComponent) {
 
     var showTtlSheet by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var verificationPasscode by remember { mutableStateOf("") }
+
+    LaunchedEffect(state.isPasscodeVerificationVisible) {
+        if (!state.isPasscodeVerificationVisible) {
+            verificationPasscode = ""
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -335,6 +345,52 @@ fun PrivacyListContent(component: PrivacyListComponent) {
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text(stringResource(R.string.cancel_button))
+                }
+            }
+        )
+    }
+
+    if (state.isPasscodeVerificationVisible) {
+        AlertDialog(
+            onDismissRequest = component::onPasscodeVerificationDismissed,
+            title = { Text(stringResource(R.string.passcode_verify_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.passcode_verify_description))
+                    OutlinedTextField(
+                        value = verificationPasscode,
+                        onValueChange = {
+                            if (it.length <= 4 && it.all(Char::isDigit)) {
+                                verificationPasscode = it
+                            }
+                        },
+                        label = { Text(stringResource(R.string.passcode_current_label)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        singleLine = true,
+                        isError = state.isPasscodeVerificationInvalid,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (state.isPasscodeVerificationInvalid) {
+                        Text(
+                            text = stringResource(R.string.passcode_verify_error),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { component.onPasscodeVerificationSubmitted(verificationPasscode) },
+                    enabled = verificationPasscode.length == 4
+                ) {
+                    Text(stringResource(R.string.confirm_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = component::onPasscodeVerificationDismissed) {
                     Text(stringResource(R.string.cancel_button))
                 }
             }

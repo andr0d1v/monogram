@@ -763,8 +763,12 @@
     </string>
     <string name="passcode_set_description">Enter a 4-digit passcode to lock the app and protect your privacy.</string>
     <string name="passcode_label">Passcode</string>
+    <string name="passcode_current_label">Current Passcode</string>
     <string name="passcode_save_action">Save Passcode</string>
     <string name="passcode_off_action">Turn Passcode Off</string>
+    <string name="passcode_verify_title">Verify Passcode</string>
+    <string name="passcode_verify_description">Enter your current passcode before changing or turning it off.</string>
+    <string name="passcode_verify_error">Incorrect passcode.</string>
 
     <!-- AdBlock -->
     <string name="cd_add_keyword">Add Keyword</string>

@@ -729,8 +729,12 @@
     <string name="passcode_change_description">Ваше приложение защищено кодом. Введите новый код.</string>
     <string name="passcode_set_description">Введите 4-значный код для защиты приложения.</string>
     <string name="passcode_label">Код-пароль</string>
+    <string name="passcode_current_label">Текущий код-пароль</string>
     <string name="passcode_save_action">Сохранить</string>
     <string name="passcode_off_action">Отключить код-пароль</string>
+    <string name="passcode_verify_title">Подтвердите код-пароль</string>
+    <string name="passcode_verify_description">Перед изменением или отключением кода-пароля введите текущий.</string>
+    <string name="passcode_verify_error">Неверный код-пароль.</string>
 
     <!-- AdBlock -->
     <string name="cd_add_keyword">Добавить ключевое слово</string>
