@@ -9,6 +9,7 @@ import org.drinkless.tdlib.TdApi
 import org.monogram.core.DispatcherProvider
 import org.monogram.core.ScopeProvider
 import org.monogram.data.chats.ChatCache
+import org.monogram.data.di.TdLibException
 import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.infra.FileDownloadQueue
 import org.monogram.data.mapper.MessageMapper
@@ -820,13 +821,50 @@ class TdMessageRemoteDataSource(
             this.mode = TdApi.WebAppOpenModeFullSize()
             this.theme = theme?.toApi()
         }
-        val request = TdApi.OpenWebApp(chatId, botUserId, url, null, null, parameters)
-        val result = safeExecute(request)
-        return if (result is TdApi.WebAppInfo) {
-            WebAppInfoModel(result.launchId, result.url)
+
+        val isMenuUrl = url.startsWith("menu://")
+        val normalizedUrl = if (isMenuUrl) url.removePrefix("menu://") else url
+        val botPrivateChatId = if (isMenuUrl) {
+            try {
+                gateway.execute(TdApi.CreatePrivateChat(botUserId, false))?.id
+            } catch (_: Exception) {
+                null
+            }
         } else {
             null
         }
+
+        val attempts = linkedSetOf<Pair<Long, String>>().apply {
+            add(chatId to url)
+            if (normalizedUrl != url) add(chatId to normalizedUrl)
+            if (botPrivateChatId != null && botPrivateChatId != chatId) {
+                add(botPrivateChatId to url)
+                if (normalizedUrl != url) add(botPrivateChatId to normalizedUrl)
+            }
+        }
+
+        var lastError: Throwable? = null
+
+        for ((targetChatId, targetUrl) in attempts) {
+            try {
+                val result = gateway.execute(
+                    TdApi.OpenWebApp(targetChatId, botUserId, targetUrl, null, null, parameters)
+                )
+                if (result is TdApi.WebAppInfo) {
+                    return WebAppInfoModel(result.launchId, result.url)
+                }
+            } catch (e: TdLibException) {
+                lastError = e
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+
+        if (lastError != null) {
+            Log.e("TdMessageRemote", "Error executing OpenWebApp", lastError)
+        }
+
+        return null
     }
 
     override suspend fun onCallbackQueryBuy(chatId: Long, messageId: Long) {
