@@ -87,7 +87,8 @@ data class ChatInteractionInfoModel(
     val type: ChatInteractionType,
     val viewCount: Int,
     val forwardCount: Int,
-    val reactionCount: Int
+    val reactionCount: Int,
+    val previewText: String? = null
 )
 
 enum class ChatInteractionType {
