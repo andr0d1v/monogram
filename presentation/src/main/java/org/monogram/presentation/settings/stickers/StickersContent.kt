@@ -42,6 +42,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import org.koin.compose.koinInject
 import org.monogram.domain.models.StickerSetModel
 import org.monogram.presentation.R
@@ -321,6 +322,7 @@ private fun GenericStickerList(
     var initialPointerY by remember { mutableStateOf(0f) }
     var totalDragDistance by remember { mutableStateOf(0f) }
     var autoScrollJob by remember { mutableStateOf<Job?>(null) }
+    var autoScrollVelocity by remember { mutableStateOf(0f) }
 
     CompositionLocalProvider(LocalIsScrolling provides isScrolling) {
         LazyColumn(
@@ -408,7 +410,7 @@ private fun GenericStickerList(
                     Box(
                         modifier = Modifier
                             .zIndex(if (isDragging) 1f else 0f)
-                            .animateItem()
+                            .then(if (isDragging) Modifier else Modifier.animateItem())
                             .graphicsLayer {
                                 translationY = if (isDragging) dragOffset else 0f
                                 scaleX = if (isDragging) 1.02f else 1f
@@ -463,32 +465,35 @@ private fun GenericStickerList(
                                         val pointerY = initialPointerY + totalDragDistance
 
                                         if (pointerY < topThreshold) {
-                                            if (autoScrollJob == null) {
-                                                autoScrollJob = scope.launch {
-                                                    while (true) {
-                                                        listState.scrollBy(-15f)
-                                                        delay(10)
-                                                    }
-                                                }
-                                            }
+                                            val intensity = ((topThreshold - pointerY) / topThreshold).coerceIn(0f, 1f)
+                                            autoScrollVelocity = -(6f + (18f * intensity))
                                         } else if (pointerY > bottomThreshold) {
-                                            if (autoScrollJob == null) {
-                                                autoScrollJob = scope.launch {
-                                                    while (true) {
-                                                        listState.scrollBy(15f)
-                                                        delay(10)
-                                                    }
-                                                }
-                                            }
+                                            val intensity = ((pointerY - bottomThreshold) / topThreshold).coerceIn(0f, 1f)
+                                            autoScrollVelocity = 6f + (18f * intensity)
                                         } else {
+                                            autoScrollVelocity = 0f
                                             autoScrollJob?.cancel()
                                             autoScrollJob = null
+                                        }
+
+                                        if (autoScrollJob == null && abs(autoScrollVelocity) > 0f) {
+                                            autoScrollJob = scope.launch {
+                                                while (abs(autoScrollVelocity) > 0f) {
+                                                    listState.scrollBy(autoScrollVelocity)
+                                                    delay(16)
+                                                }
+                                            }.also { job ->
+                                                job.invokeOnCompletion {
+                                                    if (autoScrollJob === job) autoScrollJob = null
+                                                }
+                                            }
                                         }
                                     },
                                     onDragEnd = {
                                         draggedItemId = null
                                         dragOffset = 0f
                                         totalDragDistance = 0f
+                                        autoScrollVelocity = 0f
                                         autoScrollJob?.cancel()
                                         autoScrollJob = null
                                     },
@@ -496,6 +501,7 @@ private fun GenericStickerList(
                                         draggedItemId = null
                                         dragOffset = 0f
                                         totalDragDistance = 0f
+                                        autoScrollVelocity = 0f
                                         autoScrollJob?.cancel()
                                         autoScrollJob = null
                                     }
