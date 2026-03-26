@@ -147,7 +147,12 @@ fun ChatContent(
         }
     })
 
-    LaunchedEffect(Unit) { isVisible = true }
+    LaunchedEffect(Unit) {
+        isVisible = true
+        if (state.fullScreenVideoPath != null || state.fullScreenVideoMessageId != null) {
+            component.onDismissVideo()
+        }
+    }
 
     // Initial Loading Delay logic
     LaunchedEffect(
