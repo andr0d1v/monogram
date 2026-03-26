@@ -320,12 +320,12 @@ private fun SwitchPmButton(
 private fun rememberMediaModel(result: InlineQueryResultModel): Any? {
     val context = LocalContext.current
     val contentPath = when (val content = result.content) {
-        is MessageContent.Photo -> if (content.isDownloading) null else content.path
-        is MessageContent.Video -> if (content.isDownloading) null else content.path
-        is MessageContent.Gif -> if (content.isDownloading) null else content.path
-        is MessageContent.Sticker -> if (content.isDownloading) null else content.path
-        is MessageContent.VideoNote -> if (content.isDownloading) null else content.path
-        is MessageContent.Document -> if (content.isDownloading) null else content.path
+        is MessageContent.Photo -> content.path
+        is MessageContent.Video -> content.path
+        is MessageContent.Gif -> content.path
+        is MessageContent.Sticker -> content.path
+        is MessageContent.VideoNote -> content.path
+        is MessageContent.Document -> content.path
         else -> null
     }
 

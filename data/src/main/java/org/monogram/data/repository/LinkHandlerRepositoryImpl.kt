@@ -54,7 +54,7 @@ class LinkHandlerRepositoryImpl(
 
                     val photo = inviteInfo.photo?.small ?: inviteInfo.photo?.big
                     if (photo != null && photo.local.path.isEmpty()) {
-                        fileQueue.enqueue(photo.id, 1, FileDownloadQueue.DownloadType.DEFAULT, synchronous = true)
+                        fileQueue.enqueue(photo.id, 1, FileDownloadQueue.DownloadType.DEFAULT, synchronous = false)
                         runCatching { fileQueue.waitForDownload(photo.id).await() }
                     }
 

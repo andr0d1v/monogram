@@ -607,7 +607,7 @@ class MessageRepositoryImpl(
                             ?.photo
                             ?.sizes
                             ?.sortedBy { it.width * it.height }
-                            ?.lastOrNull { size -> maxOf(size.width, size.height) <= 960 }
+                            ?.lastOrNull { size -> maxOf(size.width, size.height) <= 1280 }
                             ?: photoResult?.photo?.sizes?.lastOrNull()
 
                         InlineQueryResultModel(

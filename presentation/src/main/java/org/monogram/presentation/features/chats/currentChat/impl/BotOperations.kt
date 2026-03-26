@@ -126,6 +126,12 @@ internal fun DefaultChatComponent.handleInlineQueryChange(botUsername: String, q
                     )
                 }
             }
+
+            refreshInlinePreviews(
+                botId = botId,
+                botUsername = normalizedUsername,
+                query = normalizedQuery
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -242,6 +248,104 @@ private fun DefaultChatComponent.clearInlineBotState() {
             currentInlineQuery = null,
             isInlineBotLoading = false
         )
+    }
+}
+
+private suspend fun DefaultChatComponent.refreshInlinePreviews(
+    botId: Long,
+    botUsername: String,
+    query: String
+) {
+    repeat(4) { attempt ->
+        val currentState = _state.value
+        val currentResults = currentState.inlineBotResults
+        if (
+            currentResults == null ||
+            currentState.currentInlineBotId != botId ||
+            currentState.currentInlineBotUsername != botUsername ||
+            currentState.currentInlineQuery != query
+        ) {
+            return
+        }
+
+        val hasPendingVisualPreviews = currentResults.results.any { result ->
+            result.thumbFileId != 0 && result.thumbUrl.isNullOrBlank() && result.type.isVisualInlineType()
+        }
+        if (!hasPendingVisualPreviews) return
+
+        delay(500L + attempt * 350L)
+
+        val refreshed = try {
+            repositoryMessage.getInlineBotResults(botId, chatId, query)
+        } catch (e: Exception) {
+            Log.w("DefaultChatComponent", "Inline preview refresh failed", e)
+            null
+        }
+        if (refreshed == null) return@repeat
+
+        _state.update { liveState ->
+            if (
+                liveState.currentInlineBotId != botId ||
+                liveState.currentInlineBotUsername != botUsername ||
+                liveState.currentInlineQuery != query
+            ) {
+                liveState
+            } else {
+                val existing = liveState.inlineBotResults ?: return@update liveState
+                val refreshedByKey = refreshed.results.associateBy { "${it.type}:${it.id}" }
+                val merged = existing.results.map { old ->
+                    val updated = refreshedByKey["${old.type}:${old.id}"] ?: return@map old
+
+                    val improvedThumb = updated.thumbUrl ?: old.thumbUrl
+                    val improvedContent = if (!old.content.hasUsablePreviewPath() && updated.content.hasUsablePreviewPath()) {
+                        updated.content
+                    } else {
+                        old.content ?: updated.content
+                    }
+
+                    if (
+                        improvedThumb != old.thumbUrl ||
+                        improvedContent != old.content ||
+                        (old.width == 0 && updated.width > 0) ||
+                        (old.height == 0 && updated.height > 0)
+                    ) {
+                        old.copy(
+                            thumbUrl = improvedThumb,
+                            content = improvedContent,
+                            width = if (old.width == 0) updated.width else old.width,
+                            height = if (old.height == 0) updated.height else old.height
+                        )
+                    } else {
+                        old
+                    }
+                }
+
+                existing.copy(results = merged).let { refreshedResults ->
+                    liveState.copy(inlineBotResults = refreshedResults)
+                }
+            }
+        }
+    }
+}
+
+private fun String.isVisualInlineType(): Boolean {
+    val normalized = lowercase()
+    return normalized.contains("photo") ||
+            normalized.contains("video") ||
+            normalized.contains("gif") ||
+            normalized.contains("animation") ||
+            normalized.contains("sticker")
+}
+
+private fun MessageContent?.hasUsablePreviewPath(): Boolean {
+    return when (this) {
+        is MessageContent.Photo -> !path.isNullOrBlank()
+        is MessageContent.Video -> !path.isNullOrBlank()
+        is MessageContent.Gif -> !path.isNullOrBlank()
+        is MessageContent.Sticker -> !path.isNullOrBlank()
+        is MessageContent.VideoNote -> !path.isNullOrBlank()
+        is MessageContent.Document -> !path.isNullOrBlank()
+        else -> false
     }
 }
 

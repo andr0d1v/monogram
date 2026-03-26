@@ -232,7 +232,7 @@ class ChatModelFactory(
         fileManager.registerChatPhoto(photoFile.id, chatId)
         val path = photoFile.local.path.ifEmpty { fileManager.getFilePath(photoFile.id) ?: "" }
         return path.ifEmpty {
-            fileManager.downloadFile(photoFile.id, 1, offset = 0, limit = 0, synchronous = true)
+            fileManager.downloadFile(photoFile.id, 1, offset = 0, limit = 0, synchronous = false)
             null
         }
     }

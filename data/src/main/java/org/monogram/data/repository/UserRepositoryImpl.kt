@@ -124,9 +124,19 @@ class UserRepositoryImpl(
                     file.local.path
                 } else {
                     fileIdToUserIdMap[file.id] = user.id
-                    fileQueue.enqueue(file.id, 1, FileDownloadQueue.DownloadType.DEFAULT, synchronous = true)
-                    fileQueue.waitForDownload(file.id).await()
-                    null
+                    fileQueue.enqueue(file.id, 1, FileDownloadQueue.DownloadType.DEFAULT, synchronous = false)
+                    runCatching { fileQueue.waitForDownload(file.id).await() }
+
+                    val refreshedPath = runCatching {
+                        (gateway.execute(TdApi.GetFile(file.id)) as? TdApi.File)
+                            ?.local
+                            ?.path
+                            ?.takeIf { it.isNotEmpty() }
+                    }.getOrNull()
+                    if (refreshedPath != null) {
+                        emojiPathCache[emojiId] = refreshedPath
+                    }
+                    refreshedPath
                 }
             } else null
         } catch (e: Exception) {

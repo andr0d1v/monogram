@@ -713,14 +713,14 @@ class ChatsListRepositoryImpl(
                     senderName = user.firstName
                     user.profilePhoto?.small?.let { small ->
                         senderAvatar = small.local.path.ifEmpty { fileManager.getFilePath(small.id) }
-                        if (senderAvatar.isNullOrEmpty()) fileManager.downloadFile(small.id, 1, synchronous = true)
+                        if (senderAvatar.isNullOrEmpty()) fileManager.downloadFile(small.id, 1, synchronous = false)
                     }
                 }
                 is TdApi.MessageSenderChat -> cache.getChat(senderId.chatId)?.let { chat ->
                     senderName = chat.title
                     chat.photo?.small?.let { small ->
                         senderAvatar = small.local.path.ifEmpty { fileManager.getFilePath(small.id) }
-                        if (senderAvatar.isNullOrEmpty()) fileManager.downloadFile(small.id, 1, synchronous = true)
+                        if (senderAvatar.isNullOrEmpty()) fileManager.downloadFile(small.id, 1, synchronous = false)
                     }
                 }
                 else -> {}
