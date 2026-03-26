@@ -185,6 +185,8 @@ fun ChatContent(
                 }
             }
             if (index != -1) {
+                component.onScrollToMessageConsumed()
+
                 val targetIndex = if (isComments) {
                     if (state.rootMessage != null) index + 1 else index
                 } else index
@@ -193,7 +195,6 @@ fun ChatContent(
                     index = targetIndex,
                     animated = state.isChatAnimationsEnabled
                 )
-                component.onScrollToMessageConsumed()
             }
         }
     }
