@@ -660,6 +660,10 @@ fun ChatContent(
                                         } else content?.let { component.onDownloadFile(it.fileId) }
                                     },
                                     onVideoClick = { msg, path, caption ->
+                                        if (!isVisible || showInitialLoading || scrollState.isScrollInProgress) {
+                                            return@ChatContentList
+                                        }
+
                                         val videoContent = msg.content as? MessageContent.Video
                                         val supportsStreaming = videoContent?.supportsStreaming ?: false
 
