@@ -916,6 +916,7 @@
     <string name="action_done">完成</string>
     <string name="action_refresh">刷新</string>
     <string name="action_open_fullscreen_editor">全屏编辑器</string>
+    <string name="fullscreen_editor_title">编辑器</string>
     <string name="action_send_silent">静默发送</string>
     <string name="action_schedule_message">定时发送消息</string>
     <string name="action_scheduled_messages">定时消息</string>
@@ -946,10 +947,8 @@
     <string name="rich_text_code_language_hint">语言（例如 kotlin）</string>
 
     <string name="fullscreen_editor_meta">%1$d 个字符 • %2$d 个格式块</string>
+    <string name="fullscreen_editor_blocks">%1$d 个格式块</string>
     <string name="fullscreen_editor_hint">选中文本以应用类似 Telegram 的富文本格式</string>
-    <string name="rich_text_tools_title">格式</string>
-    <string name="rich_text_selection_meta">已选中：%1$d 个字符</string>
-    <string name="rich_text_selection_hint">选中文本以进行格式化</string>
     <string name="message_length_counter">%1$d/%2$d</string>
 
     <!-- Bot -->

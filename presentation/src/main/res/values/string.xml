@@ -957,6 +957,7 @@
     <string name="action_done">Done</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_open_fullscreen_editor">Fullscreen editor</string>
+    <string name="fullscreen_editor_title">Editor</string>
     <string name="action_send_silent">Send silently</string>
     <string name="action_schedule_message">Schedule message</string>
     <string name="action_scheduled_messages">Scheduled messages</string>
@@ -970,10 +971,8 @@
     <string name="action_send_now">Send</string>
     <string name="action_delete_message">Delete</string>
     <string name="fullscreen_editor_meta">%1$d chars • %2$d format blocks</string>
+    <string name="fullscreen_editor_blocks">%1$d format blocks</string>
     <string name="fullscreen_editor_hint">Select text to apply rich formatting like in Telegram</string>
-    <string name="rich_text_tools_title">Formatting</string>
-    <string name="rich_text_selection_meta">Selected: %1$d chars</string>
-    <string name="rich_text_selection_hint">Select text to enable formatting</string>
     <string name="message_length_counter">%1$d/%2$d</string>
 
     <string name="rich_text_bold">Bold</string>

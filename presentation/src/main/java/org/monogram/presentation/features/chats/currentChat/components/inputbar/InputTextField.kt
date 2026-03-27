@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.monogram.domain.models.MessageEntity
@@ -76,6 +77,7 @@ fun InputTextField(
     emojiFontFamily: FontFamily,
     focusRequester: FocusRequester,
     pendingMediaPaths: List<String>,
+    maxEditorHeight: Dp = 140.dp,
     onFocus: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -179,7 +181,7 @@ fun InputTextField(
         Box(
             modifier = Modifier
                 .padding(vertical = 10.dp)
-                .heightIn(max = 140.dp)
+                .heightIn(max = maxEditorHeight)
                 .verticalScroll(scrollState),
             contentAlignment = Alignment.CenterStart
         ) {

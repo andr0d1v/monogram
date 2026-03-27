@@ -6,11 +6,14 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.*
@@ -27,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -38,6 +44,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import org.monogram.domain.models.*
 import org.monogram.domain.repository.InlineBotResultsModel
@@ -780,281 +788,309 @@ fun ChatInputBar(
                 val richEntityCount = remember(editorEntities) {
                     editorEntities.count { richEntityToAnnotation(it.type) != null }
                 }
-                val selectedTextLength = remember(textValue.selection, textValue.text.length) {
-                    (textValue.selection.end - textValue.selection.start).coerceAtLeast(0)
-                }
                 val hasFormattableSelectionInEditor = hasFormattableSelection(textValue)
+                val fullScreenContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                val fullScreenFieldColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                val fullScreenToolbarColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                val fullScreenAccentColor = MaterialTheme.colorScheme.primary
 
-                ModalBottomSheet(
+                Dialog(
                     onDismissRequest = { showFullScreenEditor = false },
-                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                    containerColor = MaterialTheme.colorScheme.background,
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                    properties = DialogProperties(usePlatformDefaultWidth = false)
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .imePadding()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 20.dp)
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.58f))
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.action_open_fullscreen_editor),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = stringResource(
-                                        R.string.fullscreen_editor_meta,
-                                        textValue.text.length,
-                                        richEntityCount
-                                    ),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = stringResource(
-                                        R.string.message_length_counter,
-                                        currentMessageLength,
-                                        maxMessageLength
-                                    ),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isOverMessageLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            AssistChip(
-                                onClick = {
-                                    sendWithOptions(MessageSendOptions())
-                                    showFullScreenEditor = false
-                                },
-                                enabled = !isOverMessageLimit,
-                                label = { Text(text = stringResource(R.string.action_send)) }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = RoundedCornerShape(24.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .fillMaxHeight(0.95f),
+                            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                            color = fullScreenContainerColor
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = stringResource(R.string.rich_text_tools_title),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (selectedTextLength > 0) {
-                                        stringResource(R.string.rich_text_selection_meta, selectedTextLength)
-                                    } else {
-                                        stringResource(R.string.rich_text_selection_hint)
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding()
+                                    .imePadding()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(onClick = { showFullScreenEditor = false }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = stringResource(R.string.action_cancel),
+                                            tint = fullScreenAccentColor
+                                        )
+                                    }
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = stringResource(R.string.fullscreen_editor_title),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            sendWithOptions(MessageSendOptions())
+                                            showFullScreenEditor = false
+                                        },
+                                        enabled = !isOverMessageLimit
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = stringResource(R.string.action_send),
+                                            tint = if (isOverMessageLimit) {
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                            } else {
+                                                fullScreenAccentColor
+                                            }
+                                        )
+                                    }
+                                }
 
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState())
-                                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        .padding(horizontal = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                                 ) {
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { showFullScreenEmojiPicker = true },
-                                        label = { Text(text = stringResource(R.string.rich_text_emoji)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { textValue = toggleRichEntity(textValue, MessageEntityType.Bold) },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_bold)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { textValue = toggleRichEntity(textValue, MessageEntityType.Italic) },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_italic)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            textValue = toggleRichEntity(textValue, MessageEntityType.Underline)
+                                    FullScreenEditorMetaPill(
+                                        text = stringResource(
+                                            R.string.message_length_counter,
+                                            currentMessageLength,
+                                            maxMessageLength
+                                        ),
+                                        color = if (isOverMessageLimit) {
+                                            MaterialTheme.colorScheme.error.copy(alpha = 0.22f)
+                                        } else {
+                                            fullScreenAccentColor.copy(alpha = 0.2f)
                                         },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_underline)) }
+                                        contentColor = if (isOverMessageLimit) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            fullScreenAccentColor
+                                        }
                                     )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            textValue = toggleRichEntity(textValue, MessageEntityType.Strikethrough)
-                                        },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_strikethrough)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            textValue = toggleRichEntity(textValue, MessageEntityType.Spoiler)
-                                        },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_spoiler)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { textValue = toggleRichEntity(textValue, MessageEntityType.Code) },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_code)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            val selection = textValue.selection
-                                            if (selection.start != selection.end) {
-                                                val normalized =
-                                                    if (selection.start <= selection.end) selection else TextRange(
-                                                        selection.end,
-                                                        selection.start
-                                                    )
-                                                val current = textValue.annotatedString
-                                                    .getStringAnnotations(
-                                                        RICH_ENTITY_TAG,
-                                                        normalized.start,
-                                                        normalized.end
-                                                    )
-                                                    .firstOrNull { decodeRichEntity(it.item) is MessageEntityType.Pre }
-                                                fullScreenLanguageValue =
-                                                    (current?.let { decodeRichEntity(it.item) } as? MessageEntityType.Pre)?.language.orEmpty()
-                                                showFullScreenLanguageDialog = true
-                                            }
-                                        },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_pre)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            val selection = textValue.selection
-                                            if (selection.start != selection.end) {
-                                                val normalized =
-                                                    if (selection.start <= selection.end) selection else TextRange(
-                                                        selection.end,
-                                                        selection.start
-                                                    )
-                                                val current = textValue.annotatedString
-                                                    .getStringAnnotations(
-                                                        RICH_ENTITY_TAG,
-                                                        normalized.start,
-                                                        normalized.end
-                                                    )
-                                                    .firstOrNull { decodeRichEntity(it.item) is MessageEntityType.TextUrl }
-                                                fullScreenLinkValue =
-                                                    (current?.let { decodeRichEntity(it.item) } as? MessageEntityType.TextUrl)?.url
-                                                        ?: "https://"
-                                                showFullScreenLinkDialog = true
-                                            }
-                                        },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_link)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            textValue = insertMentionAtSelection(textValue)
-                                        },
-                                        label = { Text(text = stringResource(R.string.rich_text_mention)) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { textValue = clearRichFormatting(textValue) },
-                                        enabled = hasFormattableSelectionInEditor,
-                                        label = { Text(text = stringResource(R.string.rich_text_clear)) }
+                                    FullScreenEditorMetaPill(
+                                        text = stringResource(
+                                            R.string.fullscreen_editor_blocks,
+                                            richEntityCount
+                                        ),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                        contentColor = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
 
-                                OutlinedButton(
-                                    onClick = {
-                                        textValue = textValue.copy(selection = TextRange(0, textValue.text.length))
-                                    },
-                                    enabled = textValue.text.isNotEmpty(),
-                                    modifier = Modifier.fillMaxWidth()
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = fullScreenFieldColor
                                 ) {
-                                    Text(text = stringResource(R.string.action_select_all))
+                                    InputTextField(
+                                        textValue = textValue,
+                                        onValueChange = { incoming ->
+                                            textValue = mergeInputTextValuePreservingAnnotations(textValue, incoming)
+                                        },
+                                        onRichTextValueChange = { incoming ->
+                                            textValue = incoming
+                                        },
+                                        enableContextMenu = false,
+                                        enableRichContextActions = false,
+                                        canWriteText = canWriteText,
+                                        knownCustomEmojis = knownCustomEmojis,
+                                        emojiFontFamily = emojiFontFamily,
+                                        focusRequester = fullScreenFocusRequester,
+                                        pendingMediaPaths = state.pendingMediaPaths,
+                                        maxEditorHeight = 860.dp,
+                                        onFocus = { isStickerMenuVisible = false },
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 14.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(58.dp),
+                                        shape = RoundedCornerShape(32.dp),
+                                        color = fullScreenToolbarColor
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .horizontalScroll(rememberScrollState())
+                                                .padding(horizontal = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            FullScreenEditorToolButton(
+                                                label = "B",
+                                                hint = stringResource(R.string.rich_text_bold),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = toggleRichEntity(textValue, MessageEntityType.Bold)
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "/",
+                                                hint = stringResource(R.string.rich_text_italic),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = toggleRichEntity(textValue, MessageEntityType.Italic)
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "U",
+                                                hint = stringResource(R.string.rich_text_underline),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = toggleRichEntity(textValue, MessageEntityType.Underline)
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "S",
+                                                hint = stringResource(R.string.rich_text_strikethrough),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = toggleRichEntity(
+                                                        textValue,
+                                                        MessageEntityType.Strikethrough
+                                                    )
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "M",
+                                                hint = stringResource(R.string.rich_text_code),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = toggleRichEntity(textValue, MessageEntityType.Code)
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "( )",
+                                                hint = stringResource(R.string.rich_text_link),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    val selection = textValue.selection
+                                                    if (selection.start != selection.end) {
+                                                        val normalized = if (selection.start <= selection.end) {
+                                                            selection
+                                                        } else {
+                                                            TextRange(selection.end, selection.start)
+                                                        }
+                                                        val current = textValue.annotatedString
+                                                            .getStringAnnotations(
+                                                                RICH_ENTITY_TAG,
+                                                                normalized.start,
+                                                                normalized.end
+                                                            )
+                                                            .firstOrNull {
+                                                                decodeRichEntity(it.item) is MessageEntityType.TextUrl
+                                                            }
+                                                        fullScreenLinkValue =
+                                                            (current?.let { decodeRichEntity(it.item) } as? MessageEntityType.TextUrl)?.url
+                                                                ?: "https://"
+                                                        showFullScreenLinkDialog = true
+                                                    }
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "@",
+                                                hint = stringResource(R.string.rich_text_mention),
+                                                onClick = {
+                                                    textValue = insertMentionAtSelection(textValue)
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "P",
+                                                hint = stringResource(R.string.rich_text_pre),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    val selection = textValue.selection
+                                                    if (selection.start != selection.end) {
+                                                        val normalized = if (selection.start <= selection.end) {
+                                                            selection
+                                                        } else {
+                                                            TextRange(selection.end, selection.start)
+                                                        }
+                                                        val current = textValue.annotatedString
+                                                            .getStringAnnotations(
+                                                                RICH_ENTITY_TAG,
+                                                                normalized.start,
+                                                                normalized.end
+                                                            )
+                                                            .firstOrNull {
+                                                                decodeRichEntity(it.item) is MessageEntityType.Pre
+                                                            }
+                                                        fullScreenLanguageValue =
+                                                            (current?.let { decodeRichEntity(it.item) } as? MessageEntityType.Pre)?.language.orEmpty()
+                                                        showFullScreenLanguageDialog = true
+                                                    }
+                                                }
+                                            )
+                                            FullScreenEditorToolButton(
+                                                label = "X",
+                                                hint = stringResource(R.string.rich_text_clear),
+                                                enabled = hasFormattableSelectionInEditor,
+                                                onClick = {
+                                                    textValue = clearRichFormatting(textValue)
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Surface(
+                                        modifier = Modifier.size(58.dp),
+                                        shape = CircleShape,
+                                        color = fullScreenToolbarColor
+                                    ) {
+                                        IconButton(onClick = { showFullScreenEmojiPicker = true }) {
+                                            Text(
+                                                text = "☺",
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                color = fullScreenAccentColor
+                                            )
+                                        }
+                                    }
+                                }
+
+                                AnimatedVisibility(visible = !isKeyboardVisible) {
+                                    Text(
+                                        text = stringResource(R.string.fullscreen_editor_hint),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    )
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            InputTextField(
-                                textValue = textValue,
-                                onValueChange = { incoming ->
-                                    textValue = mergeInputTextValuePreservingAnnotations(textValue, incoming)
-                                },
-                                onRichTextValueChange = { incoming ->
-                                    textValue = incoming
-                                },
-                                enableContextMenu = false,
-                                enableRichContextActions = false,
-                                canWriteText = canWriteText,
-                                knownCustomEmojis = knownCustomEmojis,
-                                emojiFontFamily = emojiFontFamily,
-                                focusRequester = fullScreenFocusRequester,
-                                pendingMediaPaths = state.pendingMediaPaths,
-                                onFocus = { isStickerMenuVisible = false },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 260.dp, max = 520.dp)
-                                    .padding(horizontal = 12.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.fullscreen_editor_hint),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            OutlinedButton(
-                                onClick = { showFullScreenEditor = false },
-                                modifier = Modifier
-                                    .widthIn(min = 116.dp)
-                                    .height(52.dp),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Text(text = stringResource(R.string.action_done))
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
 
@@ -1135,6 +1171,7 @@ fun ChatInputBar(
                                 )
                             },
                             onGifSelected = {},
+                            emojiOnlyMode = true,
                             onSearchFocused = {},
                             videoPlayerPool = videoPlayerPool,
                             stickerRepository = stickerRepository
@@ -1406,6 +1443,60 @@ private fun ClosedTopicBar() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun FullScreenEditorMetaPill(
+    text: String,
+    color: Color,
+    contentColor: Color
+) {
+    Surface(
+        color = color,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = text,
+            color = contentColor,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun FullScreenEditorToolButton(
+    label: String,
+    hint: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                enabled = enabled,
+                onClick = onClick,
+                onLongClick = {
+                    Toast.makeText(context, hint, Toast.LENGTH_SHORT).show()
+                }
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.headlineSmall,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+            }
         )
     }
 }

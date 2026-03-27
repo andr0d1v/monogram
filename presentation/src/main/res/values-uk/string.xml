@@ -923,6 +923,7 @@
     <string name="action_done">Готово</string>
     <string name="action_refresh">Оновити</string>
     <string name="action_open_fullscreen_editor">Повноекранний редактор</string>
+    <string name="fullscreen_editor_title">Редактор</string>
     <string name="action_send_silent">Надіслати без звуку</string>
     <string name="action_schedule_message">Відкласти повідомлення</string>
     <string name="action_scheduled_messages">Відкладені повідомлення</string>
@@ -953,10 +954,8 @@
     <string name="rich_text_code_language_hint">Мова (наприклад, kotlin)</string>
 
     <string name="fullscreen_editor_meta">%1$d символів • %2$d блоків форматування</string>
+    <string name="fullscreen_editor_blocks">%1$d блоків форматування</string>
     <string name="fullscreen_editor_hint">Виділіть текст, щоб застосувати форматування як у Telegram</string>
-    <string name="rich_text_tools_title">Форматування</string>
-    <string name="rich_text_selection_meta">Виділено: %1$d символів</string>
-    <string name="rich_text_selection_hint">Виділіть текст для форматування</string>
     <string name="message_length_counter">%1$d/%2$d</string>
 
     <!-- Bot -->
