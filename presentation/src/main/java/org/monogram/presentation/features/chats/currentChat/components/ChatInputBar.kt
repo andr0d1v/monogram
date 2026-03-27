@@ -679,7 +679,8 @@ fun ChatInputBar(
 
                     AnimatedVisibility(
                         visible = !voiceRecorder.isRecording &&
-                                (textValue.text.isNotEmpty() || state.pendingMediaPaths.isNotEmpty()),
+                                !showFullScreenEditor &&
+                                currentMessageLength > 1000,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
