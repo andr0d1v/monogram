@@ -28,6 +28,30 @@ class MessageMapper(
 ) {
     val scope = scopeProvider.appScope
 
+    private data class SenderUserSnapshot(
+        val name: String,
+        val avatar: String?,
+        val personalAvatar: String?,
+        val isVerified: Boolean,
+        val isPremium: Boolean,
+        val statusEmojiId: Long,
+        val statusEmojiPath: String?
+    )
+
+    private data class SenderChatSnapshot(
+        val name: String,
+        val avatar: String?
+    )
+
+    private val senderUserSnapshotCache = ConcurrentHashMap<Long, SenderUserSnapshot>()
+    private val senderChatSnapshotCache = ConcurrentHashMap<Long, SenderChatSnapshot>()
+    private val senderRankCache = ConcurrentHashMap<String, String>()
+    private val queuedAvatarDownloads = ConcurrentHashMap.newKeySet<Int>()
+
+    private companion object {
+        private const val NO_RANK_SENTINEL = "__NO_RANK__"
+    }
+
     private fun getCurrentNetworkType(): TdApi.NetworkType {
         val activeNetwork = connectivityManager.activeNetwork
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
@@ -94,25 +118,46 @@ class MessageMapper(
         when (val sender = msg.senderId) {
             is TdApi.MessageSenderUser -> {
                 senderId = sender.userId
-                val user = try {
-                    withTimeout(500) { userRepository.getUser(senderId) }
-                } catch (e: Exception) {
-                    null
-                }
-                if (user != null) {
-                    senderName = listOfNotNull(
-                        user.firstName.takeIf { it.isNotBlank() },
-                        user.lastName?.takeIf { it.isNotBlank() }
-                    ).joinToString(" ")
+                val cachedSnapshot = senderUserSnapshotCache[senderId]
+                if (cachedSnapshot != null) {
+                    senderName = cachedSnapshot.name
+                    senderAvatar = cachedSnapshot.avatar
+                    senderPersonalAvatar = cachedSnapshot.personalAvatar
+                    isSenderVerified = cachedSnapshot.isVerified
+                    isSenderPremium = cachedSnapshot.isPremium
+                    senderStatusEmojiId = cachedSnapshot.statusEmojiId
+                    senderStatusEmojiPath = cachedSnapshot.statusEmojiPath
+                } else {
+                    val user = try {
+                        withTimeout(500) { userRepository.getUser(senderId) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (user != null) {
+                        senderName = listOfNotNull(
+                            user.firstName.takeIf { it.isNotBlank() },
+                            user.lastName?.takeIf { it.isNotBlank() }
+                        ).joinToString(" ")
 
-                    if (senderName.isBlank()) senderName = "User"
+                        if (senderName.isBlank()) senderName = "User"
 
-                    senderAvatar = user.avatarPath.takeIf { isValidPath(it) }
-                    senderPersonalAvatar = user.personalAvatarPath.takeIf { isValidPath(it) }
-                    isSenderVerified = user.isVerified
-                    isSenderPremium = user.isPremium
-                    senderStatusEmojiId = user.statusEmojiId
-                    senderStatusEmojiPath = user.statusEmojiPath
+                        senderAvatar = user.avatarPath.takeIf { isValidPath(it) }
+                        senderPersonalAvatar = user.personalAvatarPath.takeIf { isValidPath(it) }
+                        isSenderVerified = user.isVerified
+                        isSenderPremium = user.isPremium
+                        senderStatusEmojiId = user.statusEmojiId
+                        senderStatusEmojiPath = user.statusEmojiPath
+
+                        senderUserSnapshotCache[senderId] = SenderUserSnapshot(
+                            name = senderName,
+                            avatar = senderAvatar,
+                            personalAvatar = senderPersonalAvatar,
+                            isVerified = isSenderVerified,
+                            isPremium = isSenderPremium,
+                            statusEmojiId = senderStatusEmojiId,
+                            statusEmojiPath = senderStatusEmojiPath
+                        )
+                    }
                 }
 
                 val chat = cache.getChat(msg.chatId)
@@ -128,39 +173,57 @@ class MessageMapper(
                 }
 
                 if (canGetMember) {
-                    val member = try {
-                        withTimeout(500) { userRepository.getChatMember(msg.chatId, senderId) }
-                    } catch (e: Exception) {
-                        null
+                    val rankKey = "${msg.chatId}:$senderId"
+                    val cachedRank = senderRankCache[rankKey]
+                    if (cachedRank != null) {
+                        senderCustomTitle = cachedRank.takeUnless { it == NO_RANK_SENTINEL }
+                    } else {
+                        val member = try {
+                            withTimeout(500) { userRepository.getChatMember(msg.chatId, senderId) }
+                        } catch (e: Exception) {
+                            null
+                        }
+                        senderCustomTitle = member?.rank
+                        senderRankCache[rankKey] = senderCustomTitle ?: NO_RANK_SENTINEL
                     }
-                    senderCustomTitle = member?.rank
                 }
             }
 
             is TdApi.MessageSenderChat -> {
                 senderId = sender.chatId
-                val chat = try {
-                    withTimeout(500) {
-                        cache.getChat(senderId) ?: gateway.execute(TdApi.GetChat(senderId)).also { cache.putChat(it) }
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-                if (chat != null) {
-                    senderName = chat.title
-                    val photo = chat.photo?.small
-                    if (photo != null) {
-                        senderAvatar = photo.local.path.takeIf { isValidPath(it) }
-                        if (senderAvatar.isNullOrEmpty()) {
-                            fileApi.enqueueDownload(
-                                photo.id,
-                                1,
-                                TdMessageRemoteDataSource.DownloadType.DEFAULT,
-                                0,
-                                0,
-                                false
-                            )
+                val cachedSnapshot = senderChatSnapshotCache[senderId]
+                if (cachedSnapshot != null) {
+                    senderName = cachedSnapshot.name
+                    senderAvatar = cachedSnapshot.avatar
+                } else {
+                    val chat = try {
+                        withTimeout(500) {
+                            cache.getChat(senderId) ?: gateway.execute(TdApi.GetChat(senderId)).also { cache.putChat(it) }
                         }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (chat != null) {
+                        senderName = chat.title
+                        val photo = chat.photo?.small
+                        if (photo != null) {
+                            senderAvatar = photo.local.path.takeIf { isValidPath(it) }
+                            if (senderAvatar.isNullOrEmpty() && queuedAvatarDownloads.add(photo.id)) {
+                                fileApi.enqueueDownload(
+                                    photo.id,
+                                    1,
+                                    TdMessageRemoteDataSource.DownloadType.DEFAULT,
+                                    0,
+                                    0,
+                                    false
+                                )
+                            }
+                        }
+
+                        senderChatSnapshotCache[senderId] = SenderChatSnapshot(
+                            name = senderName,
+                            avatar = senderAvatar
+                        )
                     }
                 }
             }

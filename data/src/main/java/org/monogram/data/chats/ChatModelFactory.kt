@@ -6,6 +6,8 @@ import org.monogram.core.DispatcherProvider
 import org.monogram.core.ScopeProvider
 import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.mapper.ChatMapper
+import org.monogram.data.mapper.isForcedVerifiedChat
+import org.monogram.data.mapper.isForcedVerifiedUser
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.UsernamesModel
 import org.monogram.domain.repository.AppPreferencesProvider
@@ -34,7 +36,7 @@ class ChatModelFactory(
         var onlineCount = cache.onlineMemberCount[chat.id] ?: cachedCounts?.second ?: 0
         var isOnline = false
         var userStatus = ""
-        var isVerified = false
+        var isVerified = isForcedVerifiedChat(chat.id)
         var isForum = false
         var isBot = false
         var isMember = true
@@ -80,7 +82,7 @@ class ChatModelFactory(
                 val supergroup = cache.supergroups[type.supergroupId]
                 supergroup?.let {
                     memberCount = it.memberCount
-                    isVerified = it.verificationStatus?.isVerified ?: false
+                    isVerified = (it.verificationStatus?.isVerified ?: false) || isForcedVerifiedChat(chat.id)
                     isForum = it.isForum
                     isMember = it.status !is TdApi.ChatMemberStatusLeft
                     isAdmin = it.status is TdApi.ChatMemberStatusAdministrator ||
@@ -119,7 +121,7 @@ class ChatModelFactory(
                     isOnline = !isBot && user.status is TdApi.UserStatusOnline
                     if (isOnline) onlineCount = 1
                     userStatus = chatMapper.formatUserStatus(user.status, isBot)
-                    isVerified = user.verificationStatus?.isVerified ?: false
+                    isVerified = (user.verificationStatus?.isVerified ?: false) || isForcedVerifiedUser(user.id)
                     username = user.usernames?.activeUsernames?.firstOrNull()
                     usernames = user.usernames?.toDomain()
                     if (smallPhoto == null) {

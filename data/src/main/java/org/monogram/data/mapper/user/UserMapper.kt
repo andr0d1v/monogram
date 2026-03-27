@@ -5,6 +5,7 @@ import org.monogram.data.db.model.ChatEntity
 import org.monogram.data.db.model.ChatFullInfoEntity
 import org.monogram.data.db.model.UserEntity
 import org.monogram.data.db.model.UserFullInfoEntity
+import org.monogram.data.mapper.isForcedVerifiedUser
 import org.monogram.domain.models.*
 import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.ChatMembersFilter
@@ -32,7 +33,7 @@ fun TdApi.User.toDomain(
         avatarPath = this.resolveAvatarPath(),
         personalAvatarPath = personalAvatarPath,
         isPremium = isPremium,
-        isVerified = verificationStatus?.isVerified ?: false,
+        isVerified = (verificationStatus?.isVerified ?: false) || isForcedVerifiedUser(id),
         isSupport = isSupport,
         type = type.toDomain(),
         statusEmojiId = emojiStatusId,
