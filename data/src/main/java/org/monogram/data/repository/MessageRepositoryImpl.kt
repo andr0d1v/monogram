@@ -23,6 +23,7 @@ import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.domain.models.webapp.WebAppInfoModel
 import org.monogram.domain.repository.InlineBotResultsModel
 import org.monogram.domain.repository.MessageRepository
+import org.monogram.domain.repository.OlderMessagesPage
 import org.monogram.domain.repository.ProfileMediaFilter
 import org.monogram.domain.repository.SearchChatMessagesResult
 import java.io.File
@@ -309,7 +310,7 @@ class MessageRepositoryImpl(
         fromMessageId: Long,
         limit: Int,
         threadId: Long?
-    ): List<MessageModel> =
+    ): OlderMessagesPage =
         withContext(dispatcherProvider.io) {
             val cached = if (fromMessageId == 0L) {
                 val cachedEntities = chatLocalDataSource.getLatestMessages(chatId, limit)
@@ -319,16 +320,21 @@ class MessageRepositoryImpl(
             }
 
             try {
-                val remoteMessages = messageRemoteDataSource.getMessagesOlder(chatId, fromMessageId, limit, threadId)
-                persistRemoteMessages(chatId, remoteMessages)
-                remoteMessages
+                val remotePage = messageRemoteDataSource.getMessagesOlder(chatId, fromMessageId, limit, threadId)
+                persistRemoteMessages(chatId, remotePage.messages)
+                remotePage
             } catch (e: Exception) {
-                if (cached.isNotEmpty()) {
+                val fallbackMessages = if (cached.isNotEmpty()) {
                     cached
                 } else {
                     val local = chatLocalDataSource.getMessagesOlder(chatId, fromMessageId, limit)
                     mapLocalMessages(local)
                 }
+                OlderMessagesPage(
+                    messages = fallbackMessages,
+                    reachedOldest = false,
+                    isRemote = false
+                )
             }
         }
 
@@ -375,7 +381,7 @@ class MessageRepositoryImpl(
     @Deprecated("Use getMessagesOlder instead")
     override suspend fun getMessages(chatId: Long, fromMessageId: Long, limit: Int): List<MessageModel> =
         withContext(dispatcherProvider.io) {
-            getMessagesOlder(chatId, fromMessageId, limit)
+            getMessagesOlder(chatId, fromMessageId, limit).messages
         }
 
     override suspend fun getChatDraft(chatId: Long, threadId: Long?): String? =

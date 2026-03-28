@@ -179,7 +179,8 @@ private suspend fun DefaultChatComponent.loadBottomMessages(threadId: Long?) {
         updateMessages(cachedMessages, replace = true)
     }
 
-    val messages = repositoryMessage.getMessagesOlder(chatId, 0, PAGE_SIZE, threadId)
+    val olderPage = repositoryMessage.getMessagesOlder(chatId, 0, PAGE_SIZE, threadId)
+    val messages = olderPage.messages
     val isRemoteSameAsCachedPreview = hasCachedPreview && cachedMessages.isNotEmpty() &&
             messages.size == cachedMessages.size &&
             messages.zip(cachedMessages).all { (remote, cached) -> remote.id == cached.id }
@@ -187,7 +188,7 @@ private suspend fun DefaultChatComponent.loadBottomMessages(threadId: Long?) {
     val isOldestLoaded = if (isRemoteSameAsCachedPreview) {
         false
     } else {
-        messages.size < PAGE_SIZE
+        olderPage.reachedOldest
     }
 
     _state.update {
@@ -267,7 +268,8 @@ internal fun DefaultChatComponent.loadMoreMessages() {
                 attempts++
 
                 val beforeSize = _state.value.messages.size
-                val olderMessages = repositoryMessage.getMessagesOlder(chatId, currentAnchorId, PAGE_SIZE, threadId)
+                val olderPage = repositoryMessage.getMessagesOlder(chatId, currentAnchorId, PAGE_SIZE, threadId)
+                val olderMessages = olderPage.messages
 
                 val nextOlderAnchorId = olderMessages
                     .asSequence()
@@ -284,11 +286,15 @@ internal fun DefaultChatComponent.loadMoreMessages() {
                 val afterSize = _state.value.messages.size
                 val listGrew = afterSize > beforeSize
 
-                isOldestLoaded = olderMessages.isEmpty() || !hasOlderProgress
+                isOldestLoaded = olderPage.reachedOldest || (olderPage.isRemote && !hasOlderProgress)
 
                 if (hasOlderProgress) {
                     lastLoadedOlderId = nextOlderAnchorId
                     currentAnchorId = nextOlderAnchorId
+                }
+
+                if (!olderPage.isRemote && olderMessages.isEmpty()) {
+                    break
                 }
 
                 if (isOldestLoaded || listGrew) break

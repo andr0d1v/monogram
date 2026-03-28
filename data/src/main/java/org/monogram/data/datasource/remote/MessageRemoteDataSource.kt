@@ -6,6 +6,7 @@ import org.monogram.data.datasource.remote.TdMessageRemoteDataSource.DownloadTyp
 import org.monogram.domain.models.*
 import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.domain.models.webapp.WebAppInfoModel
+import org.monogram.domain.repository.OlderMessagesPage
 import org.monogram.domain.repository.ReadUpdate
 import org.monogram.domain.repository.SearchChatMessagesResult
 
@@ -155,7 +156,7 @@ interface MessageRemoteDataSource {
         fromMessageId: Long,
         limit: Int,
         threadId: Long? = null
-    ): List<MessageModel>
+    ): OlderMessagesPage
 
     suspend fun getMessagesNewer(
         chatId: Long,

@@ -17,6 +17,7 @@ import org.monogram.data.mapper.toApi
 import org.monogram.domain.models.*
 import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.domain.models.webapp.WebAppInfoModel
+import org.monogram.domain.repository.OlderMessagesPage
 import org.monogram.domain.repository.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -132,10 +133,25 @@ class TdMessageRemoteDataSource(
         }
     }
 
-    override suspend fun getMessagesOlder(chatId: Long, fromMessageId: Long, limit: Int, threadId: Long?): List<MessageModel> {
-        if (fromMessageId == 0L) return loadMessages(chatId, fromMessageId, 0, limit, threadId)
+    override suspend fun getMessagesOlder(chatId: Long, fromMessageId: Long, limit: Int, threadId: Long?): OlderMessagesPage {
+        if (fromMessageId == 0L) {
+            val messages = loadMessages(chatId, fromMessageId, 0, limit, threadId)
+            val page = OlderMessagesPage(
+                messages = messages,
+                reachedOldest = messages.isEmpty(),
+                isRemote = true
+            )
+            return page
+        }
+
         val messages = loadMessages(chatId, fromMessageId, 0, limit + 1, threadId)
-        return messages.filter { it.id != fromMessageId }.take(limit)
+        val filtered = messages.filter { it.id != fromMessageId }.take(limit)
+        val page = OlderMessagesPage(
+            messages = filtered,
+            reachedOldest = filtered.isEmpty(),
+            isRemote = true
+        )
+        return page
     }
 
     override suspend fun getMessagesNewer(chatId: Long, fromMessageId: Long, limit: Int, threadId: Long?): List<MessageModel> {
@@ -362,6 +378,9 @@ class TdMessageRemoteDataSource(
 
     private suspend fun loadMessages(chatId: Long, fromMessageId: Long, offset: Int, limit: Int, threadId: Long? = null): List<MessageModel> = withContext(dispatcherProvider.io) {
         val historyResult = getChatHistoryInternal(chatId, fromMessageId, offset, limit, threadId)
+            ?: throw IllegalStateException(
+                "Failed to load history for chatId=$chatId fromMessageId=$fromMessageId offset=$offset limit=$limit threadId=$threadId"
+            )
         val chat = getChat(chatId)
         val lastReadInbox = chat?.lastReadInboxMessageId ?: 0L
         val lastReadOutbox = chat?.lastReadOutboxMessageId ?: 0L

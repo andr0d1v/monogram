@@ -27,6 +27,12 @@ data class SearchChatMessagesResult(
     val nextFromMessageId: Long
 )
 
+data class OlderMessagesPage(
+    val messages: List<MessageModel>,
+    val reachedOldest: Boolean,
+    val isRemote: Boolean
+)
+
 interface MessageRepository {
     val newMessageFlow: Flow<MessageModel>
     val messageReadFlow: Flow<ReadUpdate>
@@ -57,7 +63,7 @@ interface MessageRepository {
         fromMessageId: Long,
         limit: Int,
         threadId: Long? = null
-    ): List<MessageModel>
+    ): OlderMessagesPage
 
     suspend fun getCachedMessages(chatId: Long, limit: Int): List<MessageModel>
 
