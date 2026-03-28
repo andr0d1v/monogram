@@ -107,7 +107,8 @@ interface ChatStore : Store<ChatStore.Intent, ChatComponent.State, ChatStore.Lab
             val images: List<String>,
             val captions: List<String?>,
             val startIndex: Int,
-            val messageId: Long? = null
+            val messageId: Long? = null,
+            val messageIds: List<Long> = emptyList()
         ) : Intent()
 
         object DismissImages : Intent()

@@ -61,7 +61,7 @@ fun ChatContentList(
     component: ChatComponent,
     scrollState: LazyListState,
     groupedMessages: List<GroupedMessageItem>,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit,
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -340,7 +340,7 @@ private fun MessageRowItem(
     isSelected: Boolean,
     isSelectionMode: Boolean,
     selectedMessageId: Long?,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit,
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -467,7 +467,7 @@ private fun MessageBubbleSwitcher(
     newerMsg: MessageModel?,
     isSelectionMode: Boolean,
     selectedMessageId: Long?,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit,
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -782,7 +782,7 @@ private fun SelectionIndicator(isSelected: Boolean, modifier: Modifier = Modifie
 private fun RootMessageSection(
     state: ChatComponent.State,
     component: ChatComponent,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit,
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -885,11 +885,11 @@ private fun isItemSelected(item: GroupedMessageItem, selectedIds: Set<Long>): Bo
 
 private fun handlePhotoClick(
     msg: MessageModel,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit
 ) {
     (msg.content as? MessageContent.Photo)?.let { content ->
         val path = content.path?.takeIf { it.isNotBlank() && File(it).exists() } ?: return
-        onPhotoClick(msg, listOf(path), listOf(content.caption), 0)
+        onPhotoClick(msg, listOf(path), listOf(content.caption), listOf(msg.id), 0)
     }
 }
 
@@ -904,7 +904,7 @@ private fun handleVideoClick(msg: MessageModel, onVideoClick: (MessageModel, Str
 private fun handleAlbumPhotoClick(
     clickedMsg: MessageModel,
     messages: List<MessageModel>,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit
 ) {
     val entries = buildAlbumMediaEntries(messages)
     if (entries.isEmpty()) return
@@ -914,6 +914,7 @@ private fun handleAlbumPhotoClick(
         clickedMsg,
         entries.map { it.path },
         entries.map { it.caption },
+        entries.map { it.message.id },
         index
     )
 }
@@ -921,7 +922,7 @@ private fun handleAlbumPhotoClick(
 private fun handleAlbumVideoClick(
     clickedMsg: MessageModel,
     messages: List<MessageModel>,
-    onPhotoClick: (MessageModel, List<String>, List<String?>, Int) -> Unit,
+    onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit
 ) {
     val videoContent = clickedMsg.content as? MessageContent.Video
@@ -952,6 +953,7 @@ private fun handleAlbumVideoClick(
         clickedMsg,
         entries.map { it.path },
         entries.map { it.caption },
+        entries.map { it.message.id },
         index
     )
 

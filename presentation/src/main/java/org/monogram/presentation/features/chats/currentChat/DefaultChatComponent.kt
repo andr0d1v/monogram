@@ -249,10 +249,14 @@ class DefaultChatComponent(
 
     private fun observeFileDownloads() {
         repositoryMessage.messageDownloadCompletedFlow
-            .onEach { (fileId, path) ->
+            .onEach { (messageId, path) ->
                 if (path.isNotEmpty()) {
-                    updateMessagesWithFile(fileId.toInt(), path)
-                    updateInlineResultsWithFile(fileId.toInt(), path)
+                    val belongsToMessage = _state.value.messages.any { it.id == messageId }
+                    if (belongsToMessage) {
+                        updateMessagePathByMessageId(messageId, path)
+                    } else if (messageId in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+                        updateInlineResultsWithFile(messageId.toInt(), path)
+                    }
                 }
             }
             .launchIn(scope)
@@ -268,25 +272,95 @@ class DefaultChatComponent(
         }
     }
 
-    private fun updateMessagesWithFile(fileId: Int, newPath: String) {
+    private fun updateMessagePathByMessageId(messageId: Long, newPath: String) {
         _state.update { currentState ->
             val updatedMessages = currentState.messages.map { msg ->
-                updateMessagePathIfNeeded(msg, fileId, newPath)
+                updateMessagePathIfNeeded(msg, messageId, newPath)
             }
-            currentState.copy(messages = updatedMessages)
+
+            val updatedViewerImages = currentState.fullScreenImages?.let { currentImages ->
+                val index = currentState.fullScreenImageMessageIds.indexOf(messageId)
+                if (index in currentImages.indices) {
+                    currentImages.toMutableList().apply { this[index] = newPath }
+                } else {
+                    currentImages
+                }
+            }
+
+            currentState.copy(
+                messages = updatedMessages,
+                fullScreenImages = updatedViewerImages
+            )
         }
     }
 
-    private fun updateMessagePathIfNeeded(msg: MessageModel, targetFileId: Int, newPath: String): MessageModel {
+    private fun updateMessagePathIfNeeded(msg: MessageModel, targetMessageId: Long, newPath: String): MessageModel {
+        if (msg.id != targetMessageId) return msg
+
         return when (val content = msg.content) {
-            is MessageContent.Photo -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Video -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Document -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Audio -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Sticker -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Voice -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.VideoNote -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
-            is MessageContent.Gif -> if (content.fileId == targetFileId) msg.copy(content = content.copy(path = newPath, isDownloading = false, downloadProgress = 1f)) else msg
+            is MessageContent.Photo -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Video -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Document -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Audio -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Sticker -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Voice -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.VideoNote -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
+
+            is MessageContent.Gif -> msg.copy(
+                content = content.copy(
+                    path = newPath,
+                    isDownloading = false,
+                    downloadProgress = 1f
+                )
+            )
             else -> msg
         }
     }
@@ -460,8 +534,14 @@ class DefaultChatComponent(
 
     override fun onDismissWebView() = store.accept(ChatStore.Intent.DismissWebView)
 
-    override fun onOpenImages(images: List<String>, captions: List<String?>, startIndex: Int, messageId: Long?) =
-        store.accept(ChatStore.Intent.OpenImages(images, captions, startIndex, messageId))
+    override fun onOpenImages(
+        images: List<String>,
+        captions: List<String?>,
+        startIndex: Int,
+        messageId: Long?,
+        messageIds: List<Long>
+    ) =
+        store.accept(ChatStore.Intent.OpenImages(images, captions, startIndex, messageId, messageIds))
 
     override fun onDismissImages() = store.accept(ChatStore.Intent.DismissImages)
 

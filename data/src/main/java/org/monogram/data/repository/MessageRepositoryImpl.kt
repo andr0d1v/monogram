@@ -21,11 +21,7 @@ import org.monogram.domain.models.webapp.InstantViewModel
 import org.monogram.domain.models.webapp.InvoiceModel
 import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.domain.models.webapp.WebAppInfoModel
-import org.monogram.domain.repository.InlineBotResultsModel
-import org.monogram.domain.repository.MessageRepository
-import org.monogram.domain.repository.OlderMessagesPage
-import org.monogram.domain.repository.ProfileMediaFilter
-import org.monogram.domain.repository.SearchChatMessagesResult
+import org.monogram.domain.repository.*
 import java.io.File
 
 class MessageRepositoryImpl(
@@ -1131,12 +1127,24 @@ class MessageRepositoryImpl(
     }
 
     override suspend fun getHighResFileId(chatId: Long, messageId: Long): Int? {
-        val result = gateway.execute(TdApi.GetMessage(chatId, messageId))
-        if (result is TdApi.Message && result.content is TdApi.MessagePhoto) {
-            val photo = (result.content as TdApi.MessagePhoto).photo
-            return photo.sizes.lastOrNull()?.photo?.id
-        } else {
-            return null
+        return try {
+            val result = gateway.execute(TdApi.GetMessage(chatId, messageId))
+            if (result is TdApi.Message && result.content is TdApi.MessagePhoto) {
+                val photo = (result.content as TdApi.MessagePhoto).photo
+                val bestSize = photo.sizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
+                    ?: photo.sizes.lastOrNull()
+                val fileId = bestSize?.photo?.id ?: return null
+                messageRemoteDataSource.registerFileForMessage(fileId, chatId, messageId)
+                fileId
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(
+                "MessageRepositoryImpl",
+                "Failed to resolve high-res file id for chatId=$chatId, messageId=$messageId: ${e.message}"
+            )
+            null
         }
     }
 

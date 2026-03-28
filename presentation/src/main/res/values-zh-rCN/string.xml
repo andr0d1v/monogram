@@ -1200,6 +1200,7 @@
     <string name="viewer_seek_forward_format">+%1$ds</string>
     <string name="viewer_thumbnail_cd">缩略图 %1$d</string>
     <string name="viewer_page_indicator">%1$d / %2$d</string>
+    <string name="viewer_loading_original">正在加载原图...</string>
 
     <!-- Selection: Viewer Actions -->
     <string name="action_download">下载</string>

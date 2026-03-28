@@ -151,6 +151,7 @@ class ChatStoreFactory(
                 is Intent.OpenImages -> component._state.update {
                     it.copy(
                         fullScreenImages = intent.images,
+                        fullScreenImageMessageIds = intent.messageIds,
                         fullScreenCaptions = intent.captions,
                         fullScreenStartIndex = intent.startIndex,
                         fullScreenVideoMessageId = intent.messageId,
@@ -162,6 +163,7 @@ class ChatStoreFactory(
                 is Intent.DismissImages -> component._state.update {
                     it.copy(
                         fullScreenImages = null,
+                        fullScreenImageMessageIds = emptyList(),
                         fullScreenVideoMessageId = null,
                         fullScreenVideoPath = null,
                         fullScreenVideoCaption = null
@@ -173,7 +175,8 @@ class ChatStoreFactory(
                         fullScreenVideoPath = intent.path,
                         fullScreenVideoMessageId = intent.messageId,
                         fullScreenVideoCaption = intent.caption,
-                        fullScreenImages = null
+                        fullScreenImages = null,
+                        fullScreenImageMessageIds = emptyList()
                     )
                 }
 

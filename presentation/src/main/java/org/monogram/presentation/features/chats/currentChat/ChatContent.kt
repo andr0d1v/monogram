@@ -716,7 +716,7 @@ fun ChatContent(
                                     component = component,
                                     scrollState = scrollState,
                                     groupedMessages = groupedMessages,
-                                    onPhotoClick = { msg, paths, captions, index ->
+                                    onPhotoClick = { msg, paths, captions, messageIds, index ->
                                         val content = msg.content as? MessageContent.Photo
                                         val validPath = content?.path?.takeIf { File(it).exists() }
                                         if (validPath != null) {
@@ -730,8 +730,15 @@ fun ChatContent(
                                             if (validPairs.isNotEmpty()) {
                                                 val validPaths = validPairs.map { it.first }
                                                 val validCaptions = validPairs.map { it.second }
+                                                val validMessageIds = messageIds
                                                 val startIndex = validPaths.indexOf(validPath).let { if (it >= 0) it else 0 }
-                                                component.onOpenImages(validPaths, validCaptions, startIndex, msg.id)
+                                                component.onOpenImages(
+                                                    images = validPaths,
+                                                    captions = validCaptions,
+                                                    startIndex = startIndex,
+                                                    messageId = msg.id,
+                                                    messageIds = validMessageIds
+                                                )
                                             }
                                         } else content?.let { component.onDownloadFile(it.fileId) }
                                     },
@@ -766,10 +773,11 @@ fun ChatContent(
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                                 component.onOpenImages(
-                                                    listOf(validDocPath),
-                                                    listOf(doc.caption),
-                                                    0,
-                                                    msg.id
+                                                    images = listOf(validDocPath),
+                                                    captions = listOf(doc.caption),
+                                                    startIndex = 0,
+                                                    messageId = msg.id,
+                                                    messageIds = listOf(msg.id)
                                                 )
                                             } else if (path.endsWith(".mp4")) {
                                                 keyboardController?.hide()

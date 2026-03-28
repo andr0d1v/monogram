@@ -125,7 +125,13 @@ interface ChatComponent {
     fun onOpenWebView(url: String)
     fun onDismissWebView()
 
-    fun onOpenImages(images: List<String>, captions: List<String?>, startIndex: Int, messageId: Long? = null)
+    fun onOpenImages(
+        images: List<String>,
+        captions: List<String?>,
+        startIndex: Int,
+        messageId: Long? = null,
+        messageIds: List<Long> = emptyList()
+    )
     fun onDismissImages()
 
     fun onOpenVideo(path: String? = null, messageId: Long? = null, caption: String? = null)
@@ -260,6 +266,7 @@ interface ChatComponent {
         val miniAppTOSName: String? = null,
         val webViewUrl: String? = null,
         val fullScreenImages: List<String>? = null,
+        val fullScreenImageMessageIds: List<Long> = emptyList(),
         val fullScreenCaptions: List<String?> = emptyList(),
         val fullScreenStartIndex: Int = 0,
         val fullScreenVideoMessageId: Long? = null,

@@ -107,35 +107,52 @@ fun ChatContentViewers(
                     else -> state.autoDownloadMobile
                 }
             }
+
+            val imageMessageIds = remember(images, state.fullScreenImageMessageIds, state.messages) {
+                if (state.fullScreenImageMessageIds.size == images.size) {
+                    state.fullScreenImageMessageIds
+                } else {
+                    images.map { path ->
+                        state.messages.firstOrNull {
+                            when (val content = it.content) {
+                                is MessageContent.Photo -> content.path == path
+                                is MessageContent.Video -> content.path == path
+                                is MessageContent.Gif -> content.path == path
+                                else -> false
+                            }
+                        }?.id ?: 0L
+                    }
+                }
+            }
+
+            val imageDownloadingStates = remember(imageMessageIds, state.messages) {
+                imageMessageIds.map { id ->
+                    val content = state.messages.firstOrNull { it.id == id }?.content
+                    when (content) {
+                        is MessageContent.Photo -> content.isDownloading
+                        else -> false
+                    }
+                }
+            }
+
+            val imageDownloadProgressStates = remember(imageMessageIds, state.messages) {
+                imageMessageIds.map { id ->
+                    val content = state.messages.firstOrNull { it.id == id }?.content
+                    when (content) {
+                        is MessageContent.Photo -> content.downloadProgress
+                        else -> 0f
+                    }
+                }
+            }
+
             ImageViewer(
                 images = images,
                 startIndex = state.fullScreenStartIndex,
                 onDismiss = component::onDismissImages,
                 autoDownload = autoDownload,
                 onPageChanged = { index ->
-                    val currentPath = images.getOrNull(index)
-
-                    if (currentPath != null) {
-                        val msg = state.messages.find {
-                            when (val content = it.content) {
-                                is MessageContent.Photo -> content.path == currentPath
-                                else -> false
-                            }
-                        }
-                        if (msg != null) {
-                            component.onDownloadHighRes(msg.id)
-                        }
-
-                        val nextPath = images.getOrNull(index + 1)
-                        if (nextPath != null) {
-                            val nextMsg = state.messages.find {
-                                (it.content as? MessageContent.Photo)?.path == nextPath
-                            }
-                            if (nextMsg != null) {
-                                component.onDownloadHighRes(nextMsg.id)
-                            }
-                        }
-                    }
+                    imageMessageIds.getOrNull(index)?.takeIf { it != 0L }?.let(component::onDownloadHighRes)
+                    imageMessageIds.getOrNull(index + 1)?.takeIf { it != 0L }?.let(component::onDownloadHighRes)
                 },
                 onForward = { path ->
                     val msg = state.messages.find {
@@ -222,6 +239,8 @@ fun ChatContentViewers(
                     }
                 },
                 captions = state.fullScreenCaptions.filterNotNull(),
+                imageDownloadingStates = imageDownloadingStates,
+                imageDownloadProgressStates = imageDownloadProgressStates,
                 downloadUtils = component.downloadUtils
             )
         }
