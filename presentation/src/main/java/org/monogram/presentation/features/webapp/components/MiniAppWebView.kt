@@ -3,6 +3,7 @@ package org.monogram.presentation.features.webapp.components
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.http.SslError
 import android.os.Build
 import android.view.ViewGroup
@@ -10,6 +11,7 @@ import android.webkit.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.core.graphics.toColorInt
 import androidx.compose.ui.viewinterop.AndroidView
 import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.presentation.features.webapp.TelegramWebAppHost
@@ -46,6 +48,8 @@ fun MiniAppWebView(
                     userAgentString =
                         "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; ${Build.MODEL}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36 Telegram-Android/12.3.1 (Android; ${Build.MODEL}; SDK ${Build.VERSION.SDK_INT}; AVERAGE)"
                 }
+
+                setBackgroundColor(themeParams.backgroundColor?.toColorInt() ?: Color.TRANSPARENT)
 
                 val bridge = TelegramWebviewProxy(
                     context = ctx,
@@ -109,6 +113,7 @@ fun MiniAppWebView(
         },
         modifier = modifier.then(Modifier.fillMaxSize()),
         update = { view ->
+            view.setBackgroundColor(themeParams.backgroundColor?.toColorInt() ?: Color.TRANSPARENT)
             if (url.isNotEmpty() && view.url != url) {
                 view.loadUrl(url, mapOf("Accept-Language" to acceptLanguage))
             }
