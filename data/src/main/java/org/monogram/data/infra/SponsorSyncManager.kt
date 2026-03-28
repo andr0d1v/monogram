@@ -16,8 +16,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "SponsorSync"
 private const val SPONSOR_CHANNEL_ID = -1003640797855L
+private const val SPONSOR_CHANNEL_USERNAME = "ahhfjfbdnejjfbfjdjdj"
 private const val HISTORY_LIMIT = 100
 private const val HISTORY_BATCHES_LIMIT = 20
+private const val SINGLE_RESULT_RETRY_DELAY_MS = 1500L
 private const val AUTH_CHECK_INTERVAL_MS = 5L * 60L * 1000L
 private const val POST_LOGIN_SYNC_DELAY_MS = 60L * 1000L
 private const val ONE_DAY_MS = 24L * 60L * 60L * 1000L
@@ -103,12 +105,29 @@ class SponsorSyncManager(
             }
 
             Log.d(TAG, "Sponsor sync started (force=$force)")
-            val historyMessages = loadSponsorHistoryMessages() ?: run {
+            val sponsorChatId = resolveSponsorChatId()
+            var historyMessages = loadSponsorHistoryMessages(sponsorChatId) ?: run {
                 Log.e(TAG, "Sponsor sync failed: unable to load sponsor history")
                 return
             }
 
-            val parsedIds = parseSponsorIds(historyMessages)
+            var parsedIds = parseSponsorIds(historyMessages)
+            if (parsedIds.size == 1) {
+                Log.w(TAG, "Only one sponsor id parsed, retrying history load")
+                delay(SINGLE_RESULT_RETRY_DELAY_MS)
+                val retryMessages = loadSponsorHistoryMessages(sponsorChatId)
+                if (retryMessages != null) {
+                    val retryParsedIds = parseSponsorIds(retryMessages)
+                    if (retryParsedIds.size > parsedIds.size) {
+                        historyMessages = retryMessages
+                        parsedIds = retryParsedIds
+                        Log.d(TAG, "Retry loaded more sponsor ids: ${parsedIds.size}")
+                    } else {
+                        Log.w(TAG, "Retry didn't improve sponsor ids: ${retryParsedIds.size}")
+                    }
+                }
+            }
+
             val oldIds = sponsorDao.getAllIds().toSet()
 
             val now = System.currentTimeMillis()
@@ -125,7 +144,7 @@ class SponsorSyncManager(
                     sponsorDao.insertAll(parsedIds.map { userId ->
                         SponsorEntity(
                             userId = userId,
-                            sourceChannelId = SPONSOR_CHANNEL_ID,
+                            sourceChannelId = sponsorChatId,
                             updatedAt = now
                         )
                     })
@@ -149,14 +168,27 @@ class SponsorSyncManager(
         }
     }
 
-    private suspend fun loadSponsorHistoryMessages(): List<TdApi.Message>? {
+    private suspend fun resolveSponsorChatId(): Long {
+        val chat = runCatching {
+            gateway.execute(TdApi.SearchPublicChat(SPONSOR_CHANNEL_USERNAME)) as? TdApi.Chat
+        }.getOrNull()
+
+        return if (chat?.id != null) {
+            chat.id
+        } else {
+            Log.w(TAG, "Unable to resolve @$SPONSOR_CHANNEL_USERNAME, using fallback chatId=$SPONSOR_CHANNEL_ID")
+            SPONSOR_CHANNEL_ID
+        }
+    }
+
+    private suspend fun loadSponsorHistoryMessages(chatId: Long): List<TdApi.Message>? {
         val result = mutableListOf<TdApi.Message>()
         val seenIds = HashSet<Long>()
         var fromMessageId = 0L
 
         repeat(HISTORY_BATCHES_LIMIT) {
             val batch = gateway.execute(
-                TdApi.GetChatHistory(SPONSOR_CHANNEL_ID, fromMessageId, 0, HISTORY_LIMIT, false)
+                TdApi.GetChatHistory(chatId, fromMessageId, 0, HISTORY_LIMIT, false)
             ) as? TdApi.Messages ?: return null
 
             if (batch.messages.isEmpty()) {
