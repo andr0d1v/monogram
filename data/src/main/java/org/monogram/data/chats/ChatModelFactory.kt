@@ -13,6 +13,7 @@ import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.UsernamesModel
 import org.monogram.domain.repository.AppPreferencesProvider
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 class ChatModelFactory(
     private val gateway: TelegramGateway,
@@ -27,6 +28,7 @@ class ChatModelFactory(
     private val fetchUser: (Long) -> Unit
 ) {
     private val scope = scopeProvider.appScope
+    private val missingUserFullInfoUntilMs = ConcurrentHashMap<Long, Long>()
 
     fun mapChatToModel(chat: TdApi.Chat, order: Long, isPinned: Boolean): ChatModel {
         val cachedCounts = parseCachedCounts(chat.clientData)
@@ -137,11 +139,20 @@ class ChatModelFactory(
                 cache.userFullInfoCache[type.userId]?.let { fullInfo ->
                     description = fullInfo.bio?.text
                     personalAvatarPath = resolvePhotoPath(fullInfo.photo, chat.id)
-                } ?: lazyLoad(cache.pendingUserFullInfo, type.userId) {
-                    if (type.userId == 0L) return@lazyLoad
-                    val result = gateway.execute(TdApi.GetUserFullInfo(type.userId))
-                    cache.userFullInfoCache[type.userId] = result
-                    triggerUpdate(chat.id)
+                } ?: run {
+                    if (!isUserFullInfoTemporarilyMissing(type.userId)) {
+                        lazyLoad(cache.pendingUserFullInfo, type.userId) {
+                            if (type.userId == 0L) return@lazyLoad
+                            val result = runCatching { gateway.execute(TdApi.GetUserFullInfo(type.userId)) }.getOrNull()
+                            if (result != null) {
+                                cache.userFullInfoCache[type.userId] = result
+                                missingUserFullInfoUntilMs.remove(type.userId)
+                                triggerUpdate(chat.id)
+                            } else {
+                                rememberMissingUserFullInfo(type.userId)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -241,6 +252,19 @@ class ChatModelFactory(
         }
     }
 
+    private fun isUserFullInfoTemporarilyMissing(userId: Long): Boolean {
+        if (userId <= 0L) return true
+        val until = missingUserFullInfoUntilMs[userId] ?: return false
+        if (until > System.currentTimeMillis()) return true
+        missingUserFullInfoUntilMs.remove(userId, until)
+        return false
+    }
+
+    private fun rememberMissingUserFullInfo(userId: Long) {
+        if (userId <= 0L) return
+        missingUserFullInfoUntilMs[userId] = System.currentTimeMillis() + USER_FULL_INFO_RETRY_TTL_MS
+    }
+
     private fun resolvePhotoPath(photoFile: TdApi.File?, chatId: Long): String? {
         if (photoFile == null) return null
         if (photoFile.id != 0) {
@@ -285,5 +309,9 @@ class ChatModelFactory(
 
     private fun isValidPath(path: String?): Boolean {
         return !path.isNullOrBlank() && File(path).exists()
+    }
+
+    companion object {
+        private const val USER_FULL_INFO_RETRY_TTL_MS = 5 * 60 * 1000L
     }
 }

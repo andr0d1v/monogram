@@ -79,12 +79,21 @@ class OfflineWarmup(
 
         for (userId in limited) {
             val cachedUser = existingUsers[userId]
+            var hasUser = cachedUser != null
             if (cachedUser == null || now - cachedUser.createdAt > ONE_DAY_MS) {
                 val user = runCatching { gateway.execute(TdApi.GetUser(userId)) as? TdApi.User }.getOrNull()
                 if (user != null) {
                     userDao.insertUser(user.toUserEntity())
                     chatCache.putUser(user)
+                    hasUser = true
+                } else if (cachedUser == null) {
+                    hasUser = false
                 }
+            }
+
+            if (!hasUser) {
+                delay(25)
+                continue
             }
 
             val cachedFullInfo = existingFullInfos[userId]
