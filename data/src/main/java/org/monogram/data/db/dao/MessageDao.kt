@@ -33,8 +33,8 @@ interface MessageDao {
         editDate: Int
     )
 
-    @Query("UPDATE messages SET viewCount = :viewCount, forwardCount = :forwardCount WHERE id = :messageId")
-    suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int)
+    @Query("UPDATE messages SET viewCount = :viewCount, forwardCount = :forwardCount, replyCount = :replyCount WHERE id = :messageId")
+    suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int, replyCount: Int)
 
     @Query(
         """

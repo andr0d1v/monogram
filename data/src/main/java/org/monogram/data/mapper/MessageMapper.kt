@@ -1330,6 +1330,19 @@ class MessageMapper(
         val meta: String?
     )
 
+    private data class CachedReplyPreview(
+        val senderName: String,
+        val contentType: String,
+        val text: String
+    )
+
+    private data class CachedForwardOrigin(
+        val fromName: String,
+        val fromId: Long,
+        val originChatId: Long? = null,
+        val originMessageId: Long? = null
+    )
+
     fun mapToEntity(
         msg: TdApi.Message,
         getSenderName: ((Long) -> String?)? = null
@@ -1344,7 +1357,7 @@ class MessageMapper(
         val entitiesEncoded = encodeEntities(msg.content)
         val replyToMessageId = (msg.replyTo as? TdApi.MessageReplyToMessage)?.messageId ?: 0L
         val replyToPreview = buildReplyPreview(msg)
-        val forwardFromName = msg.forwardInfo?.origin?.let { extractForwardOriginName(it) }
+        val forwardOrigin = msg.forwardInfo?.origin?.let(::extractForwardOrigin)
 
         return org.monogram.data.db.model.MessageEntity(
             id = msg.id,
@@ -1358,8 +1371,16 @@ class MessageMapper(
             isOutgoing = msg.isOutgoing,
             isRead = false,
             replyToMessageId = replyToMessageId,
-            replyToPreview = replyToPreview,
-            forwardFromName = forwardFromName,
+            replyToPreview = replyToPreview?.let(::encodeReplyPreview),
+            replyToPreviewType = replyToPreview?.contentType,
+            replyToPreviewText = replyToPreview?.text,
+            replyToPreviewSenderName = replyToPreview?.senderName,
+            replyCount = msg.interactionInfo?.replyInfo?.replyCount ?: 0,
+            forwardFromName = forwardOrigin?.fromName,
+            forwardFromId = forwardOrigin?.fromId ?: 0L,
+            forwardOriginChatId = forwardOrigin?.originChatId,
+            forwardOriginMessageId = forwardOrigin?.originMessageId,
+            forwardDate = msg.forwardInfo?.date ?: 0,
             editDate = msg.editDate,
             mediaAlbumId = msg.mediaAlbumId,
             entities = entitiesEncoded,
@@ -1475,6 +1496,23 @@ class MessageMapper(
 
     fun mapEntityToModel(entity: org.monogram.data.db.model.MessageEntity): MessageModel {
         val meta = entity.contentMeta?.split('|') ?: emptyList()
+        val replyToMsgId = entity.replyToMessageId.takeIf { it != 0L }
+        val replyPreview = resolveReplyPreview(entity)
+        val replyPreviewModel =
+            if (replyToMsgId != null && replyPreview != null) createReplyPreviewModel(entity, replyToMsgId, replyPreview) else null
+
+        val forwardInfo = entity.forwardFromName
+            ?.takeIf { it.isNotBlank() }
+            ?.let { fromName ->
+                ForwardInfo(
+                    date = entity.forwardDate.takeIf { it > 0 } ?: entity.date,
+                    fromId = entity.forwardFromId,
+                    fromName = fromName,
+                    originChatId = entity.forwardOriginChatId,
+                    originMessageId = entity.forwardOriginMessageId
+                )
+            }
+
         val content: MessageContent = when (entity.contentType) {
             "text" -> MessageContent.Text(entity.content)
             "photo" -> MessageContent.Photo(
@@ -1587,22 +1625,18 @@ class MessageMapper(
             content = content,
             senderId = entity.senderId,
             isRead = entity.isRead,
-            replyToMsgId = entity.replyToMessageId.takeIf { it != 0L },
-            forwardInfo = entity.forwardFromName?.let {
-                ForwardInfo(
-                    date = entity.date,
-                    fromId = 0L,
-                    fromName = it
-                )
-            },
+            replyToMsgId = replyToMsgId,
+            replyToMsg = replyPreviewModel,
+            forwardInfo = forwardInfo,
             mediaAlbumId = entity.mediaAlbumId,
             editDate = entity.editDate,
             views = entity.viewCount,
-            viewCount = entity.viewCount
+            viewCount = entity.viewCount,
+            replyCount = entity.replyCount
         )
     }
 
-    private fun buildReplyPreview(msg: TdApi.Message): String? {
+    private fun buildReplyPreview(msg: TdApi.Message): CachedReplyPreview? {
         val reply = msg.replyTo as? TdApi.MessageReplyToMessage ?: return null
         val replied = cache.getMessage(msg.chatId, reply.messageId) ?: return null
         val replySenderName = when (val sender = replied.senderId) {
@@ -1616,22 +1650,136 @@ class MessageMapper(
             else -> ""
         }
         val extracted = extractCachedContent(replied.content)
-        return "$replySenderName|${extracted.type}|${extracted.text.take(100)}"
+        return CachedReplyPreview(
+            senderName = replySenderName,
+            contentType = extracted.type,
+            text = extracted.text.take(100)
+        )
     }
 
-    private fun extractForwardOriginName(origin: TdApi.MessageOrigin): String {
+    private fun encodeReplyPreview(preview: CachedReplyPreview): String {
+        return "${preview.senderName}|${preview.contentType}|${preview.text}"
+    }
+
+    private fun parseReplyPreview(raw: String?): CachedReplyPreview? {
+        if (raw.isNullOrBlank()) return null
+        val firstSeparator = raw.indexOf('|')
+        val secondSeparator = raw.indexOf('|', firstSeparator + 1)
+        if (firstSeparator < 0 || secondSeparator <= firstSeparator) return null
+
+        val senderName = raw.substring(0, firstSeparator)
+        val contentType = raw.substring(firstSeparator + 1, secondSeparator)
+        val text = raw.substring(secondSeparator + 1)
+        if (contentType.isBlank()) return null
+
+        return CachedReplyPreview(senderName = senderName, contentType = contentType, text = text)
+    }
+
+    private fun resolveReplyPreview(entity: org.monogram.data.db.model.MessageEntity): CachedReplyPreview? {
+        val encodedPreview = parseReplyPreview(entity.replyToPreview)
+        val senderName = entity.replyToPreviewSenderName ?: encodedPreview?.senderName
+        val contentType = entity.replyToPreviewType ?: encodedPreview?.contentType
+        val text = entity.replyToPreviewText ?: encodedPreview?.text ?: ""
+
+        if (senderName.isNullOrBlank() && contentType.isNullOrBlank() && text.isBlank()) {
+            return null
+        }
+
+        return CachedReplyPreview(
+            senderName = senderName.orEmpty(),
+            contentType = contentType?.ifBlank { "text" } ?: "text",
+            text = text
+        )
+    }
+
+    private fun createReplyPreviewModel(
+        entity: org.monogram.data.db.model.MessageEntity,
+        replyToMsgId: Long,
+        preview: CachedReplyPreview
+    ): MessageModel {
+        return MessageModel(
+            id = replyToMsgId,
+            date = entity.date,
+            isOutgoing = false,
+            senderName = preview.senderName.ifBlank { "Unknown" },
+            chatId = entity.chatId,
+            content = mapReplyPreviewContent(preview),
+            senderId = 0L,
+            isRead = true
+        )
+    }
+
+    private fun mapReplyPreviewContent(preview: CachedReplyPreview): MessageContent {
+        return when (preview.contentType) {
+            "photo" -> MessageContent.Photo(path = null, width = 0, height = 0, caption = preview.text)
+            "video" -> MessageContent.Video(path = null, width = 0, height = 0, duration = 0, caption = preview.text)
+            "voice" -> MessageContent.Voice(path = null, duration = 0)
+            "video_note" -> MessageContent.VideoNote(path = null, thumbnail = null, duration = 0, length = 0)
+            "sticker" -> MessageContent.Sticker(id = 0L, setId = 0L, path = null, width = 0, height = 0, emoji = preview.text)
+            "document" -> MessageContent.Document(path = null, fileName = "", mimeType = "", size = 0L, caption = preview.text)
+            "audio" -> MessageContent.Audio(
+                path = null,
+                duration = 0,
+                title = "",
+                performer = "",
+                fileName = "",
+                mimeType = "",
+                size = 0L,
+                caption = preview.text
+            )
+            "gif" -> MessageContent.Gif(path = null, width = 0, height = 0, caption = preview.text)
+            "poll" -> MessageContent.Poll(
+                id = 0L,
+                question = preview.text,
+                options = emptyList(),
+                totalVoterCount = 0,
+                isClosed = false,
+                isAnonymous = true,
+                type = PollType.Regular(false),
+                openPeriod = 0,
+                closeDate = 0
+            )
+            "contact" -> MessageContent.Contact(
+                phoneNumber = "",
+                firstName = preview.text,
+                lastName = "",
+                vcard = "",
+                userId = 0L
+            )
+            "location" -> MessageContent.Location(latitude = 0.0, longitude = 0.0)
+            "service" -> MessageContent.Service(preview.text)
+            else -> MessageContent.Text(preview.text)
+        }
+    }
+
+    private fun extractForwardOrigin(origin: TdApi.MessageOrigin): CachedForwardOrigin {
         return when (origin) {
             is TdApi.MessageOriginUser -> {
                 val user = cache.getUser(origin.senderUserId)
-                listOfNotNull(user?.firstName?.takeIf { it.isNotBlank() }, user?.lastName?.takeIf { it.isNotBlank() })
+                val name = listOfNotNull(user?.firstName?.takeIf { it.isNotBlank() }, user?.lastName?.takeIf { it.isNotBlank() })
                     .joinToString(" ")
                     .ifBlank { "User" }
+                CachedForwardOrigin(fromName = name, fromId = origin.senderUserId)
             }
 
-            is TdApi.MessageOriginChat -> cache.getChat(origin.senderChatId)?.title ?: "Chat"
-            is TdApi.MessageOriginChannel -> cache.getChat(origin.chatId)?.title ?: "Channel"
-            is TdApi.MessageOriginHiddenUser -> origin.senderName
-            else -> "Unknown"
+            is TdApi.MessageOriginChat -> CachedForwardOrigin(
+                fromName = cache.getChat(origin.senderChatId)?.title ?: "Chat",
+                fromId = origin.senderChatId
+            )
+
+            is TdApi.MessageOriginChannel -> CachedForwardOrigin(
+                fromName = cache.getChat(origin.chatId)?.title ?: "Channel",
+                fromId = origin.chatId,
+                originChatId = origin.chatId,
+                originMessageId = origin.messageId
+            )
+
+            is TdApi.MessageOriginHiddenUser -> CachedForwardOrigin(
+                fromName = origin.senderName.ifBlank { "Hidden user" },
+                fromId = 0L
+            )
+
+            else -> CachedForwardOrigin(fromName = "Unknown", fromId = 0L)
         }
     }
 

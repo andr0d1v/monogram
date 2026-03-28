@@ -593,8 +593,11 @@ class ChatsListRepositoryImpl(
 
     override fun refresh() {
         retryConnection()
+        updateActiveListPositionsFromCache()
+        triggerUpdate()
         scope.launch(dispatchers.io) {
-            chatRemoteSource.loadChats(activeChatList, 50)
+            val limit = currentLimit.coerceAtLeast(50)
+            chatRemoteSource.loadChats(activeChatList, limit)
             triggerUpdate()
         }
     }

@@ -26,7 +26,7 @@ import org.monogram.data.db.model.*
         StickerPathEntity::class,
         SponsorEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 abstract class MonogramDatabase : RoomDatabase() {
@@ -67,6 +67,19 @@ abstract class MonogramDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `replyToPreviewType` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `replyToPreviewText` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `replyToPreviewSenderName` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `replyCount` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `forwardFromId` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `forwardOriginChatId` INTEGER")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `forwardOriginMessageId` INTEGER")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `forwardDate` INTEGER NOT NULL DEFAULT 0")
             }
         }
 

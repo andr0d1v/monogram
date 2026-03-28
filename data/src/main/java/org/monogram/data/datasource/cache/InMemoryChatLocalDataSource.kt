@@ -109,11 +109,11 @@ class InMemoryChatLocalDataSource : ChatLocalDataSource {
         }
     }
 
-    override suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int) {
+    override suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int, replyCount: Int) {
         messages.values.forEach { flow ->
             val current = flow.value[messageId] ?: return@forEach
             flow.update {
-                it + (messageId to current.copy(viewCount = viewCount, forwardCount = forwardCount))
+                it + (messageId to current.copy(viewCount = viewCount, forwardCount = forwardCount, replyCount = replyCount))
             }
         }
     }

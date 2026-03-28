@@ -62,8 +62,8 @@ class RoomChatLocalDataSource(
         editDate: Int
     ) = messageDao.updateContent(messageId, content, contentType, contentMeta, editDate)
 
-    override suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int) =
-        messageDao.updateInteractionInfo(messageId, viewCount, forwardCount)
+    override suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int, replyCount: Int) =
+        messageDao.updateInteractionInfo(messageId, viewCount, forwardCount, replyCount)
 
     override suspend fun deleteMessage(messageId: Long) = messageDao.deleteMessage(messageId)
 

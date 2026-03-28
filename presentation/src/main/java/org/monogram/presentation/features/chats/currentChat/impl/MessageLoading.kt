@@ -180,11 +180,20 @@ private suspend fun DefaultChatComponent.loadBottomMessages(threadId: Long?) {
     }
 
     val messages = repositoryMessage.getMessagesOlder(chatId, 0, PAGE_SIZE, threadId)
-    val isOldestLoaded = messages.size < PAGE_SIZE
+    val isRemoteSameAsCachedPreview = hasCachedPreview && cachedMessages.isNotEmpty() &&
+            messages.size == cachedMessages.size &&
+            messages.zip(cachedMessages).all { (remote, cached) -> remote.id == cached.id }
+
+    val isOldestLoaded = if (isRemoteSameAsCachedPreview) {
+        false
+    } else {
+        messages.size < PAGE_SIZE
+    }
+
     _state.update {
         it.copy(
             isAtBottom = true,
-            isLatestLoaded = true,
+            isLatestLoaded = !isRemoteSameAsCachedPreview,
             isOldestLoaded = isOldestLoaded,
             scrollToMessageId = null
         )

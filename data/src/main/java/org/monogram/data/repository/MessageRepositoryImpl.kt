@@ -88,7 +88,8 @@ class MessageRepositoryImpl(
                             chatLocalDataSource.updateInteractionInfo(
                                 messageId = update.messageId,
                                 viewCount = update.interactionInfo?.viewCount ?: 0,
-                                forwardCount = update.interactionInfo?.forwardCount ?: 0
+                                forwardCount = update.interactionInfo?.forwardCount ?: 0,
+                                replyCount = update.interactionInfo?.replyInfo?.replyCount ?: 0
                             )
                         }
 

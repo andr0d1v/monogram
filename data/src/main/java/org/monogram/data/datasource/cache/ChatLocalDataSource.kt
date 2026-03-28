@@ -30,7 +30,7 @@ interface ChatLocalDataSource {
         editDate: Int
     )
 
-    suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int)
+    suspend fun updateInteractionInfo(messageId: Long, viewCount: Int, forwardCount: Int, replyCount: Int)
     suspend fun deleteMessage(messageId: Long)
     suspend fun clearMessagesForChat(chatId: Long)
 

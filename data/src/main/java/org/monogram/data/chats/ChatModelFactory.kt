@@ -12,6 +12,7 @@ import org.monogram.data.mapper.isSponsoredUser
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.UsernamesModel
 import org.monogram.domain.repository.AppPreferencesProvider
+import java.io.File
 
 class ChatModelFactory(
     private val gateway: TelegramGateway,
@@ -242,12 +243,24 @@ class ChatModelFactory(
 
     private fun resolvePhotoPath(photoFile: TdApi.File?, chatId: Long): String? {
         if (photoFile == null) return null
-        fileManager.registerChatPhoto(photoFile.id, chatId)
-        val path = photoFile.local.path.ifEmpty { fileManager.getFilePath(photoFile.id) ?: "" }
-        return path.ifEmpty {
-            fileManager.downloadFile(photoFile.id, 24, offset = 0, limit = 0, synchronous = false)
-            null
+        if (photoFile.id != 0) {
+            fileManager.registerChatPhoto(photoFile.id, chatId)
         }
+
+        val localPath = photoFile.local.path
+        if (isValidPath(localPath)) {
+            return localPath
+        }
+
+        val cachedPath = photoFile.id.takeIf { it != 0 }?.let { fileManager.getFilePath(it) }
+        if (isValidPath(cachedPath)) {
+            return cachedPath
+        }
+
+        if (photoFile.id != 0) {
+            fileManager.downloadFile(photoFile.id, 24, offset = 0, limit = 0, synchronous = false)
+        }
+        return null
     }
 
     private fun resolvePhotoPath(chatPhoto: TdApi.ChatPhoto?, chatId: Long): String? {
@@ -268,5 +281,9 @@ class ChatModelFactory(
         val onlineCount = Regex("""oc:(\d+)""").find(clientData)?.groupValues?.getOrNull(1)?.toIntOrNull()
         if (memberCount == null && onlineCount == null) return null
         return (memberCount ?: 0) to (onlineCount ?: 0)
+    }
+
+    private fun isValidPath(path: String?): Boolean {
+        return !path.isNullOrBlank() && File(path).exists()
     }
 }

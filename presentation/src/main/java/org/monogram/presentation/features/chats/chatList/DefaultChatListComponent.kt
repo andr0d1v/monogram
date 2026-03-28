@@ -183,10 +183,10 @@ class DefaultChatListComponent(
     override fun onFolderClicked(id: Int) {
         if (_state.value.selectedFolderId == id) return
 
+        repositoryFolderId = id
         _state.update { it.copy(selectedFolderId = id) }
 
         scope.launch(Dispatchers.IO) {
-            repositoryFolderId = id
             repository.selectFolder(id)
         }
     }
@@ -484,7 +484,13 @@ class DefaultChatListComponent(
     }
 
     override fun onResume() {
-        repository.refresh()
+        val selectedFolderId = _state.value.selectedFolderId
+        repositoryFolderId = selectedFolderId
+
+        scope.launch(Dispatchers.IO) {
+            repository.selectFolder(selectedFolderId)
+            repository.refresh()
+        }
     }
 
     private fun toggleSelection(id: Long) {

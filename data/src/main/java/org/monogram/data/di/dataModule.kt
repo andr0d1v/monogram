@@ -115,7 +115,8 @@ val dataModule = module {
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .addMigrations(
                 MonogramDatabase.MIGRATION_20_21,
-                MonogramDatabase.MIGRATION_21_22
+                MonogramDatabase.MIGRATION_21_22,
+                MonogramDatabase.MIGRATION_22_23
             )
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
