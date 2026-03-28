@@ -16,8 +16,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "SponsorSync"
 private const val SPONSOR_CHANNEL_ID = -1003640797855L
-private const val HISTORY_LIMIT = 50
+private const val HISTORY_LIMIT = 100
+private const val HISTORY_BATCHES_LIMIT = 20
 private const val AUTH_CHECK_INTERVAL_MS = 5L * 60L * 1000L
+private const val POST_LOGIN_SYNC_DELAY_MS = 60L * 1000L
 private const val ONE_DAY_MS = 24L * 60L * 60L * 1000L
 
 class SponsorSyncManager(
@@ -38,11 +40,25 @@ class SponsorSyncManager(
 
         scopeProvider.appScope.launch(Dispatchers.IO) {
             loadFromDatabase()
-            syncOnce(force = true)
+
+            var wasAuthorized = authRepository.authState.value is AuthStep.Ready
+            if (wasAuthorized) {
+                syncOnce(force = true)
+            }
 
             while (true) {
-                if (authRepository.authState.value !is AuthStep.Ready) {
+                val isAuthorized = authRepository.authState.value is AuthStep.Ready
+                if (!isAuthorized) {
+                    wasAuthorized = false
                     delay(AUTH_CHECK_INTERVAL_MS)
+                    continue
+                }
+
+                if (!wasAuthorized) {
+                    wasAuthorized = true
+                    Log.d(TAG, "User authorized, delaying sponsor sync for app init")
+                    delay(POST_LOGIN_SYNC_DELAY_MS)
+                    syncOnce(force = true)
                     continue
                 }
 
@@ -87,14 +103,12 @@ class SponsorSyncManager(
             }
 
             Log.d(TAG, "Sponsor sync started (force=$force)")
-            val messages = gateway.execute(
-                TdApi.GetChatHistory(SPONSOR_CHANNEL_ID, 0, 0, HISTORY_LIMIT, false)
-            ) as? TdApi.Messages ?: run {
-                Log.e(TAG, "Sponsor sync failed: GetChatHistory returned null")
+            val historyMessages = loadSponsorHistoryMessages() ?: run {
+                Log.e(TAG, "Sponsor sync failed: unable to load sponsor history")
                 return
             }
 
-            val parsedIds = parseSponsorIds(messages.messages)
+            val parsedIds = parseSponsorIds(historyMessages)
             val oldIds = sponsorDao.getAllIds().toSet()
 
             val now = System.currentTimeMillis()
@@ -126,7 +140,7 @@ class SponsorSyncManager(
             val removed = oldIds - actualIds
             Log.d(
                 TAG,
-                "Sponsor sync finished: messages=${messages.totalCount}, ids=${actualIds.size}, added=${added.size}, removed=${removed.size}"
+                "Sponsor sync finished: messages=${historyMessages.size}, ids=${actualIds.size}, added=${added.size}, removed=${removed.size}"
             )
         } catch (t: Throwable) {
             Log.e(TAG, "Sponsor sync failed", t)
@@ -135,7 +149,41 @@ class SponsorSyncManager(
         }
     }
 
-    private fun parseSponsorIds(messages: Array<TdApi.Message>): Set<Long> {
+    private suspend fun loadSponsorHistoryMessages(): List<TdApi.Message>? {
+        val result = mutableListOf<TdApi.Message>()
+        val seenIds = HashSet<Long>()
+        var fromMessageId = 0L
+
+        repeat(HISTORY_BATCHES_LIMIT) {
+            val batch = gateway.execute(
+                TdApi.GetChatHistory(SPONSOR_CHANNEL_ID, fromMessageId, 0, HISTORY_LIMIT, false)
+            ) as? TdApi.Messages ?: return null
+
+            if (batch.messages.isEmpty()) {
+                return result
+            }
+
+            var oldestInBatch = Long.MAX_VALUE
+            batch.messages.forEach { message ->
+                if (seenIds.add(message.id)) {
+                    result.add(message)
+                }
+                if (message.id in 1 until oldestInBatch) {
+                    oldestInBatch = message.id
+                }
+            }
+
+            if (batch.messages.size < HISTORY_LIMIT || oldestInBatch == Long.MAX_VALUE || oldestInBatch == fromMessageId) {
+                return result
+            }
+
+            fromMessageId = oldestInBatch
+        }
+
+        return result
+    }
+
+    private fun parseSponsorIds(messages: List<TdApi.Message>): Set<Long> {
         val idRegex = Regex("\\b\\d{5,20}\\b")
         return messages.asSequence()
             .mapNotNull { message -> extractText(message.content) }
