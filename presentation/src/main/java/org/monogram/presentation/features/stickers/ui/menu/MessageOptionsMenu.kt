@@ -1117,7 +1117,8 @@ private fun InternalMenuHeaderInfo(
     val readDate = if (showReadInfo)
         if (message.isOutgoing && message.readDate > 0) dateFormat.format(Date(message.readDate.toLong() * 1000)) else null
     else null
-    val views = if (showViewsInfo && message.views != null && message.views!! > 0) message.views.toString() else null
+    val viewsCount = message.viewCount ?: message.views
+    val views = if (showViewsInfo && viewsCount != null && viewsCount > 0) viewsCount.toString() else null
 
     val hasHeader = editDate != null || readDate != null || views != null
 
