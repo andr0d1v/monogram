@@ -110,10 +110,22 @@ API_HASH=your_api_hash_here
 ### 4. Build and Run
 
 1. Open the project in **Android Studio**.
-2. Sync Gradle.
-3. Select the `app` run configuration.
-4. Connect a device or start an emulator.
-5. Click **Run**.
+2. Increase the IDE indexing limits so `TdApi.java` (the TDLib wrapper) is indexed correctly:
+
+```properties
+# custom IntelliJ IDEA properties (expand/override 'bin\idea.properties')
+
+# size in Kb
+idea.max.intellisense.filesize=20480
+# size in Kb
+idea.max.content.load.filesize=20480
+```
+
+3. In **Android Studio** or **IntelliJ IDEA**, open **Help -> Edit Custom Properties...**, paste the lines above, and restart the IDE if prompted.
+4. Sync Gradle.
+5. Select the `app` run configuration.
+6. Connect a device or start an emulator.
+7. Click **Run**.
 
 ---
 ## Building TDLib
@@ -137,9 +149,10 @@ Once the dependencies are installed, you can start the build process by executin
 We welcome contributions! Whether it's fixing bugs, improving documentation, or suggesting new features.
 
 1. **Check the Issues**: Look for open issues or create a new one to discuss your ideas.
-2. **Fork & Branch**: Fork the repo and create a feature branch.
-3. **Code Style**: Please follow the existing Kotlin coding style and Clean Architecture guidelines.
-4. **Submit a PR**: Open a Pull Request with a clear description of your changes.
+2. **Work from `develop`**: Create your branch from `develop` and keep your work based on that branch.
+3. **Fork & Branch**: Fork the repo and create a feature branch.
+4. **Code Style**: Please follow the existing Kotlin coding style and Clean Architecture guidelines.
+5. **Submit a PR**: Open a Pull Request to `develop` with a clear description of your changes.
 
 **Important**:
 
