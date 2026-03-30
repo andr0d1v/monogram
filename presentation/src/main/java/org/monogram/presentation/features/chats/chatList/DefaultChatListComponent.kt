@@ -34,7 +34,6 @@ class DefaultChatListComponent(
     private val repository: ChatsListRepository = container.repositories.chatsListRepository
     private val repositoryUser: UserRepository = container.repositories.userRepository
     private val settingsRepository: SettingsRepository = container.repositories.settingsRepository
-    private val externalProxyRepository: ExternalProxyRepository = container.repositories.externalProxyRepository
     private val updateRepository: UpdateRepository = container.repositories.updateRepository
     override val appPreferences: AppPreferences = container.preferences.appPreferences
     override val videoPlayerPool: VideoPlayerPool = container.utils.videoPlayerPool
@@ -116,7 +115,12 @@ class DefaultChatListComponent(
         repository.connectionStateFlow
             .onEach { status ->
                 _state.update { it.copy(connectionStatus = status) }
-                updateProxyStatus()
+            }
+            .launchIn(scope)
+
+        appPreferences.enabledProxyId
+            .onEach { enabledProxyId ->
+                _state.update { it.copy(isProxyEnabled = enabledProxyId != null) }
             }
             .launchIn(scope)
 
@@ -137,13 +141,6 @@ class DefaultChatListComponent(
                 _state.update { it.copy(searchHistory = history) }
             }
             .launchIn(scope)
-
-        scope.launch {
-            while (isActive) {
-                updateProxyStatus()
-                delay(5000)
-            }
-        }
 
         settingsRepository.getAttachMenuBots()
             .onEach { bots ->
@@ -183,12 +180,6 @@ class DefaultChatListComponent(
         scope.launch(Dispatchers.IO) {
             repository.selectFolder(_state.value.selectedFolderId)
         }
-    }
-
-    private suspend fun updateProxyStatus() {
-        val proxies = externalProxyRepository.getProxies()
-        val isProxyEnabled = proxies.any { it.isEnabled }
-        _state.update { it.copy(isProxyEnabled = isProxyEnabled) }
     }
 
     override fun retryConnection() {
