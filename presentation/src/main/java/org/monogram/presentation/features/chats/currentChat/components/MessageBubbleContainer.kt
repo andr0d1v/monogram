@@ -49,6 +49,7 @@ fun MessageBubbleContainer(
     highlighted: Boolean = false,
     onHighlightConsumed: () -> Unit = {},
     onPhotoClick: (MessageModel) -> Unit,
+    onDownloadPhoto: (Int) -> Unit = {},
     onVideoClick: (MessageModel) -> Unit = {},
     onDocumentClick: (MessageModel) -> Unit = {},
     onAudioClick: (MessageModel) -> Unit = {},
@@ -183,6 +184,7 @@ fun MessageBubbleContainer(
                     autoplayVideos = autoplayVideos,
                     showLinkPreviews = showLinkPreviews,
                     onPhotoClick = onPhotoClick,
+                    onDownloadPhoto = onDownloadPhoto,
                     onVideoClick = onVideoClick,
                     onDocumentClick = onDocumentClick,
                     onAudioClick = onAudioClick,
@@ -266,6 +268,7 @@ private fun MessageContentSelector(
     autoplayVideos: Boolean,
     showLinkPreviews: Boolean,
     onPhotoClick: (MessageModel) -> Unit,
+    onDownloadPhoto: (Int) -> Unit,
     onVideoClick: (MessageModel) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -350,6 +353,7 @@ private fun MessageContentSelector(
                     autoDownloadWifi = autoDownloadWifi,
                     autoDownloadRoaming = autoDownloadRoaming,
                     onPhotoClick = onPhotoClick,
+                    onDownloadPhoto = onDownloadPhoto,
                     onCancelDownload = onCancelDownload,
                     onLongClick = { offset ->
                         onReplyClick(

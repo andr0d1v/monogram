@@ -50,6 +50,7 @@ fun ChannelPhotoMessageBubble(
     autoDownloadWifi: Boolean,
     autoDownloadRoaming: Boolean,
     onPhotoClick: (MessageModel) -> Unit,
+    onDownloadPhoto: (Int) -> Unit = {},
     onCancelDownload: (Int) -> Unit = {},
     onLongClick: (Offset) -> Unit,
     onReplyClick: (MessageModel) -> Unit = {},
@@ -118,7 +119,7 @@ fun ChannelPhotoMessageBubble(
                 downloadUtils.isRoaming() -> autoDownloadRoaming
                 else -> autoDownloadMobile
             }
-            if (shouldDownload) onPhotoClick(msg)
+            if (shouldDownload) onDownloadPhoto(content.fileId)
         }
     }
 
@@ -178,7 +179,11 @@ fun ChannelPhotoMessageBubble(
                                         } else {
                                             isAutoDownloadSuppressed = false
                                             AutoDownloadSuppression.clear(content.fileId)
-                                            onPhotoClick(msg)
+                                            if (hasPath) {
+                                                onPhotoClick(msg)
+                                            } else {
+                                                onDownloadPhoto(content.fileId)
+                                            }
                                         }
                                     },
                                     onLongPress = { offset -> onLongClick(imagePosition + offset) }
@@ -226,7 +231,11 @@ fun ChannelPhotoMessageBubble(
                                     onIdleClick = {
                                         isAutoDownloadSuppressed = false
                                         AutoDownloadSuppression.clear(content.fileId)
-                                        onPhotoClick(msg)
+                                        if (hasPath) {
+                                            onPhotoClick(msg)
+                                        } else {
+                                            onDownloadPhoto(content.fileId)
+                                        }
                                 }
                                 )
                         }

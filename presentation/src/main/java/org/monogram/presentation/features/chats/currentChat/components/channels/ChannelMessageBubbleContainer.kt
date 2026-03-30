@@ -42,6 +42,7 @@ fun ChannelMessageBubbleContainer(
     highlighted: Boolean = false,
     onHighlightConsumed: () -> Unit = {},
     onPhotoClick: (MessageModel) -> Unit,
+    onDownloadPhoto: (Int) -> Unit = {},
     onVideoClick: (MessageModel) -> Unit = {},
     onDocumentClick: (MessageModel) -> Unit = {},
     onAudioClick: (MessageModel) -> Unit = {},
@@ -188,6 +189,7 @@ fun ChannelMessageBubbleContainer(
                             autoDownloadWifi = autoDownloadWifi,
                             autoDownloadRoaming = autoDownloadRoaming,
                             onPhotoClick = onPhotoClick,
+                            onDownloadPhoto = onDownloadPhoto,
                             onCancelDownload = onCancelDownload,
                             onLongClick = { offset ->
                                 onReplyClick(

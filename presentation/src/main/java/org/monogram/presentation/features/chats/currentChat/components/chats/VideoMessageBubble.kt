@@ -73,15 +73,17 @@ fun VideoMessageBubble(
     val tailCorner = 2.dp
 
     val context = LocalContext.current
-    var stablePath by remember(msg.id) { mutableStateOf(content.path) }
+    var stablePath by remember(msg.id, content.fileId) { mutableStateOf(content.path) }
     val hasPath = !stablePath.isNullOrBlank()
-    var isAutoDownloadSuppressed by remember(msg.id) { mutableStateOf(false) }
+    var isAutoDownloadSuppressed by remember(msg.id, content.fileId) { mutableStateOf(false) }
 
-    LaunchedEffect(content.path) {
+    LaunchedEffect(content.path, content.fileId) {
         if (!content.path.isNullOrBlank()) {
             stablePath = content.path
             isAutoDownloadSuppressed = false
             AutoDownloadSuppression.clear(content.fileId)
+        } else {
+            stablePath = null
         }
     }
 

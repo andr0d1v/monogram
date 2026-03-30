@@ -62,6 +62,7 @@ fun ChatContentList(
     scrollState: LazyListState,
     groupedMessages: List<GroupedMessageItem>,
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
+    onPhotoDownload: (Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -159,6 +160,7 @@ fun ChatContentList(
                         state,
                         component,
                         onPhotoClick,
+                        onPhotoDownload,
                         onVideoClick,
                         onDocumentClick,
                         onAudioClick,
@@ -195,6 +197,7 @@ fun ChatContentList(
                     isSelectionMode = state.selectedMessageIds.isNotEmpty(),
                     selectedMessageId = selectedMessageId,
                     onPhotoClick = onPhotoClick,
+                    onPhotoDownload = onPhotoDownload,
                     onVideoClick = onVideoClick,
                     onDocumentClick = onDocumentClick,
                     onAudioClick = onAudioClick,
@@ -227,6 +230,7 @@ fun ChatContentList(
                         state,
                         component,
                         onPhotoClick,
+                        onPhotoDownload,
                         onVideoClick,
                         onDocumentClick,
                         onAudioClick,
@@ -262,6 +266,7 @@ fun ChatContentList(
                     isSelectionMode = state.selectedMessageIds.isNotEmpty(),
                     selectedMessageId = selectedMessageId,
                     onPhotoClick = onPhotoClick,
+                    onPhotoDownload = onPhotoDownload,
                     onVideoClick = onVideoClick,
                     onDocumentClick = onDocumentClick,
                     onAudioClick = onAudioClick,
@@ -341,6 +346,7 @@ private fun MessageRowItem(
     isSelectionMode: Boolean,
     selectedMessageId: Long?,
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
+    onPhotoDownload: (Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -441,6 +447,7 @@ private fun MessageRowItem(
                     isSelectionMode = isSelectionMode,
                     selectedMessageId = selectedMessageId,
                     onPhotoClick = onPhotoClick,
+                    onPhotoDownload = onPhotoDownload,
                     onVideoClick = onVideoClick,
                     onDocumentClick = onDocumentClick,
                     onAudioClick = onAudioClick,
@@ -468,6 +475,7 @@ private fun MessageBubbleSwitcher(
     isSelectionMode: Boolean,
     selectedMessageId: Long?,
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
+    onPhotoDownload: (Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -502,6 +510,7 @@ private fun MessageBubbleSwitcher(
                             onPhotoClick
                         )
                     },
+                    onDownloadPhoto = onPhotoDownload,
                     onVideoClick = {
                         if (isSelectionMode) component.onToggleMessageSelection(it.id) else handleVideoClick(
                             it,
@@ -606,6 +615,7 @@ private fun MessageBubbleSwitcher(
                             onPhotoClick
                         )
                     },
+                    onDownloadPhoto = onPhotoDownload,
                     onVideoClick = {
                         if (isSelectionMode) component.onToggleMessageSelection(it.id) else handleVideoClick(
                             it,
@@ -707,6 +717,7 @@ private fun MessageBubbleSwitcher(
                         onPhotoClick
                     )
                 },
+                onDownloadPhoto = onPhotoDownload,
                 onVideoClick = {
                     if (isSelectionMode) component.onToggleMessageSelection(it.id) else handleAlbumVideoClick(
                         it,
@@ -785,6 +796,7 @@ private fun RootMessageSection(
     state: ChatComponent.State,
     component: ChatComponent,
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit,
+    onPhotoDownload: (Int) -> Unit,
     onVideoClick: (MessageModel, String?, String?) -> Unit,
     onDocumentClick: (MessageModel) -> Unit,
     onAudioClick: (MessageModel) -> Unit,
@@ -808,6 +820,7 @@ private fun RootMessageSection(
                 autoplayGifs = state.autoplayGifs, autoplayVideos = state.autoplayVideos,
                 autoDownloadFiles = state.autoDownloadFiles,
                 onPhotoClick = { handlePhotoClick(it, onPhotoClick) },
+                onDownloadPhoto = onPhotoDownload,
                 onVideoClick = { handleVideoClick(it, onVideoClick) },
                 onDocumentClick = onDocumentClick,
                 onAudioClick = onAudioClick,
@@ -843,6 +856,7 @@ private fun RootMessageSection(
                 autoDownloadRoaming = state.autoDownloadRoaming, autoDownloadFiles = state.autoDownloadFiles,
                 autoplayGifs = state.autoplayGifs, autoplayVideos = state.autoplayVideos,
                 onPhotoClick = { handlePhotoClick(it, onPhotoClick) },
+                onDownloadPhoto = onPhotoDownload,
                 onVideoClick = { handleVideoClick(it, onVideoClick) },
                 onDocumentClick = onDocumentClick,
                 onAudioClick = onAudioClick,
@@ -893,10 +907,8 @@ private fun handlePhotoClick(
     msg: MessageModel,
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit
 ) {
-    (msg.content as? MessageContent.Photo)?.let { content ->
-        val path = content.path?.takeIf { it.isNotBlank() && File(it).exists() } ?: return
-        onPhotoClick(msg, listOf(path), listOf(content.caption), listOf(msg.id), 0)
-    }
+    val path = msg.displayMediaPath() ?: return
+    onPhotoClick(msg, listOf(path), listOf(msg.mediaCaption()), listOf(msg.id), 0)
 }
 
 private fun handleVideoClick(msg: MessageModel, onVideoClick: (MessageModel, String?, String?) -> Unit) {
@@ -913,9 +925,19 @@ private fun handleAlbumPhotoClick(
     onPhotoClick: (MessageModel, List<String>, List<String?>, List<Long>, Int) -> Unit
 ) {
     val entries = buildAlbumMediaEntries(messages)
-    if (entries.isEmpty()) return
+    if (entries.isEmpty()) {
+        val singlePath = clickedMsg.displayMediaPath() ?: return
+        onPhotoClick(clickedMsg, listOf(singlePath), listOf(clickedMsg.mediaCaption()), listOf(clickedMsg.id), 0)
+        return
+    }
 
-    val index = entries.indexOfFirst { it.message.id == clickedMsg.id }.let { if (it >= 0) it else 0 }
+    val index = entries.indexOfFirst { it.message.id == clickedMsg.id }
+    if (index < 0) {
+        val singlePath = clickedMsg.displayMediaPath() ?: return
+        onPhotoClick(clickedMsg, listOf(singlePath), listOf(clickedMsg.mediaCaption()), listOf(clickedMsg.id), 0)
+        return
+    }
+
     onPhotoClick(
         clickedMsg,
         entries.map { it.path },
@@ -935,12 +957,7 @@ private fun handleAlbumVideoClick(
     val gifContent = clickedMsg.content as? MessageContent.Gif
     val supportsStreaming = videoContent?.supportsStreaming ?: false
     val path = (videoContent?.path ?: gifContent?.path)?.takeIf { it.isNotBlank() && File(it).exists() }
-    val clickedCaption = when (val content = clickedMsg.content) {
-        is MessageContent.Photo -> content.caption
-        is MessageContent.Video -> content.caption
-        is MessageContent.Gif -> content.caption
-        else -> null
-    }
+    val clickedCaption = clickedMsg.mediaCaption()
 
     if (path == null && !supportsStreaming) return
     if (path == null && supportsStreaming) {
@@ -954,7 +971,12 @@ private fun handleAlbumVideoClick(
         return
     }
 
-    val index = entries.indexOfFirst { it.message.id == clickedMsg.id }.let { if (it >= 0) it else 0 }
+    val index = entries.indexOfFirst { it.message.id == clickedMsg.id }
+    if (index < 0) {
+        onVideoClick(clickedMsg, path, clickedCaption)
+        return
+    }
+
     onPhotoClick(
         clickedMsg,
         entries.map { it.path },
@@ -976,21 +998,30 @@ private data class AlbumMediaEntry(
 
 private fun buildAlbumMediaEntries(messages: List<MessageModel>): List<AlbumMediaEntry> {
     return messages.mapNotNull { msg ->
-        val path = when (val content = msg.content) {
-            is MessageContent.Photo -> content.path
-            is MessageContent.Video -> content.path
-            is MessageContent.Gif -> content.path
-            else -> null
-        }?.takeIf { it.isNotBlank() && File(it).exists() } ?: return@mapNotNull null
-
-        val caption = when (val content = msg.content) {
-            is MessageContent.Photo -> content.caption
-            is MessageContent.Video -> content.caption
-            is MessageContent.Gif -> content.caption
-            else -> null
-        }
+        val path = msg.displayMediaPath() ?: return@mapNotNull null
+        val caption = msg.mediaCaption()
 
         AlbumMediaEntry(message = msg, path = path, caption = caption)
+    }
+}
+
+private fun MessageModel.displayMediaPath(): String? {
+    val raw = when (val content = content) {
+        is MessageContent.Photo -> content.path ?: content.thumbnailPath
+        is MessageContent.Video -> content.path
+        is MessageContent.Gif -> content.path
+        else -> null
+    }
+
+    return raw?.takeIf { it.isNotBlank() && File(it).exists() }
+}
+
+private fun MessageModel.mediaCaption(): String? {
+    return when (val content = content) {
+        is MessageContent.Photo -> content.caption
+        is MessageContent.Video -> content.caption
+        is MessageContent.Gif -> content.caption
+        else -> null
     }
 }
 

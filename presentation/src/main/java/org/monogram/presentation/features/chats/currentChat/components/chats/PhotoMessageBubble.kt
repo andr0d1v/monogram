@@ -50,6 +50,7 @@ fun PhotoMessageBubble(
     autoDownloadWifi: Boolean,
     autoDownloadRoaming: Boolean,
     onPhotoClick: (MessageModel) -> Unit,
+    onDownloadPhoto: (Int) -> Unit = {},
     onCancelDownload: (Int) -> Unit = {},
     onLongClick: (Offset) -> Unit,
     onReplyClick: (MessageModel) -> Unit = {},
@@ -65,19 +66,21 @@ fun PhotoMessageBubble(
     val smallCorner = 4.dp
     val tailCorner = 2.dp
 
-    var stablePath by remember(msg.id) { mutableStateOf(content.path) }
+    var stablePath by remember(msg.id, content.fileId) { mutableStateOf(content.path) }
     val hasPath = !stablePath.isNullOrBlank()
-    var isFullImageReady by remember(msg.id) { mutableStateOf(false) }
+    var isFullImageReady by remember(msg.id, content.fileId) { mutableStateOf(false) }
     val mediaAlpha by animateFloatAsState(
         targetValue = if (hasPath && isFullImageReady) 1f else 0f,
         animationSpec = tween(320),
         label = "PhotoMediaAlpha"
     )
 
-    LaunchedEffect(content.path) {
+    LaunchedEffect(content.path, content.fileId) {
         if (!content.path.isNullOrBlank()) {
             stablePath = content.path
             AutoDownloadSuppression.clear(content.fileId)
+        } else {
+            stablePath = null
         }
     }
 
@@ -95,7 +98,7 @@ fun PhotoMessageBubble(
                 else -> autoDownloadMobile
             }
             if (shouldDownload) {
-                onPhotoClick(msg)
+                onDownloadPhoto(content.fileId)
             }
         }
     }
@@ -192,7 +195,11 @@ fun PhotoMessageBubble(
                                         onCancelDownload(content.fileId)
                                     } else {
                                         AutoDownloadSuppression.clear(content.fileId)
-                                        onPhotoClick(msg)
+                                        if (hasPath) {
+                                            onPhotoClick(msg)
+                                        } else {
+                                            onDownloadPhoto(content.fileId)
+                                        }
                                     }
                                 },
                                 onLongPress = { offset -> onLongClick(imagePosition + offset) }
@@ -238,7 +245,11 @@ fun PhotoMessageBubble(
                                 },
                                 onIdleClick = {
                                     AutoDownloadSuppression.clear(content.fileId)
-                                    onPhotoClick(msg)
+                                    if (hasPath) {
+                                        onPhotoClick(msg)
+                                    } else {
+                                        onDownloadPhoto(content.fileId)
+                                    }
                                 }
                             )
                         }
