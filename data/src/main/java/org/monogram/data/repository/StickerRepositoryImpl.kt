@@ -418,7 +418,7 @@ class StickerRepositoryImpl(
     private suspend fun verifyInstalledStickerSets() {
         val allSets = installedStickerSets.value + customEmojiStickerSets.value
         var requeued = 0
-        val maxPerPass = 50
+        val maxPerPass = 20
 
         for (set in allSets) {
             for (sticker in set.stickers) {

@@ -35,7 +35,12 @@ class ChatModelFactory(
     private val scope = scopeProvider.appScope
     private val missingUserFullInfoUntilMs = ConcurrentHashMap<Long, Long>()
 
-    fun mapChatToModel(chat: TdApi.Chat, order: Long, isPinned: Boolean): ChatModel {
+    fun mapChatToModel(
+        chat: TdApi.Chat,
+        order: Long,
+        isPinned: Boolean,
+        allowMediaDownloads: Boolean = true
+    ): ChatModel {
         val cachedCounts = parseCachedCounts(chat.clientData)
         var smallPhoto = chat.photo?.small
         var photoId = smallPhoto?.id ?: 0
@@ -145,7 +150,7 @@ class ChatModelFactory(
                 if (user != null) {
                     cache.userFullInfoCache[type.userId]?.let { fullInfo ->
                         description = fullInfo.bio?.text
-                        personalAvatarPath = resolvePhotoPath(fullInfo.personalPhoto, chat.id)
+                        personalAvatarPath = resolvePhotoPath(fullInfo.personalPhoto, chat.id, allowMediaDownloads)
                     } ?: run {
                         if (!isUserFullInfoTemporarilyMissing(type.userId)) {
                             lazyLoad(cache.pendingUserFullInfo, type.userId) {
@@ -206,13 +211,13 @@ class ChatModelFactory(
             }
         }
 
-        val finalPath = resolvePhotoPath(smallPhoto, chat.id)
+        val finalPath = resolvePhotoPath(smallPhoto, chat.id, allowMediaDownloads)
 
         val emojiStatusId = (chat.emojiStatus?.type as? TdApi.EmojiStatusTypeCustomEmoji)?.customEmojiId ?: 0L
         var emojiPath: String? = null
         if (emojiStatusId != 0L) {
             emojiPath = fileManager.getEmojiPath(emojiStatusId)
-            if (emojiPath == null) fileManager.loadEmoji(emojiStatusId)
+            if (emojiPath == null && allowMediaDownloads) fileManager.loadEmoji(emojiStatusId)
         }
 
         val (txt, entities, time) = chatMapper.formatMessageInfo(chat.lastMessage, chat) { userId ->
@@ -284,7 +289,7 @@ class ChatModelFactory(
         missingUserFullInfoUntilMs[userId] = System.currentTimeMillis() + USER_FULL_INFO_RETRY_TTL_MS
     }
 
-    private fun resolvePhotoPath(photoFile: TdApi.File?, chatId: Long): String? {
+    private fun resolvePhotoPath(photoFile: TdApi.File?, chatId: Long, allowDownload: Boolean): String? {
         if (photoFile == null) return null
         if (photoFile.id != 0) {
             fileManager.registerChatPhoto(photoFile.id, chatId)
@@ -300,16 +305,16 @@ class ChatModelFactory(
             return cachedPath
         }
 
-        if (photoFile.id != 0) {
+        if (allowDownload && photoFile.id != 0) {
             fileManager.downloadFile(photoFile.id, 24, offset = 0, limit = 0, synchronous = false)
         }
         return null
     }
 
-    private fun resolvePhotoPath(chatPhoto: TdApi.ChatPhoto?, chatId: Long): String? {
+    private fun resolvePhotoPath(chatPhoto: TdApi.ChatPhoto?, chatId: Long, allowDownload: Boolean): String? {
         if (chatPhoto == null) return null
-        return resolvePhotoPath(chatPhoto.animation?.file, chatId)
-            ?: resolvePhotoPath(chatPhoto.sizes.lastOrNull()?.photo, chatId)
+        return resolvePhotoPath(chatPhoto.animation?.file, chatId, allowDownload)
+            ?: resolvePhotoPath(chatPhoto.sizes.lastOrNull()?.photo, chatId, allowDownload)
     }
 
     private fun TdApi.Usernames.toDomain() = UsernamesModel(

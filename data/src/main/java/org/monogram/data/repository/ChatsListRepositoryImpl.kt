@@ -157,7 +157,8 @@ class ChatsListRepositoryImpl(
     private val updateChannel = Channel<Unit>(Channel.CONFLATED)
     private var pendingSelectFolderJob: Job? = null
     private val maxChatListLimit = 10_000
-    private var currentLimit = 50
+    private val initialChatListLimit = 50
+    private var currentLimit = initialChatListLimit
 
     private val lastSavedEntities = ConcurrentHashMap<Long, ChatEntity>()
     private val pendingSaveJobs = ConcurrentHashMap<Long, Job>()
@@ -223,8 +224,7 @@ class ChatsListRepositoryImpl(
         coRunCatching {
             activeRequestId
             val folderIdAtStart = activeFolderId
-            val limitAtStart = maxOf(currentLimit, cache.activeListPositions.size)
-                .coerceAtMost(maxChatListLimit)
+            val limitAtStart = currentLimit.coerceAtMost(maxChatListLimit)
 
             val newList = listManager.rebuildChatList(limitAtStart, emptyList()) { chat, order, isPinned ->
                 val cached = modelCache[chat.id]
@@ -505,7 +505,12 @@ class ChatsListRepositoryImpl(
             delay(2000)
             val position = resolvePersistPosition(chat)
 
-            val model = modelFactory.mapChatToModel(chat, position?.order ?: 0L, position?.isPinned ?: false)
+            val model = modelFactory.mapChatToModel(
+                chat = chat,
+                order = position?.order ?: 0L,
+                isPinned = position?.isPinned ?: false,
+                allowMediaDownloads = false
+            )
             val entity = chatMapper.mapToEntity(chat, model)
 
             val last = lastSavedEntities[chatId]
@@ -660,7 +665,7 @@ class ChatsListRepositoryImpl(
         activeChatList = newList
         updateActiveListPositionsFromCache()
         val cachedChatsCount = cache.activeListPositions.size
-        val initialLoadLimit = cachedChatsCount.coerceAtLeast(50).coerceAtMost(maxChatListLimit)
+        val initialLoadLimit = initialChatListLimit.coerceAtMost(maxChatListLimit)
         currentLimit = initialLoadLimit
 
         val requestId = requestIdGenerator.incrementAndGet()
@@ -675,11 +680,6 @@ class ChatsListRepositoryImpl(
         scope.launch(dispatchers.io) {
             Log.d(TAG, "selectFolder: calling loadChats for $newList with limit=$initialLoadLimit")
             chatRemoteSource.loadChats(newList, initialLoadLimit)
-            val discoveredPositions = cache.activeListPositions.size
-            val expandedLimit = maxOf(currentLimit, discoveredPositions).coerceAtMost(maxChatListLimit)
-            if (expandedLimit != currentLimit) {
-                currentLimit = expandedLimit
-            }
             setLoadingState(folderId, requestId, false)
             Log.d(TAG, "selectFolder: loadChats completed")
             if (isRequestActive(folderId, requestId)) {
@@ -721,7 +721,7 @@ class ChatsListRepositoryImpl(
         val requestId = activeRequestId
         val chatList = activeChatList
         scope.launch(dispatchers.io) {
-            val limit = currentLimit.coerceAtLeast(50).coerceAtMost(maxChatListLimit)
+            val limit = currentLimit.coerceAtLeast(initialChatListLimit).coerceAtMost(maxChatListLimit)
             chatRemoteSource.loadChats(chatList, limit)
             if (isRequestActive(folderId, requestId)) {
                 triggerUpdate()
