@@ -1,5 +1,6 @@
 package org.monogram.presentation.settings.settings
 
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -97,7 +98,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -190,7 +191,8 @@ fun SettingsContent(component: SettingsComponent) {
         }
     }
 
-    val clipboardManager = LocalClipboardManager.current
+    val localClipboard = LocalClipboard.current
+    val nativeClipboard = localClipboard.nativeClipboard
     val collapsedColor = MaterialTheme.colorScheme.surface
     val expandedColor = MaterialTheme.colorScheme.background
     val dynamicContainerColor = lerp(
@@ -399,7 +401,10 @@ fun SettingsContent(component: SettingsComponent) {
                     position = ItemPosition.BOTTOM,
                     onClick = {
                         state.currentUser?.username?.let { username ->
-                            clipboardManager.setText(AnnotatedString("https://t.me/$username"))
+                            nativeClipboard.setPrimaryClip(
+                                ClipData.newPlainText("", AnnotatedString("https://t.me/$username"))
+                            )
+
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
                         component.onMoreOptionsDismissed()
@@ -645,13 +650,17 @@ fun SettingsContent(component: SettingsComponent) {
                 ) {
                     item {
                         state.currentUser?.let { user ->
-                            val rawPhone = user.phoneNumber ?: ""
+                            val rawPhone = user.phoneNumber ?: ""                          
                             val formattedPhone = remember(rawPhone) {
                                 CountryManager.formatPhoneNumber(rawPhone)
                             }
                             val maskedPhone = remember(rawPhone) {
                                 CountryManager.maskPhoneNumber(formattedPhone)
                             }
+                            
+                            val phoneClipLabel = stringResource(R.string.phone_number_label)
+                            val yourIdSubTitle = stringResource(R.string.your_id_label)
+                            
 
                             SettingsItem(
                                 icon = Icons.Default.PhoneIphone,
@@ -667,8 +676,15 @@ fun SettingsContent(component: SettingsComponent) {
                                 },
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    clipboardManager.setText(
-                                        AnnotatedString(formattedPhone)
+                                    nativeClipboard.setPrimaryClip(
+                                        ClipData.newPlainText(
+                                            phoneClipLabel,
+                                            AnnotatedString(
+                                                CountryManager.formatPhone(
+                                                    rawPhone
+                                                )
+                                            )
+                                        )
                                     )
                                 }
                             )
@@ -679,19 +695,21 @@ fun SettingsContent(component: SettingsComponent) {
                                     activeUsernames = usernames.activeUsernames,
                                     collectibleUsernames = usernames.collectibleUsernames,
                                     disabledUsernames = usernames.disabledUsernames,
-                                    clipboardManager = clipboardManager,
+                                    localClipboard = localClipboard,
                                     position = ItemPosition.MIDDLE
                                 )
                             } else if (!user.username.isNullOrEmpty()) {
+                                val usernameSubTitle = stringResource(R.string.username_label)
+
                                 SettingsItem(
                                     icon = Icons.Rounded.Person,
                                     title = "@${user.username}",
-                                    subtitle = stringResource(R.string.username_label),
+                                    subtitle = usernameSubTitle,
                                     iconBackgroundColor = usernameColor,
                                     position = ItemPosition.MIDDLE,
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        clipboardManager.setText(AnnotatedString("@${user.username}"))
+                                        ClipData.newPlainText(usernameSubTitle, AnnotatedString("@${user.username}"))
                                     }
                                 )
                             }
@@ -699,12 +717,12 @@ fun SettingsContent(component: SettingsComponent) {
                             SettingsItem(
                                 icon = Icons.Rounded.Info,
                                 title = user.id.toString(),
-                                subtitle = stringResource(R.string.your_id_label),
+                                subtitle = yourIdSubTitle,
                                 iconBackgroundColor = idColor,
                                 position = ItemPosition.MIDDLE,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    clipboardManager.setText(AnnotatedString(user.id.toString()))
+                                    ClipData.newPlainText(yourIdSubTitle, AnnotatedString(user.id.toString()))
                                 }
                             )
 

@@ -65,7 +65,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -105,7 +105,8 @@ fun CodeInputScreen(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val clipboardManager = LocalClipboardManager.current
+    val localClipboard = LocalClipboard.current
+    val nativeClipboard = localClipboard.nativeClipboard
     var isFocused by remember { mutableStateOf(false) }
     var showPasteMenu by remember { mutableStateOf(false) }
 
@@ -267,7 +268,7 @@ fun CodeInputScreen(
                         keyboardController?.show()
                     },
                     onLongClick = {
-                        if (clipboardManager.hasText()) {
+                        if (nativeClipboard.hasPrimaryClip()) {
                             showPasteMenu = true
                         }
                     }
@@ -309,7 +310,7 @@ fun CodeInputScreen(
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.paste_action)) },
                     onClick = {
-                        val pastedText = clipboardManager.getText()?.text ?: ""
+                        val pastedText = nativeClipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
                         val digits = pastedText.filter { it.isDigit() }.take(maxCodeLength)
                         if (digits.isNotEmpty()) {
                             code = digits
