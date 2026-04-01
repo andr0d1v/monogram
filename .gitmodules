@@ -10,3 +10,6 @@
 [submodule "domain"]
 	path = domain
 	url = https://github.com/monogram-android/monogram_domain_module.git
+[submodule "data"]
+	path = data
+	url = https://github.com/monogram-android/monogram_data_module.git
