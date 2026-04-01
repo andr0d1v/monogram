@@ -13,3 +13,6 @@
 [submodule "data"]
 	path = data
 	url = https://github.com/monogram-android/monogram_data_module.git
+[submodule "presentation"]
+	path = presentation
+	url = https://github.com/monogram-android/monogram_presentation_module.git
