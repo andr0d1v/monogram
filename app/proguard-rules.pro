@@ -25,3 +25,9 @@
 }
 
 -keep class org.drinkless.tdlib.** { *; }
+
+-keep class org.monogram.presentation.features.stickers.core.RLottieWrapper { *; }
+-keep class org.monogram.presentation.features.stickers.core.VpxWrapper { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
