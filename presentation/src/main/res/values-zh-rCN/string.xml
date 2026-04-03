@@ -973,6 +973,21 @@
     <string name="action_edit">编辑</string>
     <string name="action_send_now">发送</string>
     <string name="action_delete_message">删除</string>
+    <string name="action_manage_access">管理</string>
+    <string name="gallery_partial_access_title">已启用受限照片访问</string>
+    <string name="gallery_partial_access_subtitle">仅显示已选择的照片和视频。</string>
+    <string name="gallery_title_attachments">附件</string>
+    <string name="gallery_action_other_sources">其他来源</string>
+    <string name="gallery_filter_all">全部</string>
+    <string name="gallery_filter_photos">照片</string>
+    <string name="gallery_filter_videos">视频</string>
+    <string name="gallery_bucket_all_folders">所有文件夹</string>
+    <string name="gallery_bucket_screenshots">截图</string>
+    <string name="gallery_selected_items_count">已选择 %1$d 项</string>
+    <string name="gallery_ready_to_attach">可立即附加</string>
+    <string name="gallery_permission_title">允许访问媒体</string>
+    <string name="gallery_permission_description">授予对照片和视频的访问权限，以便在聊天中附加文件。</string>
+    <string name="gallery_permission_grant">授予访问权限</string>
 
     <string name="rich_text_bold">加粗</string>
     <string name="rich_text_italic">斜体</string>

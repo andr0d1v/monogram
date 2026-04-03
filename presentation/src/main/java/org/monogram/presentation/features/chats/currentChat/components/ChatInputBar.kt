@@ -7,10 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -355,7 +352,21 @@ fun ChatInputBar(
     }
 
     // Gallery permissions
-    val galleryPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val galleryPermissions = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> listOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+        )
+
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> listOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
+
+        else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    val fullGalleryPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
     } else {
         listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -364,17 +375,37 @@ fun ChatInputBar(
         val declared = context.declaredPermissions()
         galleryPermissions.filter { it in declared }
     }
-    val hasGalleryPermission = remember(context) {
-        mutableStateOf(
-            requestableGalleryPermissions.isEmpty() || context.hasAllPermissions(requestableGalleryPermissions)
+    val requestableFullGalleryPermissions = remember(context, fullGalleryPermissions) {
+        val declared = context.declaredPermissions()
+        fullGalleryPermissions.filter { it in declared }
+    }
+
+    fun hasPartialGalleryPermission(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun hasFullGalleryPermission(): Boolean {
+        return requestableFullGalleryPermissions.isEmpty() || context.hasAllPermissions(
+            requestableFullGalleryPermissions
         )
     }
+
+    val hasGalleryPermission = remember(context, requestableFullGalleryPermissions) {
+        mutableStateOf(
+            hasFullGalleryPermission() || hasPartialGalleryPermission()
+        )
+    }
+    val isPartialGalleryAccess = hasPartialGalleryPermission() && !hasFullGalleryPermission()
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        val granted = result.values.all { it }
-        hasGalleryPermission.value = granted
-        if (granted || requestableGalleryPermissions.isEmpty()) showGallery = true
+    ) {
+        val hasAccess = hasFullGalleryPermission() || hasPartialGalleryPermission()
+        hasGalleryPermission.value = hasAccess
+        if (hasAccess || requestableGalleryPermissions.isEmpty()) showGallery = true
     }
 
     // Camera permission
@@ -556,46 +587,6 @@ fun ChatInputBar(
                 onReplyMarkupButtonClick = actions.onReplyMarkupButtonClick
             )
 
-            if (showGallery) {
-                GalleryScreen(
-                    onMediaSelected = { uris ->
-                        val localPaths = uris.mapNotNull { uri ->
-                            context.copyUriToTempPath(uri)
-                        }
-                        if (localPaths.isNotEmpty()) {
-                            actions.onMediaOrderChange((state.pendingMediaPaths + localPaths).distinct())
-                        }
-                        showGallery = false
-                    },
-                    onDismiss = { showGallery = false },
-                    onCameraClick = {
-                        showGallery = false
-                        if (hasCameraPermission.value || ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                            showCamera = true
-                        } else {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
-                    },
-                    attachBots = state.attachBots,
-                    hasMediaAccess = hasGalleryPermission.value || requestableGalleryPermissions.isEmpty() || context.hasAllPermissions(
-                        requestableGalleryPermissions
-                    ),
-                    onPickFromOtherSources = {
-                        showGallery = false
-                        actions.onAttachClick()
-                    },
-                    onRequestMediaAccess = {
-                        if (requestableGalleryPermissions.isNotEmpty()) {
-                            galleryPermissionLauncher.launch(requestableGalleryPermissions.toTypedArray())
-                        }
-                    },
-                    onAttachBotClick = { bot ->
-                        showGallery = false
-                        actions.onAttachBotClick(bot)
-                    }
-                )
-            }
-
             FullScreenEditorSheet(
                 visible = showFullScreenEditor,
                 textValue = textValue,
@@ -674,6 +665,57 @@ fun ChatInputBar(
                 onSendNow = { message ->
                     actions.onSendScheduledNow(message)
                 }
+            )
+        }
+    }
+
+    if (showGallery && !showCamera) {
+        ModalBottomSheet(
+            onDismissRequest = { showGallery = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            GalleryScreen(
+                onMediaSelected = { uris ->
+                    val localPaths = uris.mapNotNull { uri ->
+                        context.copyUriToTempPath(uri)
+                    }
+                    if (localPaths.isNotEmpty()) {
+                        actions.onMediaOrderChange((state.pendingMediaPaths + localPaths).distinct())
+                    }
+                    showGallery = false
+                },
+                onDismiss = { showGallery = false },
+                onCameraClick = {
+                    showGallery = false
+                    if (hasCameraPermission.value || ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        showCamera = true
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                },
+                attachBots = state.attachBots,
+                hasMediaAccess = hasGalleryPermission.value || hasFullGalleryPermission() || hasPartialGalleryPermission(),
+                isPartialAccess = isPartialGalleryAccess,
+                onPickFromOtherSources = {
+                    showGallery = false
+                    actions.onAttachClick()
+                },
+                onRequestMediaAccess = {
+                    if (requestableGalleryPermissions.isNotEmpty()) {
+                        galleryPermissionLauncher.launch(requestableGalleryPermissions.toTypedArray())
+                    }
+                },
+                onAttachBotClick = { bot ->
+                    showGallery = false
+                    actions.onAttachBotClick(bot)
+                },
+                modifier = Modifier.fillMaxHeight()
             )
         }
     }

@@ -980,6 +980,22 @@
     <string name="action_edit">Изменить</string>
     <string name="action_send_now">Отправить</string>
     <string name="action_delete_message">Удалить</string>
+    <string name="action_manage_access">Управлять</string>
+    <string name="gallery_partial_access_title">Включён ограниченный доступ к фото</string>
+    <string name="gallery_partial_access_subtitle">Видны только выбранные фото и видео.</string>
+    <string name="gallery_title_attachments">Вложения</string>
+    <string name="gallery_action_other_sources">Другие источники</string>
+    <string name="gallery_filter_all">Все</string>
+    <string name="gallery_filter_photos">Фото</string>
+    <string name="gallery_filter_videos">Видео</string>
+    <string name="gallery_bucket_all_folders">Все папки</string>
+    <string name="gallery_bucket_screenshots">Скриншоты</string>
+    <string name="gallery_selected_items_count">%1$d выбрано</string>
+    <string name="gallery_ready_to_attach">Готово к прикреплению</string>
+    <string name="gallery_permission_title">Разрешить доступ к медиа</string>
+    <string name="gallery_permission_description">Предоставьте доступ к фото и видео, чтобы прикреплять файлы в чате.
+    </string>
+    <string name="gallery_permission_grant">Предоставить доступ</string>
 
     <string name="rich_text_bold">Жирный</string>
     <string name="rich_text_italic">Курсив</string>

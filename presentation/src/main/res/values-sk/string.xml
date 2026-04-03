@@ -1044,6 +1044,23 @@
     <string name="action_edit">Upraviť</string>
     <string name="action_send_now">Odoslať</string>
     <string name="action_delete_message">Odstrániť</string>
+    <string name="action_manage_access">Spravovať</string>
+    <string name="gallery_partial_access_title">Je zapnutý obmedzený prístup k fotografiám</string>
+    <string name="gallery_partial_access_subtitle">Viditeľné sú len vybrané fotografie a videá.</string>
+    <string name="gallery_title_attachments">Prílohy</string>
+    <string name="gallery_action_other_sources">Iné zdroje</string>
+    <string name="gallery_filter_all">Všetko</string>
+    <string name="gallery_filter_photos">Fotky</string>
+    <string name="gallery_filter_videos">Videá</string>
+    <string name="gallery_bucket_all_folders">Všetky priečinky</string>
+    <string name="gallery_bucket_screenshots">Snímky obrazovky</string>
+    <string name="gallery_selected_items_count">%1$d vybraných</string>
+    <string name="gallery_ready_to_attach">Pripravené na priloženie</string>
+    <string name="gallery_permission_title">Povoliť prístup k médiám</string>
+    <string name="gallery_permission_description">Udeľte prístup k fotkám a videám, aby ste mohli v chate prikladať
+        súbory.
+    </string>
+    <string name="gallery_permission_grant">Udeľiť prístup</string>
     <string name="fullscreen_editor_meta">%1$d znakov • %2$d blokov formátovania</string>
     <string name="fullscreen_editor_blocks">%1$d blokov formátovania</string>
     <string name="fullscreen_editor_hint">Vyberte text a použite bohaté formátovanie ako v Telegrame</string>

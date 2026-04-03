@@ -980,6 +980,22 @@
     <string name="action_edit">Змінити</string>
     <string name="action_send_now">Надіслати</string>
     <string name="action_delete_message">Видалити</string>
+    <string name="action_manage_access">Керувати</string>
+    <string name="gallery_partial_access_title">Увімкнено обмежений доступ до фото</string>
+    <string name="gallery_partial_access_subtitle">Видно лише вибрані фото та відео.</string>
+    <string name="gallery_title_attachments">Вкладення</string>
+    <string name="gallery_action_other_sources">Інші джерела</string>
+    <string name="gallery_filter_all">Усі</string>
+    <string name="gallery_filter_photos">Фото</string>
+    <string name="gallery_filter_videos">Відео</string>
+    <string name="gallery_bucket_all_folders">Усі папки</string>
+    <string name="gallery_bucket_screenshots">Знімки екрана</string>
+    <string name="gallery_selected_items_count">%1$d вибрано</string>
+    <string name="gallery_ready_to_attach">Готово до прикріплення</string>
+    <string name="gallery_permission_title">Надати доступ до медіа</string>
+    <string name="gallery_permission_description">Надайте доступ до фото та відео, щоб прикріплювати файли в чаті.
+    </string>
+    <string name="gallery_permission_grant">Надати доступ</string>
 
     <string name="rich_text_bold">Жирний</string>
     <string name="rich_text_italic">Курсив</string>
