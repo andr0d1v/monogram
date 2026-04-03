@@ -70,7 +70,7 @@ internal fun DefaultChatComponent.handleSendPhoto(
                     val bitmap = BitmapFactory.decodeFile(photoPath)
                     val compressedFile = File(cacheController.getCacheDir(), "compressed_photo_${System.currentTimeMillis()}.jpg")
                     FileOutputStream(compressedFile).use { out ->
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
                     }
                     compressedFile.absolutePath
                 } catch (e: Exception) {
@@ -118,7 +118,7 @@ internal fun DefaultChatComponent.handleSendVideo(
                 trimRange = VideoTrimRange(),
                 filter = null,
                 textElements = emptyList(),
-                quality = VideoQuality.P720,
+                quality = VideoQuality.P1080,
                 muteAudio = false,
                 context = this@handleSendVideo.cacheController.context
             )
@@ -221,7 +221,7 @@ internal fun DefaultChatComponent.handleSendAlbum(
                             trimRange = VideoTrimRange(),
                             filter = null,
                             textElements = emptyList(),
-                            quality = VideoQuality.P720,
+                            quality = VideoQuality.P1080,
                             muteAudio = false,
                             context = this@handleSendAlbum.cacheController.context
                         )
@@ -236,7 +236,7 @@ internal fun DefaultChatComponent.handleSendAlbum(
                                 val compressedFile =
                                     File(cacheController.getCacheDir(), "compressed_photo_${System.currentTimeMillis()}.jpg")
                                 FileOutputStream(compressedFile).use { out ->
-                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
                                 }
                                 compressedFile.absolutePath
                             } catch (e: Exception) {
