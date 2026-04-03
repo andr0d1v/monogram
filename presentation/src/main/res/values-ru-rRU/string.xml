@@ -1855,4 +1855,27 @@
     <string name="folder_tab_edit">Изменить</string>
     <string name="folder_tab_reorder">Порядок</string>
     <string name="folder_tab_delete">Удалить</string>
+    <string name="editor_undo">Отменить</string>
+    <string name="editor_redo">Повторить</string>
+    <string name="editor_mode_preview">Предпросмотр</string>
+    <string name="editor_mode_edit">Редактирование</string>
+    <string name="editor_markdown_on">Markdown: вкл</string>
+    <string name="editor_markdown_off">Markdown: выкл</string>
+    <string name="editor_zoom_in">A+</string>
+    <string name="editor_zoom_out">A-</string>
+    <string name="editor_templates">Шаблоны</string>
+    <string name="editor_save_as_snippet">Сохранить как шаблон</string>
+    <string name="editor_snippet_title_hint">Название шаблона</string>
+    <string name="editor_no_snippets">Шаблонов пока нет</string>
+    <string name="editor_find">Найти</string>
+    <string name="editor_replace">Заменить</string>
+    <string name="editor_replace_all">Заменить всё</string>
+    <string name="editor_matches_count">Совпадение %1$d из %2$d</string>
+    <string name="editor_no_matches">Совпадений нет</string>
+    <string name="editor_word_count">%1$d слов</string>
+    <string name="editor_reading_time">≈%1$d мин чтения</string>
+    <string name="editor_autosave_done">Черновик сохранён</string>
+    <string name="action_insert">Вставить</string>
+    <string name="action_previous">Назад</string>
+    <string name="action_next">Вперёд</string>
 </resources>

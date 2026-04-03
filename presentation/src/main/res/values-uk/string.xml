@@ -1855,4 +1855,27 @@
     <string name="folder_tab_edit">Змінити</string>
     <string name="folder_tab_reorder">Порядок</string>
     <string name="folder_tab_delete">Видалити</string>
+    <string name="editor_undo">Скасувати</string>
+    <string name="editor_redo">Повторити</string>
+    <string name="editor_mode_preview">Перегляд</string>
+    <string name="editor_mode_edit">Редагування</string>
+    <string name="editor_markdown_on">Markdown: увімк.</string>
+    <string name="editor_markdown_off">Markdown: вимк.</string>
+    <string name="editor_zoom_in">A+</string>
+    <string name="editor_zoom_out">A-</string>
+    <string name="editor_templates">Шаблони</string>
+    <string name="editor_save_as_snippet">Зберегти як шаблон</string>
+    <string name="editor_snippet_title_hint">Назва шаблону</string>
+    <string name="editor_no_snippets">Шаблонів поки немає</string>
+    <string name="editor_find">Знайти</string>
+    <string name="editor_replace">Замінити</string>
+    <string name="editor_replace_all">Замінити все</string>
+    <string name="editor_matches_count">Збіг %1$d із %2$d</string>
+    <string name="editor_no_matches">Збігів немає</string>
+    <string name="editor_word_count">%1$d слів</string>
+    <string name="editor_reading_time">≈%1$d хв читання</string>
+    <string name="editor_autosave_done">Чернетку збережено</string>
+    <string name="action_insert">Вставити</string>
+    <string name="action_previous">Назад</string>
+    <string name="action_next">Вперед</string>
 </resources>

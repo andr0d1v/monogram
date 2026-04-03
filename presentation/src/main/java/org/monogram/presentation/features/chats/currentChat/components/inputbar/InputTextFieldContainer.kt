@@ -1,6 +1,6 @@
 package org.monogram.presentation.features.chats.currentChat.components.inputbar
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,12 +50,12 @@ fun InputTextFieldContainer(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.animateContentSize(),
+        modifier = modifier,
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
         ) {
             val showBotActions = remember(isBot, textValue.text) { isBot && textValue.text.isEmpty() }
@@ -98,17 +98,23 @@ fun InputTextFieldContainer(
             )
 
             if (canWriteText) {
-                IconButton(
-                    onClick = onOpenFullScreenEditor,
-                    modifier = Modifier
-                        .align(Alignment.CenterVertically)
-                        .size(36.dp)
+                AnimatedVisibility(
+                    visible = textValue.text.contains('\n') || textValue.text.length > 150,
+                    enter = fadeIn() + expandHorizontally(expandFrom = Alignment.End),
+                    exit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.End)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = stringResource(R.string.action_open_fullscreen_editor),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    IconButton(
+                        onClick = onOpenFullScreenEditor,
+                        modifier = Modifier
+                            .align(Alignment.CenterVertically)
+                            .size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.action_open_fullscreen_editor),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

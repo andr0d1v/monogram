@@ -76,6 +76,7 @@ fun InputTextField(
     emojiFontFamily: FontFamily,
     focusRequester: FocusRequester,
     pendingMediaPaths: List<String>,
+    fontScale: Float = 1f,
     maxEditorHeight: Dp = 140.dp,
     onFocus: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -86,7 +87,7 @@ fun InputTextField(
     var preLanguageValue by remember { mutableStateOf("") }
 
     val emojiSize = 20.sp
-    val inlineContent = remember(knownCustomEmojis.size) {
+    remember(knownCustomEmojis.size) {
         knownCustomEmojis.map { (id, sticker) ->
             id.toString() to InlineTextContent(
                 Placeholder(emojiSize, emojiSize, PlaceholderVerticalAlign.Center)
@@ -312,6 +313,7 @@ fun InputTextField(
                     }
 
                 val textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = MaterialTheme.typography.bodyLarge.fontSize * fontScale.coerceIn(0.8f, 1.6f),
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
                     ),

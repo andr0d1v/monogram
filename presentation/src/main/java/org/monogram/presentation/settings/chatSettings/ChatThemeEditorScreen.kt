@@ -1,6 +1,5 @@
 package org.monogram.presentation.settings.chatSettings
 
-import org.monogram.presentation.core.util.coRunCatching
 import android.graphics.Color.*
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Colorize
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material3.*
@@ -32,8 +33,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.monogram.presentation.R
+import org.monogram.presentation.core.ui.ItemPosition
 import org.monogram.presentation.core.util.NightMode
-import java.util.Calendar
+import org.monogram.presentation.core.util.coRunCatching
+import org.monogram.presentation.features.chats.chatList.components.SettingsTextField
+import java.util.*
 
 private enum class PaletteMode { LIGHT, DARK }
 
@@ -338,7 +342,15 @@ fun ChatThemeEditorScreen(
                                 }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(value = accentText, onValueChange = { accentText = it }, label = { Text(stringResource(R.string.chat_theme_editor_hex_accent)) }, singleLine = true, modifier = Modifier.weight(1f))
+                                SettingsTextField(
+                                    value = accentText,
+                                    onValueChange = { accentText = it },
+                                    placeholder = stringResource(R.string.chat_theme_editor_hex_accent),
+                                    icon = Icons.Outlined.Palette,
+                                    position = ItemPosition.STANDALONE,
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
                                 Button(onClick = {
                                     parseThemeColor(accentText)?.let {
                                         component.onApplyThemeAccent(it, isDark)
@@ -613,13 +625,15 @@ private fun Material3ColorPickerDialog(
                         .background(Color(current), RoundedCornerShape(10.dp))
                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
                 )
-                OutlinedTextField(
+                SettingsTextField(
                     value = hex,
                     onValueChange = {
                         hex = it
                         parseThemeColor(it)?.let { c -> hsv = toHsv(c); a = ((c ushr 24) and 0xFF) / 255f }
                     },
-                    label = { Text(stringResource(R.string.chat_theme_editor_hex)) },
+                    placeholder = stringResource(R.string.chat_theme_editor_hex),
+                    icon = Icons.Outlined.Colorize,
+                    position = ItemPosition.STANDALONE,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

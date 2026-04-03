@@ -1838,4 +1838,27 @@
     <string name="folder_tab_edit">编辑</string>
     <string name="folder_tab_reorder">排序</string>
     <string name="folder_tab_delete">删除</string>
+    <string name="editor_undo">撤销</string>
+    <string name="editor_redo">重做</string>
+    <string name="editor_mode_preview">预览</string>
+    <string name="editor_mode_edit">编辑</string>
+    <string name="editor_markdown_on">Markdown：开</string>
+    <string name="editor_markdown_off">Markdown：关</string>
+    <string name="editor_zoom_in">A+</string>
+    <string name="editor_zoom_out">A-</string>
+    <string name="editor_templates">模板</string>
+    <string name="editor_save_as_snippet">保存为模板</string>
+    <string name="editor_snippet_title_hint">模板名称</string>
+    <string name="editor_no_snippets">暂无模板</string>
+    <string name="editor_find">查找</string>
+    <string name="editor_replace">替换</string>
+    <string name="editor_replace_all">全部替换</string>
+    <string name="editor_matches_count">第 %1$d/%2$d 处匹配</string>
+    <string name="editor_no_matches">无匹配</string>
+    <string name="editor_word_count">%1$d 个词</string>
+    <string name="editor_reading_time">约 %1$d 分钟阅读</string>
+    <string name="editor_autosave_done">草稿已自动保存</string>
+    <string name="action_insert">插入</string>
+    <string name="action_previous">上一个</string>
+    <string name="action_next">下一个</string>
 </resources>
