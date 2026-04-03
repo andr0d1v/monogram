@@ -112,6 +112,7 @@ fun InputTextField(
 
         for (annotation in sortedEmojiAnnotations) {
             if (annotation.start < lastIndex) continue
+            if (annotation.start > text.length || annotation.end > text.length) continue
             builder.append(text.subSequence(lastIndex, annotation.start))
             val stickerId = annotation.item.toLongOrNull()
             val originalEmoji = text.substring(annotation.start, annotation.end)
@@ -132,7 +133,9 @@ fun InputTextField(
 
         // Add mention highlighting
         mentionAnnotations.forEach { annotation ->
-            finalBuilder.addStyle(SpanStyle(color = primaryColor), annotation.start, annotation.end)
+            if (annotation.start < annotation.end && annotation.start >= 0 && annotation.end <= result.length) {
+                finalBuilder.addStyle(SpanStyle(color = primaryColor), annotation.start, annotation.end)
+            }
         }
 
         text.getStringAnnotations(RICH_ENTITY_TAG, 0, text.length).forEach { annotation ->

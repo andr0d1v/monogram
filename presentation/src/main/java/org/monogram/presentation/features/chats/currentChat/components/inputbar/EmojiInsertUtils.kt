@@ -13,7 +13,8 @@ internal fun insertEmojiAtSelection(
     knownCustomEmojis: MutableMap<Long, StickerModel>
 ): TextFieldValue {
     val currentText = value.annotatedString
-    val selection = value.selection
+    val safeStart = value.selection.start.coerceIn(0, currentText.length)
+    val safeEnd = value.selection.end.coerceIn(safeStart, currentText.length)
 
     val emojiAnnotated = if (sticker != null) {
         val customEmojiEntityId = sticker.customEmojiId ?: sticker.id
@@ -28,13 +29,13 @@ internal fun insertEmojiAtSelection(
     }
 
     val newText = buildAnnotatedString {
-        append(currentText.subSequence(0, selection.start))
+        append(currentText.subSequence(0, safeStart))
         append(emojiAnnotated)
-        append(currentText.subSequence(selection.end, currentText.length))
+        append(currentText.subSequence(safeEnd, currentText.length))
     }
 
     return value.copy(
         annotatedString = newText,
-        selection = TextRange(selection.start + emojiAnnotated.length)
+        selection = TextRange(safeStart + emojiAnnotated.length)
     )
 }

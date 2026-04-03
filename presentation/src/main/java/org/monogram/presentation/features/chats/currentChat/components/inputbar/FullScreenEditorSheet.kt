@@ -763,11 +763,16 @@ private fun currentPreLanguage(value: TextFieldValue): String {
 
 private fun insertSnippetAtSelection(value: TextFieldValue, snippet: String): TextFieldValue {
     if (snippet.isBlank()) return value
-    val selection = if (value.selection.start <= value.selection.end) {
+    val rawSelection = if (value.selection.start <= value.selection.end) {
         value.selection
     } else {
         TextRange(value.selection.end, value.selection.start)
     }
+    val maxLength = value.annotatedString.length
+    val selection = TextRange(
+        start = rawSelection.start.coerceIn(0, maxLength),
+        end = rawSelection.end.coerceIn(0, maxLength)
+    )
     val newAnnotated = androidx.compose.ui.text.buildAnnotatedString {
         append(value.annotatedString.subSequence(0, selection.start))
         append(snippet)
@@ -789,9 +794,14 @@ private fun normalizeEditorUrl(raw: String): String? {
 }
 
 private fun insertMentionAtSelection(value: TextFieldValue): TextFieldValue {
-    val selection = if (value.selection.start <= value.selection.end) value.selection else TextRange(
+    val rawSelection = if (value.selection.start <= value.selection.end) value.selection else TextRange(
         value.selection.end,
         value.selection.start
+    )
+    val maxLength = value.annotatedString.length
+    val selection = TextRange(
+        start = rawSelection.start.coerceIn(0, maxLength),
+        end = rawSelection.end.coerceIn(0, maxLength)
     )
     val insertion =
         if (selection.start == selection.end) "@" else "@${value.text.substring(selection.start, selection.end)}"
