@@ -13,14 +13,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.MessageSendOptions
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InputBarSendButton(
     textValue: TextFieldValue,
@@ -150,8 +146,6 @@ fun InputBarSendButton(
                                 }
                             }
                         }
-                    } else if (canShowOptions) {
-                        Modifier
                     } else {
                         Modifier
                             .size(48.dp)
@@ -162,8 +156,14 @@ fun InputBarSendButton(
                             .clip(CircleShape)
                             .combinedClickable(
                                 onClick = {
-                                    if (!isOverCharLimit) {
+                                    if (isSendEnabled) {
                                         onSendWithOptions(MessageSendOptions())
+                                    }
+                                },
+                                onLongClick = {
+                                    if (canShowOptions) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onShowSendOptionsMenu()
                                     }
                                 }
                             )
@@ -171,43 +171,16 @@ fun InputBarSendButton(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (!isRecordingMode && canShowOptions) {
-                SplitButtonLayout(
-                    leadingButton = {
-                        SplitButtonDefaults.LeadingButton(
-                            onClick = { onSendWithOptions(MessageSendOptions()) }
-                        ) {
-                            Crossfade(targetState = sendIcon, label = "SplitLeadingIcon") { icon ->
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        }
-                    },
-                    trailingButton = {
-                        SplitButtonDefaults.TrailingButton(onClick = onShowSendOptionsMenu) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
+            Crossfade(targetState = sendIcon, label = "IconAnimation") { icon ->
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSendEnabled || isVoiceRecordingActive) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
-            } else {
-                Crossfade(targetState = sendIcon, label = "IconAnimation") { icon ->
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isSendEnabled || isVoiceRecordingActive) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
             }
         }
     }
