@@ -1020,7 +1020,7 @@
     <string name="action_cancel_reply">Zrušiť odpoveď</string>
     <string name="action_edit_message">Upraviť správu</string>
     <string name="action_cancel_edit">Zrušiť úpravu</string>
-    <string name="action_send_items_count">Odoslať %1$d položiek</string>
+    <string name="action_send_items_count">Priložiť %1$d položiek</string>
     <string name="action_send_media">Odoslať médiá</string>
     <string name="action_cancel">Zrušiť</string>
     <string name="action_copy">Kopírovať</string>

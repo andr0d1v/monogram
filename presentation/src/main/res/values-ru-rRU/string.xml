@@ -956,7 +956,7 @@
     <string name="action_cancel_reply">Отменить ответ</string>
     <string name="action_edit_message">Изменить сообщение</string>
     <string name="action_cancel_edit">Отменить редактирование</string>
-    <string name="action_send_items_count">Отправить %1$d объектов</string>
+    <string name="action_send_items_count">Прикрепить %1$d объектов</string>
     <string name="action_send_media">Отправить медиа</string>
     <string name="action_cancel">Отмена</string>
     <string name="action_copy">Копировать</string>

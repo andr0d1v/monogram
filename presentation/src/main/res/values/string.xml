@@ -991,7 +991,7 @@
     <string name="action_cancel_reply">Cancel reply</string>
     <string name="action_edit_message">Edit Message</string>
     <string name="action_cancel_edit">Cancel edit</string>
-    <string name="action_send_items_count">Send %1$d items</string>
+    <string name="action_send_items_count">Attach %1$d items</string>
     <string name="action_send_media">Send media</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_copy">Copy</string>

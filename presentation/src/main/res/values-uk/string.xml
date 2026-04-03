@@ -956,7 +956,7 @@
     <string name="action_cancel_reply">Скасувати відповідь</string>
     <string name="action_edit_message">Редагувати повідомлення</string>
     <string name="action_cancel_edit">Скасувати редагування</string>
-    <string name="action_send_items_count">Надіслати %1$d об’єктів</string>
+    <string name="action_send_items_count">Прикріпити %1$d об’єктів</string>
     <string name="action_send_media">Надіслати медіа</string>
     <string name="action_cancel">Скасувати</string>
     <string name="action_copy">Копіювати</string>
