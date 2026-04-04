@@ -1,4 +1,4 @@
-import java.util.Properties
+import java.util.*
 
 plugins {
     alias(libs.plugins.android.library)
@@ -66,6 +66,7 @@ dependencies {
     implementation(project(":domain"))
     implementation(libs.koin.android)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.media3.datasource)
     implementation(platform(libs.firebase.bom))

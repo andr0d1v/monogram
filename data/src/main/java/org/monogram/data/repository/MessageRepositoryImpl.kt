@@ -2,8 +2,7 @@ package org.monogram.data.repository
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.drinkless.tdlib.TdApi
@@ -18,6 +17,7 @@ import org.monogram.data.datasource.remote.MessageRemoteDataSource
 import org.monogram.data.db.dao.TextCompositionStyleDao
 import org.monogram.data.db.model.TextCompositionStyleEntity
 import org.monogram.data.gateway.TelegramGateway
+import org.monogram.data.gateway.UpdateDispatcher
 import org.monogram.data.infra.FileUpdateHandler
 import org.monogram.data.mapper.MessageMapper
 import org.monogram.data.mapper.map
@@ -33,6 +33,7 @@ import java.io.File
 class MessageRepositoryImpl(
     private val context: Context,
     private val gateway: TelegramGateway,
+    private val updates: UpdateDispatcher,
     private val messageMapper: MessageMapper,
     private val messageRemoteDataSource: MessageRemoteDataSource,
     private val cache: ChatCache,
@@ -74,79 +75,18 @@ class MessageRepositoryImpl(
             }
         }
 
-        scope.launch {
-            try {
-                gateway.updates.collect { update ->
-                    messageRemoteDataSource.handleUpdate(update)
-                    when (update) {
-                        is TdApi.UpdateNewMessage -> {
-                            val entity = messageMapper.mapToEntity(update.message, ::resolveSenderName)
-                            chatLocalDataSource.insertMessage(entity)
-                        }
-
-                        is TdApi.UpdateMessageContent -> {
-                            val extracted = messageMapper.extractCachedContent(update.newContent)
-                            chatLocalDataSource.updateMessageContent(
-                                messageId = update.messageId,
-                                content = extracted.text,
-                                contentType = extracted.type,
-                                contentMeta = extracted.meta,
-                                mediaFileId = extracted.fileId,
-                                mediaPath = extracted.path,
-                                editDate = 0
-                            )
-                        }
-
-                        is TdApi.UpdateMessageEdited -> {
-                            val updated = messageRemoteDataSource.getMessage(update.chatId, update.messageId)
-                            if (updated != null) {
-                                chatLocalDataSource.insertMessage(
-                                    messageMapper.mapToEntity(
-                                        updated,
-                                        ::resolveSenderName
-                                    )
-                                )
-                            }
-                        }
-
-                        is TdApi.UpdateMessageInteractionInfo -> {
-                            chatLocalDataSource.updateInteractionInfo(
-                                messageId = update.messageId,
-                                viewCount = update.interactionInfo?.viewCount ?: 0,
-                                forwardCount = update.interactionInfo?.forwardCount ?: 0,
-                                replyCount = update.interactionInfo?.replyInfo?.replyCount ?: 0
-                            )
-                        }
-
-                        is TdApi.UpdateChatReadInbox -> {
-                            chatLocalDataSource.markAsRead(update.chatId, update.lastReadInboxMessageId)
-                        }
-
-                        is TdApi.UpdateDeleteMessages -> {
-                            if (update.isPermanent) {
-                                update.messageIds.forEach { messageId ->
-                                    chatLocalDataSource.deleteMessage(messageId)
-                                }
-                            }
-                        }
-
-                        is TdApi.UpdateTextCompositionStyles -> {
-                            val styles = update.styles.orEmpty().map { style ->
-                                TextCompositionStyleModel(
-                                    name = style.name,
-                                    customEmojiId = style.customEmojiId,
-                                    title = style.title
-                                )
-                            }
-                            _textCompositionStyles.value = styles
-                            textCompositionStyleDao.replaceAll(styles.map { it.toEntity() })
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("TdLibUpdates", "CRITICAL: Update loop died", e)
+        updates.all
+            .map { update ->
+                messageRemoteDataSource.handleUpdate(update)
+                update
             }
-        }
+            .onEach { update ->
+                processCachedUpdate(update)
+            }
+            .catch { error ->
+                Log.e("TdLibUpdates", "CRITICAL: Update loop died", error)
+            }
+            .launchIn(scope)
 
         scope.launch(dispatcherProvider.io) {
             val ninetyDaysAgo = System.currentTimeMillis() - (90L * 24 * 60 * 60 * 1000)
@@ -159,6 +99,73 @@ class MessageRepositoryImpl(
                 if (fileId != 0 && path.isNotBlank()) {
                     chatLocalDataSource.updateMediaPath(fileId, path)
                 }
+            }
+        }
+    }
+
+    private suspend fun processCachedUpdate(update: TdApi.Update) {
+        when (update) {
+            is TdApi.UpdateNewMessage -> {
+                val entity = messageMapper.mapToEntity(update.message, ::resolveSenderName)
+                chatLocalDataSource.insertMessage(entity)
+            }
+
+            is TdApi.UpdateMessageContent -> {
+                val extracted = messageMapper.extractCachedContent(update.newContent)
+                chatLocalDataSource.updateMessageContent(
+                    messageId = update.messageId,
+                    content = extracted.text,
+                    contentType = extracted.type,
+                    contentMeta = extracted.meta,
+                    mediaFileId = extracted.fileId,
+                    mediaPath = extracted.path,
+                    editDate = 0
+                )
+            }
+
+            is TdApi.UpdateMessageEdited -> {
+                val updated = messageRemoteDataSource.getMessage(update.chatId, update.messageId)
+                if (updated != null) {
+                    chatLocalDataSource.insertMessage(
+                        messageMapper.mapToEntity(
+                            updated,
+                            ::resolveSenderName
+                        )
+                    )
+                }
+            }
+
+            is TdApi.UpdateMessageInteractionInfo -> {
+                chatLocalDataSource.updateInteractionInfo(
+                    messageId = update.messageId,
+                    viewCount = update.interactionInfo?.viewCount ?: 0,
+                    forwardCount = update.interactionInfo?.forwardCount ?: 0,
+                    replyCount = update.interactionInfo?.replyInfo?.replyCount ?: 0
+                )
+            }
+
+            is TdApi.UpdateChatReadInbox -> {
+                chatLocalDataSource.markAsRead(update.chatId, update.lastReadInboxMessageId)
+            }
+
+            is TdApi.UpdateDeleteMessages -> {
+                if (update.isPermanent) {
+                    update.messageIds.forEach { messageId ->
+                        chatLocalDataSource.deleteMessage(messageId)
+                    }
+                }
+            }
+
+            is TdApi.UpdateTextCompositionStyles -> {
+                val styles = update.styles.orEmpty().map { style ->
+                    TextCompositionStyleModel(
+                        name = style.name,
+                        customEmojiId = style.customEmojiId,
+                        title = style.title
+                    )
+                }
+                _textCompositionStyles.value = styles
+                textCompositionStyleDao.replaceAll(styles.map { it.toEntity() })
             }
         }
     }
