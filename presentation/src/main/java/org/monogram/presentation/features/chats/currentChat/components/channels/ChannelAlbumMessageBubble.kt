@@ -2,7 +2,14 @@ package org.monogram.presentation.features.chats.currentChat.components.channels
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,10 +17,18 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.*
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,7 +44,14 @@ import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageModel
 import org.monogram.presentation.core.util.IDownloadUtils
 import org.monogram.presentation.features.chats.currentChat.components.CompactMediaMosaic
-import org.monogram.presentation.features.chats.currentChat.components.chats.*
+import org.monogram.presentation.features.chats.currentChat.components.chats.ForwardContent
+import org.monogram.presentation.features.chats.currentChat.components.chats.MessageMetadata
+import org.monogram.presentation.features.chats.currentChat.components.chats.MessageReactionsView
+import org.monogram.presentation.features.chats.currentChat.components.chats.MessageText
+import org.monogram.presentation.features.chats.currentChat.components.chats.ReplyContent
+import org.monogram.presentation.features.chats.currentChat.components.chats.buildAnnotatedMessageTextWithEmoji
+import org.monogram.presentation.features.chats.currentChat.components.chats.formatFileSize
+import org.monogram.presentation.features.chats.currentChat.components.chats.rememberMessageInlineContent
 
 @Composable
 fun ChannelAlbumMessageBubble(
@@ -477,7 +499,7 @@ fun ChannelDocumentAlbumBubble(
         }
 
         MessageReactionsView(
-            reactions = firstMsg.reactions,
+            reactions = lastMsg.reactions,
             onReactionClick = onReactionClick,
             modifier = Modifier.padding(top = 2.dp)
         )
@@ -682,7 +704,7 @@ fun ChannelAudioAlbumBubble(
         }
 
         MessageReactionsView(
-            reactions = firstMsg.reactions,
+            reactions = lastMsg.reactions,
             onReactionClick = onReactionClick,
             modifier = Modifier.padding(top = 2.dp)
         )
