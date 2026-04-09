@@ -62,13 +62,13 @@ class MainActivity : FragmentActivity() {
         }
 
         handleIntent(intent)
-        startNotificationService()
 
         val windowInfoTracker = WindowInfoTracker.getOrCreate(this)
 
         setContent {
             LaunchedEffect(Unit) {
                 keepSplashOnScreen = false
+                startNotificationService()
             }
 
             val windowLayoutInfo by windowInfoTracker.windowLayoutInfo(this)

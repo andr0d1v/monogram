@@ -162,7 +162,7 @@ val dataModule = module {
     single<DispatcherProvider> { DefaultDispatcherProvider() }
     single<StringProvider> { AndroidStringProvider(androidContext()) }
     single { TdLibParametersProvider(androidContext()) }
-    single(createdAtStart = true) {
+    single {
         OfflineWarmup(
             scope = get(),
             dispatchers = get(),
@@ -177,7 +177,7 @@ val dataModule = module {
             stickerRepository = get()
         )
     }
-    single(createdAtStart = true) {
+    single {
         SponsorSyncManager(
             scope = get(),
             gateway = get(),
