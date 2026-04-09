@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.monogram.domain.models.MessageModel
+import org.monogram.presentation.features.chats.currentChat.ChatScrollCommand
 import org.monogram.presentation.features.chats.currentChat.DefaultChatComponent
+import org.monogram.presentation.features.chats.currentChat.ScrollAlign
 
 
 internal fun DefaultChatComponent.loadPinnedMessage() {
@@ -119,7 +121,12 @@ private fun DefaultChatComponent.jumpToMessage(message: MessageModel) {
                 lastLoadedNewerId = 0L
                 _state.update {
                     it.copy(
-                        scrollToMessageId = message.id,
+                        pendingScrollCommand = ChatScrollCommand.JumpToMessage(
+                            messageId = message.id,
+                            highlight = true,
+                            align = ScrollAlign.Center,
+                            animated = true
+                        ),
                         highlightedMessageId = message.id,
                         isAtBottom = false,
                         isLatestLoaded = false,

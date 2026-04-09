@@ -13,7 +13,21 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,8 +37,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,7 +79,10 @@ import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.Avatar
 import org.monogram.presentation.core.util.IDownloadUtils
 import org.monogram.presentation.features.chats.currentChat.ChatComponent
-import org.monogram.presentation.features.chats.currentChat.components.*
+import org.monogram.presentation.features.chats.currentChat.components.AlbumMessageBubbleContainer
+import org.monogram.presentation.features.chats.currentChat.components.DateSeparator
+import org.monogram.presentation.features.chats.currentChat.components.MessageBubbleContainer
+import org.monogram.presentation.features.chats.currentChat.components.ServiceMessage
 import org.monogram.presentation.features.chats.currentChat.components.channels.ChannelMessageBubbleContainer
 import org.monogram.presentation.features.stickers.ui.view.StickerImage
 import java.io.File
@@ -900,6 +931,38 @@ private fun isItemSelected(item: GroupedMessageItem, selectedIds: Set<Long>): Bo
         is GroupedMessageItem.Single -> selectedIds.contains(item.message.id)
         is GroupedMessageItem.Album -> item.messages.any { selectedIds.contains(it.id) }
     }
+}
+
+internal fun chatContentLeadingItemsCount(
+    isComments: Boolean,
+    showNavPadding: Boolean,
+    isLoadingOlder: Boolean,
+    isLoadingNewer: Boolean,
+    isAtBottom: Boolean,
+    hasMessages: Boolean
+): Int {
+    return if (isComments) {
+        val loadingOlderTop = if (isLoadingOlder && hasMessages) 1 else 0
+        loadingOlderTop + 1 // root header
+    } else {
+        val navPadding = if (showNavPadding) 1 else 0
+        val loadingNewerBottom = if (isLoadingNewer && !isAtBottom && hasMessages) 1 else 0
+        navPadding + loadingNewerBottom
+    }
+}
+
+internal fun groupedIndexToLazyIndex(
+    groupedIndex: Int,
+    leadingItemsCount: Int
+): Int {
+    return groupedIndex + leadingItemsCount
+}
+
+internal fun lazyIndexToGroupedIndex(
+    lazyIndex: Int,
+    leadingItemsCount: Int
+): Int {
+    return lazyIndex - leadingItemsCount
 }
 
 private fun handlePhotoClick(

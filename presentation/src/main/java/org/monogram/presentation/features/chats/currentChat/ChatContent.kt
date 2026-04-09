@@ -4,26 +4,66 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -47,16 +87,39 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
 import androidx.window.core.layout.WindowWidthSizeClass
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import org.monogram.domain.models.ChatViewportCacheEntry
 import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.ReplyMarkupModel
 import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.ConfirmationSheet
 import org.monogram.presentation.core.ui.ExpressiveDefaults
-import org.monogram.presentation.features.chats.currentChat.chatContent.*
-import org.monogram.presentation.features.chats.currentChat.components.*
+import org.monogram.presentation.features.chats.currentChat.chatContent.ChatContentBackground
+import org.monogram.presentation.features.chats.currentChat.chatContent.ChatContentList
+import org.monogram.presentation.features.chats.currentChat.chatContent.ChatContentTopBar
+import org.monogram.presentation.features.chats.currentChat.chatContent.ChatContentTopBarUiState
+import org.monogram.presentation.features.chats.currentChat.chatContent.ChatMessageOptionsMenu
+import org.monogram.presentation.features.chats.currentChat.chatContent.GroupedMessageItem
+import org.monogram.presentation.features.chats.currentChat.chatContent.ReportChatDialog
+import org.monogram.presentation.features.chats.currentChat.chatContent.RestrictUserSheet
+import org.monogram.presentation.features.chats.currentChat.chatContent.chatContentLeadingItemsCount
+import org.monogram.presentation.features.chats.currentChat.chatContent.groupMessagesByAlbum
+import org.monogram.presentation.features.chats.currentChat.chatContent.groupedIndexToLazyIndex
+import org.monogram.presentation.features.chats.currentChat.chatContent.lazyIndexToGroupedIndex
+import org.monogram.presentation.features.chats.currentChat.components.AdvancedCircularRecorderScreen
+import org.monogram.presentation.features.chats.currentChat.components.ChatInputBar
+import org.monogram.presentation.features.chats.currentChat.components.ChatInputBarActions
+import org.monogram.presentation.features.chats.currentChat.components.ChatInputBarState
+import org.monogram.presentation.features.chats.currentChat.components.MessageListShimmer
+import org.monogram.presentation.features.chats.currentChat.components.StickerSetSheet
 import org.monogram.presentation.features.chats.currentChat.components.chats.BotCommandsSheet
 import org.monogram.presentation.features.chats.currentChat.components.chats.LocalLinkHandler
 import org.monogram.presentation.features.chats.currentChat.components.chats.PollVotersSheet
@@ -164,13 +227,21 @@ fun ChatContent(
         val index = groupedMessageIndexById[msg.id] ?: -1
         if (index != -1) {
             coroutineScope.launch {
-                val targetIndex = if (isComments) {
-                    if (state.rootMessage != null) index + 1 else index
-                } else index
+                val leadingItems = chatContentLeadingItemsCount(
+                    isComments = isComments,
+                    showNavPadding = false,
+                    isLoadingOlder = state.isLoadingOlder,
+                    isLoadingNewer = state.isLoadingNewer,
+                    isAtBottom = state.isAtBottom,
+                    hasMessages = groupedMessages.isNotEmpty()
+                )
+                val targetIndex = groupedIndexToLazyIndex(index, leadingItems)
 
-                scrollState.scrollMessageToCenter(
+                scrollState.scrollToMessageIndex(
                     index = targetIndex,
-                    animated = state.isChatAnimationsEnabled
+                    align = ScrollAlign.Center,
+                    animated = state.isChatAnimationsEnabled,
+                    staged = true
                 )
             }
         } else {
@@ -220,21 +291,74 @@ fun ChatContent(
         }
     }
 
-    // Scroll to message when requested by component
-    LaunchedEffect(state.scrollToMessageId, groupedMessages) {
-        state.scrollToMessageId?.let { id ->
-            val index = if (id == state.currentTopicId) -1 else groupedMessageIndexById[id] ?: -1
-            if (index != -1) {
-                component.onScrollToMessageConsumed()
+    // Unified command-based scrolling: restore, jump, bottom.
+    LaunchedEffect(state.pendingScrollCommand, isComments) {
+        val command = state.pendingScrollCommand ?: return@LaunchedEffect
 
-                val targetIndex = if (isComments) {
-                    if (state.rootMessage != null) index + 1 else index
-                } else index
+        val leadingItems = chatContentLeadingItemsCount(
+            isComments = isComments,
+            showNavPadding = false,
+            isLoadingOlder = state.isLoadingOlder,
+            isLoadingNewer = state.isLoadingNewer,
+            isAtBottom = state.isAtBottom,
+            hasMessages = groupedMessages.isNotEmpty()
+        )
 
-                scrollState.scrollMessageToCenter(
-                    index = targetIndex,
-                    animated = state.isChatAnimationsEnabled
+        when (command) {
+            is ChatScrollCommand.RestoreViewport -> {
+                if (command.atBottom || command.anchorMessageId == null) {
+                    scrollState.scrollToChatBottomStaged(
+                        isComments = isComments,
+                        animated = false
+                    )
+                } else {
+                    val groupedIndex = groupedMessageIndexById[command.anchorMessageId]
+                        ?: awaitGroupedIndex(
+                            messageId = command.anchorMessageId,
+                            groupedMessageIndexByIdProvider = { groupedMessageIndexById }
+                        )
+                        ?: -1
+                    if (groupedIndex >= 0) {
+                        val targetIndex = groupedIndexToLazyIndex(groupedIndex, leadingItems)
+                        scrollState.restoreViewportAtIndex(
+                            targetIndex = targetIndex,
+                            anchorOffsetPx = command.anchorOffsetPx
+                        )
+                    } else {
+                        scrollState.scrollToChatBottomStaged(
+                            isComments = isComments,
+                            animated = false
+                        )
+                    }
+                }
+                component.onScrollCommandConsumed()
+            }
+
+            is ChatScrollCommand.JumpToMessage -> {
+                val groupedIndex = groupedMessageIndexById[command.messageId]
+                    ?: awaitGroupedIndex(
+                        messageId = command.messageId,
+                        groupedMessageIndexByIdProvider = { groupedMessageIndexById }
+                    )
+                    ?: -1
+                if (groupedIndex >= 0) {
+                    val targetIndex = groupedIndexToLazyIndex(groupedIndex, leadingItems)
+                    scrollState.scrollToMessageIndex(
+                        index = targetIndex,
+                        align = command.align,
+                        animated = command.animated && state.isChatAnimationsEnabled,
+                        staged = true
+                    )
+                }
+                component.onScrollCommandConsumed()
+            }
+
+            is ChatScrollCommand.ScrollToBottom -> {
+                scrollState.scrollToChatBottomStaged(
+                    isComments = isComments,
+                    animated = command.animated && state.isChatAnimationsEnabled
                 )
+                component.onScrollCommandConsumed()
             }
         }
     }
@@ -282,41 +406,61 @@ fun ChatContent(
             }
     }
 
-    // Save scroll position
-    LaunchedEffect(scrollState, groupedMessages, isComments, state.rootMessage, state.isLatestLoaded) {
-        snapshotFlow { scrollState.isScrollInProgress to scrollState.firstVisibleItemIndex }
-            .filter { !it.first }
-            .map {
-                val isAtBottom = scrollState.isAtBottom(
-                    isComments = isComments,
-                    isLatestLoaded = state.isLatestLoaded
-                )
-
-                if (isAtBottom && !isComments) {
-                    0L
-                } else {
-                    val visibleItems = scrollState.layoutInfo.visibleItemsInfo
-                    if (visibleItems.isNotEmpty()) {
-                        val firstVisibleItem = if (isComments) {
-                            visibleItems.firstOrNull { it.index > 0 }
-                        } else {
-                            visibleItems.firstOrNull { it.index >= 0 }
-                        }
-
-                        if (firstVisibleItem != null) {
-                            val groupedIndex =
-                                if (state.rootMessage != null) firstVisibleItem.index - 1 else firstVisibleItem.index
-                            groupedMessages.getOrNull(groupedIndex)?.firstMessageId
-                        } else null
-                    } else null
-                }
-            }
+    // Save full viewport (anchor + pixel offset) for precise restore after reopen.
+    LaunchedEffect(
+        scrollState,
+        groupedMessages,
+        isComments,
+        state.isLatestLoaded,
+        state.isLoadingOlder,
+        state.isLoadingNewer,
+        state.isAtBottom
+    ) {
+        snapshotFlow {
+            buildViewportSnapshot(
+                scrollState = scrollState,
+                groupedMessages = groupedMessages,
+                isComments = isComments,
+                isLatestLoaded = state.isLatestLoaded,
+                isLoadingOlder = state.isLoadingOlder,
+                isLoadingNewer = state.isLoadingNewer,
+                isAtBottom = state.isAtBottom,
+                showNavPadding = false
+            )
+        }
+            .filterNotNull()
             .distinctUntilChanged()
-            .collect { messageId ->
-                if (messageId != null) {
-                    component.updateScrollPosition(messageId)
-                }
+            .debounce(120)
+            .collect { viewport ->
+                component.updateViewport(viewport)
             }
+    }
+
+    DisposableEffect(
+        scrollState,
+        groupedMessages,
+        isComments,
+        state.currentTopicId,
+        state.isLatestLoaded,
+        state.isLoadingOlder,
+        state.isLoadingNewer,
+        state.isAtBottom
+    ) {
+        onDispose {
+            val viewport = buildViewportSnapshot(
+                scrollState = scrollState,
+                groupedMessages = groupedMessages,
+                isComments = isComments,
+                isLatestLoaded = state.isLatestLoaded,
+                isLoadingOlder = state.isLoadingOlder,
+                isLoadingNewer = state.isLoadingNewer,
+                isAtBottom = state.isAtBottom,
+                showNavPadding = false
+            )
+            if (viewport != null) {
+                component.updateViewport(viewport)
+            }
+        }
     }
 
     // Performance: Update visible range for repository
@@ -383,7 +527,7 @@ fun ChatContent(
             !state.isLoadingNewer &&
             !scrollState.isScrollInProgress
         ) {
-            scrollState.scrollToChatBottom(
+            scrollState.scrollToChatBottomStaged(
                 isComments = isComments,
                 animated = state.isChatAnimationsEnabled
             )
@@ -1029,16 +1173,7 @@ fun ChatContent(
                                 Box {
                                     FloatingActionButton(
                                         onClick = {
-                                            if (!state.isLatestLoaded) {
-                                                component.onScrollToBottom()
-                                            } else {
-                                                coroutineScope.launch {
-                                                    scrollState.scrollToChatBottom(
-                                                        isComments = isComments,
-                                                        animated = state.isChatAnimationsEnabled
-                                                    )
-                                                }
-                                            }
+                                            component.onScrollToBottom()
                                         },
                                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                                         shape = CircleShape,
@@ -1356,16 +1491,40 @@ private fun MessageModel.withUpdatedTextContent(newText: String): MessageModel {
     return copy(content = updatedContent)
 }
 
-private suspend fun LazyListState.scrollMessageToCenter(
+private suspend fun LazyListState.scrollToMessageIndex(
     index: Int,
-    animated: Boolean
+    align: ScrollAlign,
+    animated: Boolean,
+    staged: Boolean
 ) {
-    if (animated) animateScrollToItem(index) else scrollToItem(index)
+    val total = layoutInfo.totalItemsCount
+    if (total <= 0) return
 
-    val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
-    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-    val itemCenter = itemInfo.offset + (itemInfo.size / 2)
-    val delta = (itemCenter - viewportCenter).toFloat()
+    val boundedIndex = index.coerceIn(0, total - 1)
+    val distance = abs(firstVisibleItemIndex - boundedIndex)
+
+    if (staged && distance > 20) {
+        val coarseIndex = when {
+            boundedIndex > firstVisibleItemIndex -> (boundedIndex - 10).coerceAtLeast(0)
+            boundedIndex < firstVisibleItemIndex -> (boundedIndex + 10).coerceAtMost(total - 1)
+            else -> boundedIndex
+        }
+        scrollToItem(coarseIndex)
+    }
+
+    scrollToItem(boundedIndex)
+
+    val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == boundedIndex } ?: return
+    val viewportStart = layoutInfo.viewportStartOffset
+    val viewportEnd = layoutInfo.viewportEndOffset
+    val viewportCenter = (viewportStart + viewportEnd) / 2
+
+    val targetPosition = when (align) {
+        ScrollAlign.Start -> viewportStart
+        ScrollAlign.Center -> viewportCenter - (itemInfo.size / 2)
+        ScrollAlign.End -> viewportEnd - itemInfo.size
+    }
+    val delta = (itemInfo.offset - targetPosition).toFloat()
 
     if (abs(delta) > 1f) {
         if (animated) {
@@ -1419,15 +1578,23 @@ private fun LazyListState.isNearBottom(isComments: Boolean): Boolean {
     }
 }
 
-private suspend fun LazyListState.scrollToChatBottom(
+private suspend fun LazyListState.scrollToChatBottomStaged(
     isComments: Boolean,
     animated: Boolean
 ) {
-    val targetIndex = if (isComments) {
-        val total = layoutInfo.totalItemsCount
-        if (total > 0) total - 1 else 0
-    } else {
-        0
+    val total = layoutInfo.totalItemsCount
+    if (total <= 0) return
+
+    val targetIndex = if (isComments) total - 1 else 0
+    val distance = abs(firstVisibleItemIndex - targetIndex)
+
+    if (distance > 24) {
+        val coarse = if (isComments) {
+            (targetIndex - 8).coerceAtLeast(0)
+        } else {
+            (targetIndex + 8).coerceAtMost(total - 1)
+        }
+        scrollToItem(coarse)
     }
 
     if (animated) {
@@ -1435,4 +1602,95 @@ private suspend fun LazyListState.scrollToChatBottom(
     } else {
         scrollToItem(targetIndex)
     }
+
+    val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+    if (targetInfo != null) {
+        val delta = if (isComments) {
+            ((targetInfo.offset + targetInfo.size) - layoutInfo.viewportEndOffset).toFloat()
+        } else {
+            (targetInfo.offset - layoutInfo.viewportStartOffset).toFloat()
+        }
+        if (abs(delta) > 1f) {
+            scrollBy(delta)
+        }
+    }
+
+    scrollToItem(targetIndex)
+}
+
+private suspend fun awaitGroupedIndex(
+    messageId: Long,
+    groupedMessageIndexByIdProvider: () -> Map<Long, Int>,
+    timeoutMs: Long = 1200L
+): Int? {
+    return withTimeoutOrNull(timeoutMs) {
+        snapshotFlow { groupedMessageIndexByIdProvider()[messageId] }
+            .filterNotNull()
+            .first()
+    }
+}
+
+private suspend fun LazyListState.restoreViewportAtIndex(
+    targetIndex: Int,
+    anchorOffsetPx: Int
+) {
+    val total = layoutInfo.totalItemsCount
+    if (total <= 0) return
+    val boundedIndex = targetIndex.coerceIn(0, total - 1)
+
+    scrollToItem(boundedIndex)
+    val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == boundedIndex } ?: return
+    val viewportStart = layoutInfo.viewportStartOffset
+    val desiredOffset = viewportStart + anchorOffsetPx
+    val delta = (itemInfo.offset - desiredOffset).toFloat()
+
+    if (abs(delta) > 1f) {
+        scrollBy(delta)
+    }
+}
+
+private fun buildViewportSnapshot(
+    scrollState: LazyListState,
+    groupedMessages: List<GroupedMessageItem>,
+    isComments: Boolean,
+    isLatestLoaded: Boolean,
+    isLoadingOlder: Boolean,
+    isLoadingNewer: Boolean,
+    isAtBottom: Boolean,
+    showNavPadding: Boolean
+): ChatViewportCacheEntry? {
+    if (groupedMessages.isEmpty()) {
+        return ChatViewportCacheEntry(atBottom = true)
+    }
+
+    val atBottomNow = scrollState.isAtBottom(
+        isComments = isComments,
+        isLatestLoaded = isLatestLoaded
+    )
+    if (atBottomNow) {
+        return ChatViewportCacheEntry(atBottom = true)
+    }
+
+    val leadingItems = chatContentLeadingItemsCount(
+        isComments = isComments,
+        showNavPadding = showNavPadding,
+        isLoadingOlder = isLoadingOlder,
+        isLoadingNewer = isLoadingNewer,
+        isAtBottom = isAtBottom,
+        hasMessages = groupedMessages.isNotEmpty()
+    )
+    val info = scrollState.layoutInfo
+    val anchorItem = info.visibleItemsInfo.firstOrNull { itemInfo ->
+        val groupedIndex = lazyIndexToGroupedIndex(itemInfo.index, leadingItems)
+        groupedIndex in groupedMessages.indices
+    } ?: return null
+
+    val groupedIndex = lazyIndexToGroupedIndex(anchorItem.index, leadingItems)
+    val anchorMessageId = groupedMessages.getOrNull(groupedIndex)?.firstMessageId ?: return null
+
+    return ChatViewportCacheEntry(
+        anchorMessageId = anchorMessageId,
+        anchorOffsetPx = anchorItem.offset - info.viewportStartOffset,
+        atBottom = false
+    )
 }
