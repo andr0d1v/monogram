@@ -1381,8 +1381,10 @@ fun ChatContent(
                         transformedMessageTexts[msg.id] = newText
                     },
                     onRestoreOriginalText = {
-                        val originalText = originalMessageTexts[msg.id] ?: return@ChatMessageOptionsMenu
-                        transformedMessageTexts[msg.id] = originalText
+                        if (!originalMessageTexts.containsKey(msg.id)) {
+                            return@ChatMessageOptionsMenu
+                        }
+                        transformedMessageTexts.remove(msg.id)
                         originalMessageTexts.remove(msg.id)
                     },
                     onBlockRequest = { userId ->
