@@ -1937,6 +1937,9 @@
     <string name="editor_word_count">%1$d слов</string>
     <string name="editor_reading_time">≈%1$d мин чтения</string>
     <string name="editor_autosave_done">Черновик сохранён</string>
+    <string name="editor_action_copy">Копировать</string>
+    <string name="editor_action_cut">Вырезать</string>
+    <string name="editor_action_paste">Вставить</string>
     <string name="editor_ai">AI</string>
     <string name="editor_ai_title">ИИ-редактор</string>
     <string name="editor_ai_tab_translate">Перевод</string>

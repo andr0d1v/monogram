@@ -1048,6 +1048,9 @@
     <string name="editor_word_count">%1$d palabras</string>
     <string name="editor_reading_time">~%1$d min de lectura</string>
     <string name="editor_autosave_done">Borrador guardado automáticamente</string>
+    <string name="editor_action_copy">Copiar</string>
+    <string name="editor_action_cut">Cortar</string>
+    <string name="editor_action_paste">Pegar</string>
     <string name="action_insert">Insertar</string>
     <string name="action_previous">Anterior</string>
     <string name="action_next">Siguiente</string>

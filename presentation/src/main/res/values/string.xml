@@ -1063,6 +1063,9 @@
     <string name="editor_word_count">%1$d words</string>
     <string name="editor_reading_time">~%1$d min read</string>
     <string name="editor_autosave_done">Draft auto-saved</string>
+    <string name="editor_action_copy">Copy</string>
+    <string name="editor_action_cut">Cut</string>
+    <string name="editor_action_paste">Paste</string>
     <string name="editor_ai">AI</string>
     <string name="editor_ai_title">AI editor</string>
     <string name="editor_ai_tab_translate">Translate</string>

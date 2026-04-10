@@ -952,6 +952,9 @@
     <string name="fullscreen_editor_blocks">%1$d ֆորմատավորման բլոկ</string>
     <string name="fullscreen_editor_hint">Ընտրեք տեքստը՝ ձևավորում կիրառելու համար</string>
     <string name="message_length_counter">%1$d/%2$d</string>
+    <string name="editor_action_copy">Պատճենել</string>
+    <string name="editor_action_cut">Կտրել</string>
+    <string name="editor_action_paste">Տեղադրել</string>
 
     <string name="rich_text_bold">Թավ</string>
     <string name="rich_text_italic">Շեղ</string>

@@ -1937,6 +1937,9 @@
     <string name="editor_word_count">%1$d слів</string>
     <string name="editor_reading_time">≈%1$d хв читання</string>
     <string name="editor_autosave_done">Чернетку збережено</string>
+    <string name="editor_action_copy">Копіювати</string>
+    <string name="editor_action_cut">Вирізати</string>
+    <string name="editor_action_paste">Вставити</string>
     <string name="editor_ai">AI</string>
     <string name="editor_ai_title">AI-редактор</string>
     <string name="editor_ai_tab_translate">Переклад</string>
