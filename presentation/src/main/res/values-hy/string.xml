@@ -239,7 +239,10 @@
     <string name="info_views">Դիտումներ</string>
 
     <string name="unknown_title">Անհայտ</string>
-    <string name="members_count_format">%1$d անդամ</string>
+    <plurals name="members_count_format">
+        <item quantity="one">%1$d անդամ</item>
+        <item quantity="other">%1$d անդամ</item>
+    </plurals>
     <string name="members_online_count_format">%1$s, %2$d առցանց</string>
     <string name="not_implemented">Դեռ հասանելի չէ</string>
     <string name="search_not_implemented">Որոնումը դեռ հասանելի չէ</string>

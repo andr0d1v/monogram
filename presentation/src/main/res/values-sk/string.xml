@@ -258,7 +258,11 @@
 
     <!-- Profile -->
     <string name="unknown_title">Neznáme</string>
-    <string name="members_count_format">%1$d členov</string>
+    <plurals name="members_count_format">
+        <item quantity="one">%1$d člen</item>
+        <item quantity="few">%1$d členovia</item>
+        <item quantity="other">%1$d členov</item>
+    </plurals>
     <string name="members_online_count_format">%1$s, %2$d online</string>
     <string name="not_implemented">Nie je implementované</string>
     <string name="search_not_implemented">Vyhľadávanie nie je implementované</string>

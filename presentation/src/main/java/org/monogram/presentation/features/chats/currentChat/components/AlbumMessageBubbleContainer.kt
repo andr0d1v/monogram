@@ -160,13 +160,17 @@ fun AlbumMessageBubbleContainer(
             verticalAlignment = Alignment.Bottom
         ) {
             if (isGroup && !isOutgoing && !isChannel) {
-                Avatar(
-                    path = firstMsg.senderAvatar,
-                    fallbackPath = firstMsg.senderPersonalAvatar,
-                    name = firstMsg.senderName,
-                    size = 40.dp,
-                    onClick = { toProfile(firstMsg.senderId) }
-                )
+                if (!isSameSenderBelow) {
+                    Avatar(
+                        path = firstMsg.senderAvatar,
+                        fallbackPath = firstMsg.senderPersonalAvatar,
+                        name = firstMsg.senderName,
+                        size = 40.dp,
+                        onClick = { toProfile(firstMsg.senderId) }
+                    )
+                } else {
+                    Spacer(modifier = Modifier.width(40.dp))
+                }
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
@@ -186,7 +190,7 @@ fun AlbumMessageBubbleContainer(
                             }
                         }
                 ) {
-                    if (isGroup && !isOutgoing && !isChannel) {
+                    if (isGroup && !isOutgoing && !isChannel && !isSameSenderAbove) {
                         Text(
                             text = firstMsg.senderName,
                             style = MaterialTheme.typography.labelSmall,
