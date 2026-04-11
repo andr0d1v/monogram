@@ -139,7 +139,7 @@
     <string name="mini_app_default_name">Mini App</string>
 
     <!-- Account Menu -->
-    <string name="app_name_dev">MonoGram Dev</string>
+    <string name="app_name_dev">MonoGram Alpha</string>
     <string name="action_add_account">Добавить аккаунт</string>
     <string name="add_account_subtitle">Войти в другой аккаунт</string>
     <string name="menu_my_profile">Мой профиль</string>
@@ -155,7 +155,7 @@
     <string name="menu_help_feedback">Помощь</string>
     <string name="menu_help_feedback_subtitle">FAQ и поддержка</string>
     <string name="privacy_policy">Политика конфиденциальности</string>
-    <string name="app_version_footer_format">MonoGram Dev для Android v%1$s</string>
+    <string name="app_version_footer_format">MonoGram Alpha для Android v%1$s</string>
     <string name="unknown_user">Неизвестный пользователь</string>
     <string name="no_info">Нет информации</string>
     <string name="cd_show_accounts">Показать аккаунты</string>

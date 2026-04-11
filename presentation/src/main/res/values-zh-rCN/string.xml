@@ -139,7 +139,7 @@
     <string name="mini_app_default_name">小程序</string>
 
     <!-- Account Menu -->
-    <string name="app_name_dev">MonoGram Dev</string>
+    <string name="app_name_dev">MonoGram Alpha</string>
     <string name="action_add_account">添加账号</string>
     <string name="add_account_subtitle">登录另一个账号</string>
     <string name="menu_my_profile">我的个人资料</string>
@@ -155,7 +155,7 @@
     <string name="menu_help_feedback">帮助</string>
     <string name="menu_help_feedback_subtitle">常见问题与支持</string>
     <string name="privacy_policy">隐私政策</string>
-    <string name="app_version_footer_format">MonoGram Dev for Android v%1$s</string>
+    <string name="app_version_footer_format">MonoGram Alpha for Android v%1$s</string>
     <string name="unknown_user">未知用户</string>
     <string name="no_info">暂无信息</string>
     <string name="cd_show_accounts">显示账号</string>

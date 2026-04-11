@@ -140,7 +140,7 @@
     <string name="mini_app_default_name">Mini App</string>
 
     <!-- Account Menu -->
-    <string name="app_name_dev">MonoGram Dev</string>
+    <string name="app_name_dev">MonoGram Alpha</string>
     <string name="action_add_account">Add Account</string>
     <string name="add_account_subtitle">Login to another account</string>
     <string name="menu_my_profile">My Profile</string>
@@ -156,7 +156,7 @@
     <string name="menu_help_feedback">Help &amp; Feedback</string>
     <string name="menu_help_feedback_subtitle">FAQ and support</string>
     <string name="privacy_policy">Privacy Policy</string>
-    <string name="app_version_footer_format">MonoGram Dev for Android v%1$s</string>
+    <string name="app_version_footer_format">MonoGram Alpha for Android v%1$s</string>
     <string name="unknown_user">Unknown User</string>
     <string name="no_info">No info</string>
     <string name="cd_show_accounts">Show accounts</string>

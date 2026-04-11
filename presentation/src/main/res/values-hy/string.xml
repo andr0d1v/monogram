@@ -132,7 +132,7 @@
     <string name="start_new_conversation">Սկսեք նոր զրույց</string>
     <string name="mini_app_default_name">Մինի հավելված</string>
 
-    <string name="app_name_dev">MonoGram Dev</string>
+    <string name="app_name_dev">MonoGram Alpha</string>
     <string name="action_add_account">Ավելացնել հաշիվ</string>
     <string name="add_account_subtitle">Մուտք գործել այլ հաշիվ</string>
     <string name="menu_my_profile">Իմ պրոֆիլը</string>
@@ -148,7 +148,7 @@
     <string name="menu_help_feedback">Օգնություն և հետադարձ կապ</string>
     <string name="menu_help_feedback_subtitle">Հաճախ տրվող հարցեր և աջակցություն</string>
     <string name="privacy_policy">Գաղտնիության քաղաքականություն</string>
-    <string name="app_version_footer_format">MonoGram Dev Android-ի համար v%1$s</string>
+    <string name="app_version_footer_format">MonoGram Alpha Android-ի համար v%1$s</string>
     <string name="unknown_user">Անհայտ օգտատեր</string>
     <string name="no_info">Տեղեկություն չկա</string>
     <string name="cd_show_accounts">Ցույց տալ հաշիվները</string>

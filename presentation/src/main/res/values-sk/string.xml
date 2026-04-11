@@ -142,7 +142,7 @@
     <string name="mini_app_default_name">Mini aplikácia</string>
 
     <!-- Account Menu -->
-    <string name="app_name_dev">MonoGram Dev</string>
+    <string name="app_name_dev">MonoGram Alpha</string>
     <string name="action_add_account">Pridať účet</string>
     <string name="add_account_subtitle">Prihlásiť sa do iného účtu</string>
     <string name="menu_my_profile">Môj profil</string>
@@ -158,7 +158,7 @@
     <string name="menu_help_feedback">Pomoc a spätná väzba</string>
     <string name="menu_help_feedback_subtitle">FAQ a podpora</string>
     <string name="privacy_policy">Zásady ochrany súkromia</string>
-    <string name="app_version_footer_format">MonoGram Dev pre Android v%1$s</string>
+    <string name="app_version_footer_format">MonoGram Alpha pre Android v%1$s</string>
     <string name="unknown_user">Neznámy používateľ</string>
     <string name="no_info">Žiadne informácie</string>
     <string name="cd_show_accounts">Zobraziť účty</string>
