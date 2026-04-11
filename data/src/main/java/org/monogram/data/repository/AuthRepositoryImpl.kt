@@ -1,9 +1,11 @@
 package org.monogram.data.repository
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import org.drinkless.tdlib.TdApi
-import org.monogram.core.ScopeProvider
 import org.monogram.data.core.coRunCatching
 import org.monogram.data.datasource.remote.AuthRemoteDataSource
 import org.monogram.data.gateway.UpdateDispatcher
@@ -17,31 +19,74 @@ class AuthRepositoryImpl(
     private val parametersProvider: TdLibParametersProvider,
     private val remote: AuthRemoteDataSource,
     private val updates: UpdateDispatcher,
-    scopeProvider: ScopeProvider
+    private val scope: CoroutineScope
 ) : AuthRepository {
-    private val scope = scopeProvider.appScope
-
     private val _authState = MutableStateFlow<AuthStep>(AuthStep.Loading)
     override val authState = _authState.asStateFlow()
 
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
     override val errors = _errors.asSharedFlow()
 
+    private val initMutex = Mutex()
+
     init {
         scope.launch {
+            // Proactively check current state in case we missed the update
+            launchAuthAction {
+                val state = remote.getAuthorizationState()
+                handleUpdate(state)
+            }
+
             updates.authorizationState.collect { update ->
-                if (update.authorizationState is TdApi.AuthorizationStateWaitTdlibParameters) {
-                    sendTdLibParameters()
-                }
-                val domainState = update.authorizationState.toDomain()
-                _authState.update { domainState }
+                handleUpdate(update.authorizationState)
             }
         }
     }
 
-    private suspend fun sendTdLibParameters() {
-        coRunCatching { remote.setTdlibParameters(parametersProvider.create()) }
-            .onFailure { emitError(it) }
+    private fun handleUpdate(state: TdApi.AuthorizationState) {
+        if (state is TdApi.AuthorizationStateWaitTdlibParameters) {
+            sendTdLibParameters()
+        }
+        val domainState = state.toDomain()
+        _authState.update { domainState }
+    }
+
+    private fun sendTdLibParameters() {
+        if (!initMutex.tryLock()) return
+
+        scope.launch {
+            try {
+                var attempts = 0
+                while (true) {
+                    // Double check if we still need to send parameters
+                    val currentState = coRunCatching { remote.getAuthorizationState() }.getOrNull()
+                    if (currentState != null && currentState !is TdApi.AuthorizationStateWaitTdlibParameters) {
+                        break
+                    }
+
+                    val result = coRunCatching { remote.setTdlibParameters(parametersProvider.create()) }
+                    if (result.isSuccess) {
+                        // After success, immediately re-check state to move past WaitParameters
+                        val nextState = coRunCatching { remote.getAuthorizationState() }.getOrNull()
+                        if (nextState != null) {
+                            handleUpdate(nextState)
+                        }
+                        break
+                    }
+
+                    val error = result.exceptionOrNull()
+                    if (error?.message?.contains("Parameters are already set", ignoreCase = true) == true) {
+                        break
+                    }
+
+                    attempts++
+                    val delayMs = (1000L * attempts).coerceAtMost(10_000L)
+                    delay(delayMs)
+                }
+            } finally {
+                initMutex.unlock()
+            }
+        }
     }
 
     private fun launchAuthAction(action: suspend () -> Unit) {

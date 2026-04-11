@@ -1,11 +1,49 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package org.monogram.presentation.settings.chatSettings
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.EaseInQuint
+import androidx.compose.animation.core.EaseOutQuint
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -14,14 +52,75 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.BrightnessAuto
+import androidx.compose.material.icons.rounded.BrightnessLow
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.Forward10
+import androidx.compose.material.icons.rounded.Gesture
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Photo
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Square
+import androidx.compose.material.icons.rounded.SwipeLeft
+import androidx.compose.material.icons.rounded.TabletAndroid
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.VideoFile
+import androidx.compose.material.icons.rounded.ZoomIn
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,6 +130,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.window.core.layout.WindowSizeClass
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.ConfirmationSheet
@@ -43,11 +143,25 @@ import org.monogram.presentation.features.chats.currentChat.components.chats.get
 import org.monogram.presentation.settings.chatSettings.components.ChatListPreview
 import org.monogram.presentation.settings.chatSettings.components.ChatSettingsPreview
 import org.monogram.presentation.settings.chatSettings.components.WallpaperItem
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatSettingsContent(component: ChatSettingsComponent) {
     val state by component.state.subscribeAsState()
+    val context = LocalContext.current
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val isTablet =
+        adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+
+    val wallpaperPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            copyUriToTempWallpaperPath(context, uri)?.let(component::onWallpaperUpload)
+        }
+    }
 
     val blueColor = Color(0xFF4285F4)
     val greenColor = Color(0xFF34A853)
@@ -275,6 +389,40 @@ fun ChatSettingsContent(component: ChatSettingsComponent) {
                         contentPadding = PaddingValues(16.dp)
                     ) {
                         item {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .padding(vertical = 4.dp)
+                                    .clickable(enabled = !state.isWallpaperUploading) {
+                                        wallpaperPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp, 120.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (state.isWallpaperUploading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(26.dp),
+                                            strokeWidth = 2.5.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Upload,
+                                            contentDescription = stringResource(R.string.upload_wallpaper_cd),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
                             val isSelected = state.wallpaper == null
 
                             Column(
@@ -311,7 +459,10 @@ fun ChatSettingsContent(component: ChatSettingsComponent) {
                                         Box(
                                             modifier = Modifier
                                                 .size(32.dp)
-                                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                                .background(
+                                                    MaterialTheme.colorScheme.primary,
+                                                    CircleShape
+                                                ),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -773,6 +924,17 @@ fun ChatSettingsContent(component: ChatSettingsComponent) {
                     position = ItemPosition.MIDDLE,
                     onCheckedChange = component::onShowLinkPreviewsChanged
                 )
+                if (isTablet) {
+                    SettingsSwitchTile(
+                        icon = Icons.Rounded.TabletAndroid,
+                        title = stringResource(R.string.tablet_interface_title),
+                        subtitle = stringResource(R.string.tablet_interface_subtitle),
+                        checked = state.isTabletInterfaceEnabled,
+                        iconColor = greenColor,
+                        position = ItemPosition.MIDDLE,
+                        onCheckedChange = component::onTabletInterfaceEnabledChanged
+                    )
+                }
                 SettingsSwitchTile(
                     icon = Icons.Rounded.SwipeLeft,
                     title = stringResource(R.string.drag_to_back_title),
@@ -1043,12 +1205,20 @@ private fun AppearanceSliderItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
@@ -1066,13 +1236,14 @@ private fun AppearanceSliderItem(
             }
             TextButton(
                 onClick = onReset,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                modifier = Modifier.height(32.dp)
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(32.dp)
             ) {
-                Text(
-                    stringResource(R.string.reset_button),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    imageVector = Icons.Rounded.RestartAlt,
+                    contentDescription = stringResource(R.string.photo_editor_action_reset),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1161,7 +1332,10 @@ private fun ThemeModeItem(
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .background(contentColor.copy(alpha = if (selected) 0.16f else 0.1f), CircleShape),
+                    .background(
+                        contentColor.copy(alpha = if (selected) 0.16f else 0.1f),
+                        CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1373,4 +1547,24 @@ private fun TimePickerDialogWrapper(
             content()
         }
     )
+}
+
+private fun copyUriToTempWallpaperPath(context: Context, uri: Uri): String? = try {
+    if (uri.scheme == "file") return uri.path
+
+    val mime = context.contentResolver.getType(uri).orEmpty()
+    val extension = when {
+        mime.contains("png") -> "png"
+        mime.contains("webp") -> "webp"
+        else -> "jpg"
+    }
+
+    val file = File(context.cacheDir, "wallpaper_${System.nanoTime()}.$extension")
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        FileOutputStream(file).use { output -> input.copyTo(output) }
+    } ?: return null
+
+    file.absolutePath
+} catch (_: Exception) {
+    null
 }

@@ -1,13 +1,20 @@
 package org.monogram.data.repository.user
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
-import org.monogram.core.ScopeProvider
 import org.monogram.data.chats.ChatCache
 import org.monogram.data.core.coRunCatching
 import org.monogram.data.datasource.cache.ChatLocalDataSource
@@ -18,7 +25,12 @@ import org.monogram.data.db.model.KeyValueEntity
 import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.gateway.UpdateDispatcher
 import org.monogram.data.infra.FileDownloadQueue
-import org.monogram.data.mapper.user.*
+import org.monogram.data.infra.FileObserverHub
+import org.monogram.data.mapper.user.extractPersonalAvatarPath
+import org.monogram.data.mapper.user.mapUserFullInfoToChat
+import org.monogram.data.mapper.user.toDomain
+import org.monogram.data.mapper.user.toEntity
+import org.monogram.data.mapper.user.toTdApi
 import org.monogram.domain.models.ChatFullInfoModel
 import org.monogram.domain.models.UserModel
 import org.monogram.domain.repository.CacheProvider
@@ -33,12 +45,11 @@ class UserRepositoryImpl(
     gateway: TelegramGateway,
     private val updates: UpdateDispatcher,
     fileQueue: FileDownloadQueue,
+    private val fileObserverHub: FileObserverHub,
     private val keyValueDao: KeyValueDao,
     private val cacheProvider: CacheProvider,
-    scopeProvider: ScopeProvider
+    private val scope: CoroutineScope
 ) : UserRepository {
-
-    private val scope = scopeProvider.appScope
     private val mediaResolver = UserMediaResolver(gateway = gateway, fileQueue = fileQueue)
     private var currentUserId: Long = 0L
     private val userRequests = ConcurrentHashMap<Long, Deferred<TdApi.User?>>()
@@ -63,6 +74,7 @@ class UserRepositoryImpl(
         UserUpdateSynchronizer(
             scope = scope,
             updates = updates,
+            fileObserverHub = fileObserverHub,
             userLocal = userLocal,
             keyValueDao = keyValueDao,
             emojiPathCache = mediaResolver.emojiPathCache,
@@ -132,6 +144,7 @@ class UserRepositoryImpl(
         }
         return try {
             deferred.await()?.let { user ->
+                handleUserIdUpdated(user.id)
                 mapUserModel(user, userLocal.getUserFullInfo(userId))
             }
         } finally {
@@ -170,6 +183,9 @@ class UserRepositoryImpl(
         }
         return try {
             val fullInfo = deferred.await()
+            if (fullInfo != null) {
+                handleUserIdUpdated(userId)
+            }
             mapUserModel(user, fullInfo)
         } finally {
             fullInfoRequests.remove(userId)
