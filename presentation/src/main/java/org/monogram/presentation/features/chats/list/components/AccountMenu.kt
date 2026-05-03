@@ -2,9 +2,9 @@ package org.monogram.presentation.features.chats.list.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -112,18 +112,29 @@ fun AccountMenu(
     var isVisible by remember { mutableStateOf(false) }
     var isPhoneVisible by remember { mutableStateOf(false) }
 
+    val enterDurationMs = 200
+    val exitDurationMs = 160
+    val returnDurationMs = 180
+    val dismissThresholdPx = with(density) { 120.dp.toPx() }
+    val maxDragOffsetPx = with(density) { 240.dp.toPx() }
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 0.38f else 0f,
+        animationSpec = tween(durationMillis = if (isVisible) enterDurationMs else exitDurationMs),
+        label = "AccountMenuScrimAlpha"
+    )
+
     val offsetY = remember { Animatable(0f) }
     val scrollState = rememberScrollState()
 
     val animateDismiss = {
         scope.launch {
             isVisible = false
-            delay(300)
+            delay(exitDurationMs.toLong())
             onDismiss()
         }
     }
 
-    val nestedScrollConnection = remember {
+    val nestedScrollConnection = remember(scrollState, dismissThresholdPx, maxDragOffsetPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val delta = available.y
@@ -152,15 +163,13 @@ fun AccountMenu(
                     if (delta < 0 && scrollState.value == scrollState.maxValue) {
                         scope.launch {
                             val current = offsetY.value
-                            val resistanceDelta = delta / 2
-                            offsetY.snapTo((current + resistanceDelta).coerceAtLeast(-600f))
+                            offsetY.snapTo((current + delta).coerceAtLeast(-maxDragOffsetPx))
                         }
                         return Offset(0f, delta)
                     } else if (delta > 0 && scrollState.value == 0) {
                         scope.launch {
                             val current = offsetY.value
-                            val resistanceDelta = delta / 2
-                            offsetY.snapTo((current + resistanceDelta).coerceAtMost(600f))
+                            offsetY.snapTo((current + delta).coerceAtMost(maxDragOffsetPx))
                         }
                         return Offset(0f, delta)
                     }
@@ -169,16 +178,13 @@ fun AccountMenu(
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                val dismissThreshold = with(density) { 100.dp.toPx() }
-                if (offsetY.value < -dismissThreshold || available.y < -2000f) {
+                if (offsetY.value < -dismissThresholdPx || offsetY.value > dismissThresholdPx) {
                     animateDismiss()
-                    return available
-                } else if (offsetY.value > dismissThreshold || available.y > 2000f) {
-                    animateDismiss()
-                    return available
                 } else if (offsetY.value != 0f) {
-                    offsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-                    return available
+                    offsetY.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = returnDurationMs)
+                    )
                 }
                 return Velocity.Zero
             }
@@ -199,6 +205,7 @@ fun AccountMenu(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = scrimAlpha))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -207,19 +214,16 @@ fun AccountMenu(
         ) {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
+                enter = fadeIn(animationSpec = tween(enterDurationMs)) + slideInVertically(
+                    initialOffsetY = { -it / 4 },
+                    animationSpec = tween(enterDurationMs)
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = {
                         if (offsetY.value > 0) it else -it
                     },
-                    animationSpec = tween(300)
-                ) + fadeOut(animationSpec = tween(300))
+                    animationSpec = tween(exitDurationMs)
+                ) + fadeOut(animationSpec = tween(exitDurationMs))
             ) {
                 Surface(
                     modifier = Modifier
@@ -232,14 +236,13 @@ fun AccountMenu(
                         .pointerInput(Unit) {
                             detectVerticalDragGestures(
                                 onDragEnd = {
-                                    val dismissThreshold = with(density) { 100.dp.toPx() }
-                                    if (offsetY.value < -dismissThreshold || offsetY.value > dismissThreshold) {
+                                    if (offsetY.value < -dismissThresholdPx || offsetY.value > dismissThresholdPx) {
                                         animateDismiss()
                                     } else {
                                         scope.launch {
                                             offsetY.animateTo(
-                                                0f,
-                                                spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                                                targetValue = 0f,
+                                                animationSpec = tween(durationMillis = returnDurationMs)
                                             )
                                         }
                                     }
@@ -248,8 +251,12 @@ fun AccountMenu(
                                     change.consume()
                                     scope.launch {
                                         val current = offsetY.value
-                                        val delta = dragAmount / 2
-                                        offsetY.snapTo((current + delta).coerceIn(-600f, 600f))
+                                        offsetY.snapTo(
+                                            (current + dragAmount).coerceIn(
+                                                -maxDragOffsetPx,
+                                                maxDragOffsetPx
+                                            )
+                                        )
                                     }
                                 }
                             )
