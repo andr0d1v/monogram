@@ -311,6 +311,10 @@ fun ChatInputBar(
         }
     }
 
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     val voiceRecorder = rememberVoiceRecorder(
         onRecordingFinished = { path, duration, waveform ->
             if (!canSendVoice || isSlowModeActive) return@rememberVoiceRecorder
@@ -619,9 +623,6 @@ fun ChatInputBar(
         hasCameraPermission.value = granted
         if (granted) showCamera = true
     }
-    val microphonePermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
     val documentsPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
