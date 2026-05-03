@@ -78,6 +78,10 @@ class DefaultDebugComponent(
         messageDisplayer.show("Dropping databases and restarting...")
         assetsManager.getDatabasePath("monogram_db").delete()
         File(assetsManager.getFilesDir(), "td-db").deleteRecursively()
+        File(assetsManager.getCacheDir(), "tdlib/files").deleteRecursively()
+        assetsManager.getExternalCacheDir()?.let { externalCacheDir ->
+            File(externalCacheDir, "tdlib/files").deleteRecursively()
+        }
         assetsManager.exitProcess(0)
     }
 

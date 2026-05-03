@@ -117,13 +117,24 @@ class TdSettingsRemoteDataSource(
         ttl: Int,
         count: Int,
         immunityDelay: Int,
+        fileTypes: Array<TdApi.FileType>?,
         chatIds: LongArray?,
         returnDeletedFileStatistics: Boolean,
         chatLimit: Int
     ): Boolean =
         coRunCatching {
             gateway.execute(
-                TdApi.OptimizeStorage(size, ttl, count, immunityDelay, null, chatIds, null, returnDeletedFileStatistics, chatLimit)
+                TdApi.OptimizeStorage(
+                    size,
+                    ttl,
+                    count,
+                    immunityDelay,
+                    fileTypes,
+                    chatIds,
+                    null,
+                    returnDeletedFileStatistics,
+                    chatLimit
+                )
             )
             true
         }.getOrDefault(false)

@@ -6,6 +6,8 @@ import org.monogram.presentation.core.media.ExoPlayerCache
 import java.io.File
 
 class CacheController(val context: Context, val exoPlayerCache: ExoPlayerCache) {
+    private val tdLibCacheRelativePath = "tdlib/files"
+
     fun clearExo() {
         exoPlayerCache.clearCache(context)
     }
@@ -18,9 +20,17 @@ class CacheController(val context: Context, val exoPlayerCache: ExoPlayerCache) 
     fun clearAllCache() {
         clearExo()
         clearImageLoader()
+        clearTdLibCache()
     }
 
     fun getCacheDir(): File? {
         return context.cacheDir
+    }
+
+    private fun clearTdLibCache() {
+        File(context.cacheDir, tdLibCacheRelativePath).deleteRecursively()
+        context.externalCacheDir?.let { externalCacheDir ->
+            File(externalCacheDir, tdLibCacheRelativePath).deleteRecursively()
+        }
     }
 }

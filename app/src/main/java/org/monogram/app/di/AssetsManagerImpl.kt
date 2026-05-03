@@ -15,6 +15,14 @@ class AssetsManagerImpl(private val context: Context) : AssetsManager {
         return context.filesDir
     }
 
+    override fun getCacheDir(): File {
+        return context.cacheDir
+    }
+
+    override fun getExternalCacheDir(): File? {
+        return context.externalCacheDir
+    }
+
     override fun getDatabasePath(name: String): File {
         return context.getDatabasePath(name)
     }

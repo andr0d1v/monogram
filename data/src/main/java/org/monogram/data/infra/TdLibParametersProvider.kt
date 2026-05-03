@@ -5,15 +5,18 @@ import android.os.Build
 import org.drinkless.tdlib.TdApi
 import org.monogram.data.BuildConfig
 import java.io.File
-import java.util.*
+import java.util.Locale
 
 class TdLibParametersProvider(
     private val context: Context
 ) {
     fun create(): TdApi.SetTdlibParameters {
+        val tdMediaCacheDir = File(context.externalCacheDir ?: context.cacheDir, "tdlib/files")
+        val tdDbDir = File(context.filesDir, "td-db")
+
         return TdApi.SetTdlibParameters().apply {
-            databaseDirectory = File(context.filesDir, "td-db").absolutePath
-            filesDirectory = File(context.filesDir, "td-files").absolutePath
+            databaseDirectory = tdDbDir.absolutePath
+            filesDirectory = tdMediaCacheDir.absolutePath
             databaseEncryptionKey = byteArrayOf()
             apiId = BuildConfig.API_ID
             apiHash = BuildConfig.API_HASH

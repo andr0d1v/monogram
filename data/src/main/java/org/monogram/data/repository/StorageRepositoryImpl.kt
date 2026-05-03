@@ -3,6 +3,7 @@ package org.monogram.data.repository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import org.drinkless.tdlib.TdApi
 import org.monogram.core.DispatcherProvider
 import org.monogram.data.datasource.cache.SettingsCacheDataSource
 import org.monogram.data.datasource.remote.ChatsRemoteDataSource
@@ -20,6 +21,31 @@ class StorageRepositoryImpl(
     private val storageMapper: StorageMapper,
     private val stringProvider: StringProvider
 ) : StorageRepository {
+    private val manuallyClearableFileTypes = arrayOf(
+        TdApi.FileTypeAnimation(),
+        TdApi.FileTypeAudio(),
+        TdApi.FileTypeDocument(),
+        TdApi.FileTypePhoto(),
+        TdApi.FileTypePhotoStory(),
+        TdApi.FileTypeProfilePhoto(),
+        TdApi.FileTypeSticker(),
+        TdApi.FileTypeThumbnail(),
+        TdApi.FileTypeVideo(),
+        TdApi.FileTypeVideoNote(),
+        TdApi.FileTypeVideoStory(),
+        TdApi.FileTypeVoiceNote(),
+        TdApi.FileTypeWallpaper()
+    )
+    private val backgroundMaintainedFileTypes = arrayOf(
+        TdApi.FileTypeAudio(),
+        TdApi.FileTypeDocument(),
+        TdApi.FileTypePhoto(),
+        TdApi.FileTypePhotoStory(),
+        TdApi.FileTypeVideo(),
+        TdApi.FileTypeVideoNote(),
+        TdApi.FileTypeVideoStory(),
+        TdApi.FileTypeVoiceNote()
+    )
 
     override suspend fun getStorageUsage(): StorageUsageModel? = coroutineScope {
         val stats = remote.getStorageStatistics(100) ?: return@coroutineScope null
@@ -44,6 +70,7 @@ class StorageRepositoryImpl(
             ttl = 0,
             count = 0,
             immunityDelay = 0,
+            fileTypes = manuallyClearableFileTypes,
             chatIds = chatId?.let { longArrayOf(it) },
             returnDeletedFileStatistics = false,
             chatLimit = 20
@@ -59,6 +86,7 @@ class StorageRepositoryImpl(
             ttl = maxTimeFromLastAccess,
             count = -1,
             immunityDelay = -1,
+            fileTypes = backgroundMaintainedFileTypes,
             chatIds = null,
             returnDeletedFileStatistics = true,
             chatLimit = 0
@@ -67,7 +95,7 @@ class StorageRepositoryImpl(
 
     override suspend fun getStorageOptimizerEnabled(): Boolean {
         val result = remote.getOption("use_storage_optimizer")
-        return if (result is org.drinkless.tdlib.TdApi.OptionValueBoolean) {
+        return if (result is TdApi.OptionValueBoolean) {
             result.value
         } else {
             false
@@ -75,6 +103,6 @@ class StorageRepositoryImpl(
     }
 
     override suspend fun setStorageOptimizerEnabled(enabled: Boolean) {
-        remote.setOption("use_storage_optimizer", org.drinkless.tdlib.TdApi.OptionValueBoolean(enabled))
+        remote.setOption("use_storage_optimizer", TdApi.OptionValueBoolean(enabled))
     }
 }

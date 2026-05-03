@@ -38,6 +38,7 @@ interface SettingsRemoteDataSource {
         ttl: Int,
         count: Int,
         immunityDelay: Int,
+        fileTypes: Array<TdApi.FileType>?,
         chatIds: LongArray?,
         returnDeletedFileStatistics: Boolean,
         chatLimit: Int
