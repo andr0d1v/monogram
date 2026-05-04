@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -24,6 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -41,10 +46,14 @@ import org.monogram.presentation.features.chats.conversation.ui.MessageRowUiFlag
 import org.monogram.presentation.features.chats.conversation.ui.MessageSenderGrouping
 import org.monogram.presentation.features.chats.conversation.ui.fastReplyPointer
 import org.monogram.presentation.features.chats.conversation.ui.message.AudioMessageBubble
+import org.monogram.presentation.features.chats.conversation.ui.message.ContactMessageBubble
 import org.monogram.presentation.features.chats.conversation.ui.message.DocumentMessageBubble
+import org.monogram.presentation.features.chats.conversation.ui.message.LocationMessageBubble
 import org.monogram.presentation.features.chats.conversation.ui.message.MessageViaBotAttribution
 import org.monogram.presentation.features.chats.conversation.ui.message.ReplyMarkupView
 import org.monogram.presentation.features.chats.conversation.ui.message.StickerMessageBubble
+import org.monogram.presentation.features.chats.conversation.ui.message.VenueMessageBubble
+import org.monogram.presentation.features.chats.conversation.ui.message.VideoNoteBubble
 
 @Composable
 internal fun ChannelMessageBubbleContainer(
@@ -331,6 +340,39 @@ internal fun ChannelMessageBubbleContainer(
                             )
                         }
 
+                        is MessageContent.Voice -> {
+                            ChannelVoiceMessageBubble(
+                                content = content,
+                                msg = msg,
+                                isSameSenderAbove = senderGrouping.isSameSenderAbove,
+                                isSameSenderBelow = senderGrouping.isSameSenderBelow,
+                                fontSize = appearance.fontSize,
+                                letterSpacing = appearance.letterSpacing,
+                                bubbleRadius = appearance.bubbleRadius,
+                                autoDownloadMobile = appearance.autoDownloadMobile,
+                                autoDownloadWifi = appearance.autoDownloadWifi,
+                                autoDownloadRoaming = appearance.autoDownloadRoaming,
+                                autoDownloadFiles = appearance.autoDownloadFiles,
+                                onVoiceClick = onAudioClick,
+                                onCancelDownload = onCancelDownload,
+                                onLongClick = { offset ->
+                                    onReplyClickState(
+                                        layoutTracker.bubblePosition,
+                                        layoutTracker.bubbleSize,
+                                        layoutTracker.bubblePosition + offset
+                                    )
+                                },
+                                onReplyClick = onGoToReply,
+                                onReactionClick = { onReactionClick(msg.id, it) },
+                                onCommentsClick = onCommentsClick,
+                                showComments = showComments,
+                                toProfile = toProfile,
+                                onForwardOriginClick = onForwardOriginClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                downloadUtils = downloadUtils
+                            )
+                        }
+
                         is MessageContent.Gif -> {
                             ChannelGifMessageBubble(
                                 content = content,
@@ -365,6 +407,28 @@ internal fun ChannelMessageBubbleContainer(
                             )
                         }
 
+                        is MessageContent.VideoNote -> {
+                            VideoNoteBubble(
+                                content = content,
+                                msg = msg,
+                                isOutgoing = false,
+                                onVideoClick = onVideoClick,
+                                onCancelDownload = onCancelDownload,
+                                onLongClick = { offset ->
+                                    onReplyClickState(
+                                        layoutTracker.bubblePosition,
+                                        layoutTracker.bubbleSize,
+                                        layoutTracker.bubblePosition + offset
+                                    )
+                                },
+                                onReplyClick = onGoToReply,
+                                onReactionClick = { onReactionClick(msg.id, it) },
+                                toProfile = toProfile,
+                                onForwardOriginClick = onForwardOriginClick,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         is MessageContent.Sticker -> {
                             StickerMessageBubble(
                                 content = content,
@@ -383,6 +447,32 @@ internal fun ChannelMessageBubbleContainer(
                                 },
                                 toProfile = toProfile,
                                 onForwardOriginClick = onForwardOriginClick
+                            )
+                        }
+
+                        is MessageContent.Contact -> {
+                            ContactMessageBubble(
+                                content = content,
+                                msg = msg,
+                                isOutgoing = false,
+                                isSameSenderAbove = senderGrouping.isSameSenderAbove,
+                                isSameSenderBelow = senderGrouping.isSameSenderBelow,
+                                fontSize = appearance.fontSize,
+                                letterSpacing = appearance.letterSpacing,
+                                bubbleRadius = appearance.bubbleRadius,
+                                onClick = { onGoToReply(msg) },
+                                onLongClick = {
+                                    onReplyClickState(
+                                        layoutTracker.bubblePosition,
+                                        layoutTracker.bubbleSize,
+                                        layoutTracker.bubblePosition + (layoutTracker.bubbleSize.toSize() / 2f).toOffset()
+                                    )
+                                },
+                                onReplyClick = onGoToReply,
+                                onReactionClick = { onReactionClick(msg.id, it) },
+                                toProfile = toProfile,
+                                onForwardOriginClick = onForwardOriginClick,
+                                showReactions = msg.reactions.isNotEmpty()
                             )
                         }
 
@@ -415,7 +505,65 @@ internal fun ChannelMessageBubbleContainer(
                             )
                         }
 
-                        else -> {}
+                        is MessageContent.Location -> {
+                            LocationMessageBubble(
+                                content = content,
+                                msg = msg,
+                                isOutgoing = false,
+                                isSameSenderAbove = senderGrouping.isSameSenderAbove,
+                                isSameSenderBelow = senderGrouping.isSameSenderBelow,
+                                fontSize = appearance.fontSize,
+                                letterSpacing = appearance.letterSpacing,
+                                bubbleRadius = appearance.bubbleRadius,
+                                onClick = { onGoToReply(msg) },
+                                onLongClick = {
+                                    onReplyClickState(
+                                        layoutTracker.bubblePosition,
+                                        layoutTracker.bubbleSize,
+                                        layoutTracker.bubblePosition + (layoutTracker.bubbleSize.toSize() / 2f).toOffset()
+                                    )
+                                },
+                                onReplyClick = onGoToReply,
+                                onReactionClick = { onReactionClick(msg.id, it) },
+                                toProfile = toProfile,
+                                onForwardOriginClick = onForwardOriginClick,
+                                showReactions = msg.reactions.isNotEmpty()
+                            )
+                        }
+
+                        is MessageContent.Venue -> {
+                            VenueMessageBubble(
+                                content = content,
+                                msg = msg,
+                                isOutgoing = false,
+                                isSameSenderAbove = senderGrouping.isSameSenderAbove,
+                                isSameSenderBelow = senderGrouping.isSameSenderBelow,
+                                fontSize = appearance.fontSize,
+                                letterSpacing = appearance.letterSpacing,
+                                bubbleRadius = appearance.bubbleRadius,
+                                onClick = { onGoToReply(msg) },
+                                onLongClick = {
+                                    onReplyClickState(
+                                        layoutTracker.bubblePosition,
+                                        layoutTracker.bubbleSize,
+                                        layoutTracker.bubblePosition + (layoutTracker.bubbleSize.toSize() / 2f).toOffset()
+                                    )
+                                },
+                                onReplyClick = onGoToReply,
+                                onReactionClick = { onReactionClick(msg.id, it) },
+                                toProfile = toProfile,
+                                onForwardOriginClick = onForwardOriginClick,
+                                showReactions = msg.reactions.isNotEmpty()
+                            )
+                        }
+
+                        else -> {
+                            UnsupportedChannelMessageBubble(
+                                label = content::class.simpleName ?: "Unknown",
+                                bubbleRadius = appearance.bubbleRadius,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
                     msg.replyMarkup?.let { markup ->
@@ -446,4 +594,25 @@ internal fun ChannelMessageBubbleContainer(
 
 private fun IntSize.toSize() = androidx.compose.ui.geometry.Size(width.toFloat(), height.toFloat())
 private fun androidx.compose.ui.geometry.Size.toOffset() = Offset(width, height)
+
+@Composable
+private fun UnsupportedChannelMessageBubble(
+    label: String,
+    bubbleRadius: Float,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(bubbleRadius.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer
+    ) {
+        Text(
+            text = "Unsupported channel message: $label",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Start
+        )
+    }
+}
 
