@@ -34,7 +34,11 @@ import org.monogram.presentation.settings.stickers.StickersContent
 import org.monogram.presentation.settings.storage.StorageUsageContent
 
 @Composable
-fun RenderChild(child: RootComponent.Child, isOverlay: Boolean = false) {
+fun RenderChild(
+    child: RootComponent.Child,
+    isOverlay: Boolean = false,
+    onSwipeBackBlockedChanged: (Boolean) -> Unit = {},
+) {
     when (child) {
         is RootComponent.Child.StartupChild -> StartupContent(child.component)
         is RootComponent.Child.AuthChild -> AuthContent(child.component)
@@ -43,6 +47,7 @@ fun RenderChild(child: RootComponent.Child, isOverlay: Boolean = false) {
         is RootComponent.Child.ChatDetailChild -> ChatContent(
             component = child.component,
             isOverlay = isOverlay,
+            onSwipeBackBlockedChanged = onSwipeBackBlockedChanged,
         )
 
         is RootComponent.Child.SettingsChild -> SettingsContent(child.component)

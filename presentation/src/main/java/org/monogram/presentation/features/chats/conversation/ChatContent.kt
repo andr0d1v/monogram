@@ -50,6 +50,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -122,6 +124,7 @@ import java.io.FileOutputStream
 fun ChatContent(
     component: ChatComponent,
     isOverlay: Boolean = false,
+    onSwipeBackBlockedChanged: (Boolean) -> Unit = {},
 ) {
     val state by component.state.collectAsState()
     val scrollState = rememberLazyListState()
@@ -247,6 +250,16 @@ fun ChatContent(
             editingPhotoPath != null ||
             editingVideoPath != null ||
             isRecordingVideo
+
+    LaunchedEffect(isAnyViewerOpen, onSwipeBackBlockedChanged) {
+        onSwipeBackBlockedChanged(isAnyViewerOpen)
+    }
+
+    DisposableEffect(onSwipeBackBlockedChanged) {
+        onDispose {
+            onSwipeBackBlockedChanged(false)
+        }
+    }
 
     // Pick Media Result
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->

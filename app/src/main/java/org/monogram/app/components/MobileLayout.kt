@@ -50,8 +50,9 @@ fun MobileLayout(root: RootComponent) {
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
     var isCompletingSwipeBack by remember { mutableStateOf(false) }
     var widthPx by remember { mutableFloatStateOf(0f) }
+    var isSwipeBackBlocked by remember { mutableStateOf(false) }
     val canUseDragToBack =
-        isDragToBackEnabled && isSwipeBackSupported(stack.active.instance)
+        isDragToBackEnabled && isSwipeBackSupported(stack.active.instance) && !isSwipeBackBlocked
     val dragProgress = if (widthPx > 0f) (dragOffsetX / widthPx).coerceIn(0f, 1f) else 0f
 
     LaunchedEffect(canUseDragToBack) {
@@ -210,7 +211,15 @@ fun MobileLayout(root: RootComponent) {
             ),
         ) { child ->
             key(child.key) {
-                RenderChild(child.instance, isOverlay = false)
+                RenderChild(
+                    child = child.instance,
+                    isOverlay = false,
+                    onSwipeBackBlockedChanged = { blocked ->
+                        if (stack.active.instance === child.instance) {
+                            isSwipeBackBlocked = blocked
+                        }
+                    },
+                )
             }
         }
     }
@@ -241,6 +250,7 @@ private fun isSwipeBackSupported(child: RootComponent.Child): Boolean =
         is RootComponent.Child.ChatPermissionsChild,
         is RootComponent.Child.StickersChild,
         is RootComponent.Child.AboutChild,
+        is RootComponent.Child.NewChatChild -> true
         is RootComponent.Child.DebugChild -> true
 
         else -> false
