@@ -121,7 +121,7 @@ import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.Avatar
 import org.monogram.presentation.core.ui.ConfirmationSheet
 import org.monogram.presentation.core.util.LocalTabletInterfaceEnabled
-import org.monogram.presentation.features.chats.list.ChatListComponent
+import org.monogram.presentation.features.chats.conversation.ui.message.getEmojiFontFamily
 import org.monogram.presentation.features.chats.list.components.AccountMenu
 import org.monogram.presentation.features.chats.list.components.ArchiveHeaderCard
 import org.monogram.presentation.features.chats.list.components.ChatListItem
@@ -132,7 +132,6 @@ import org.monogram.presentation.features.chats.list.components.FolderTabs
 import org.monogram.presentation.features.chats.list.components.MessageSearchItem
 import org.monogram.presentation.features.chats.list.components.PermissionRequestSheet
 import org.monogram.presentation.features.chats.list.components.SelectionTopBar
-import org.monogram.presentation.features.chats.conversation.ui.message.getEmojiFontFamily
 import org.monogram.presentation.features.instantview.InstantViewer
 import org.monogram.presentation.features.stickers.ui.menu.EmojisGrid
 import org.monogram.presentation.features.webapp.MiniAppViewer
@@ -1104,16 +1103,15 @@ fun ChatListContent(component: ChatListComponent) {
                         return@HorizontalPager
                     }
                     val rawFolderChats = foldersState.chatsByFolder[folderId].orEmpty()
-                    val folderChats = if (folderId > 0 && folder.includedChatIds.isNotEmpty()) {
-                        val includedChatIds = folder.includedChatIds.toHashSet()
-                        rawFolderChats.filter { chat -> chat.id in includedChatIds }
-                    } else {
-                        rawFolderChats
-                    }
+                    val folderChats = rawFolderChats
                     val isFolderLoading = foldersState.isLoadingByFolder[folderId] ?: false
                     val hasFolderLoadState = foldersState.isLoadingByFolder.containsKey(folderId)
-                    val showFolderShimmer = folderChats.isEmpty() && (isFolderLoading || !hasFolderLoadState)
                     val shouldAnimateFirstFolderTransition = firstFolderTransitionCompleted[folderId] != true
+                    val shouldHoldInitialFolderContent = folderId > 0 &&
+                            shouldAnimateFirstFolderTransition &&
+                            isFolderLoading
+                    val showFolderShimmer = shouldHoldInitialFolderContent ||
+                            (folderChats.isEmpty() && (isFolderLoading || !hasFolderLoadState))
 
                     val scrollState = rememberManagedChatListState(
                         stateKey = "folder:$folderId",

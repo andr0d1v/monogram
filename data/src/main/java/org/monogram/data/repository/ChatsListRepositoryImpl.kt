@@ -307,13 +307,6 @@ class ChatsListRepositoryImpl(
                     }
                 }
         }
-
-        scope.launch {
-            updates.chatFolders.collect { update ->
-                folderManager.handleChatFoldersUpdate(update)
-                triggerUpdate()
-            }
-        }
     }
 
     private suspend fun rebuildAndEmit() {
@@ -638,9 +631,7 @@ class ChatsListRepositoryImpl(
         setLoadingState(folderId, requestId, true)
 
         scope.launch(dispatchers.io) {
-            if (!isRequestActive(folderId, requestId)) {
-                return@launch
-            }
+            if (!isRequestActive(folderId, requestId)) return@launch
 
             val currentCount = _chatListFlow.value.size
             if (currentCount < currentLimit) {

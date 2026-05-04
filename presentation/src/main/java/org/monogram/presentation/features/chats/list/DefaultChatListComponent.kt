@@ -35,9 +35,6 @@ import org.monogram.presentation.BuildConfig
 import org.monogram.presentation.core.util.AppPreferences
 import org.monogram.presentation.core.util.coRunCatching
 import org.monogram.presentation.core.util.componentScope
-import org.monogram.presentation.features.chats.list.ChatListComponent
-import org.monogram.presentation.features.chats.list.ChatListStore
-import org.monogram.presentation.features.chats.list.ChatListStoreFactory
 import org.monogram.presentation.root.AppComponentContext
 
 class DefaultChatListComponent(
@@ -367,10 +364,6 @@ class DefaultChatListComponent(
                 }
             }
             .launchIn(scope)
-
-        scope.launch(Dispatchers.IO) {
-            chatListRepository.selectFolder(_state.value.selectedFolderId)
-        }
     }
 
     override fun retryConnection() = store.accept(ChatListStore.Intent.RetryConnection)
@@ -405,9 +398,7 @@ class DefaultChatListComponent(
         if (_state.value.isLoadingByFolder[targetFolderId] == true) return
 
         scope.launch(Dispatchers.IO) {
-            if (folderId != null && folderId != _state.value.selectedFolderId) {
-                return@launch
-            }
+            if (folderId != null && folderId != _state.value.selectedFolderId) return@launch
             chatListRepository.loadNextChunk(20)
         }
     }
