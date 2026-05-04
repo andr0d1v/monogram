@@ -78,6 +78,7 @@ fun UserProfileHeader(
                 AvatarHeader(
                     path = userModel.avatarPath,
                     fallbackPath = userModel.personalAvatarPath,
+                    identityKey = userModel.id,
                     name = "${userModel.firstName} ${userModel.lastName}",
                     size = avatarSize.coerceAtMost(headerHeight),
                     avatarCornerPercent = avatarCornerPercent

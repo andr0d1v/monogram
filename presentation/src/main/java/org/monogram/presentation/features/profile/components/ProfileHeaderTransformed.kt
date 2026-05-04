@@ -98,6 +98,7 @@ fun ProfileHeaderTransformed(
                 AvatarHeader(
                     path = avatarPath,
                     fallbackPath = avatarFallbackPath,
+                    identityKey = userModel?.id ?: chatModel?.id ?: title,
                     name = title,
                     size = avatarSize.coerceAtMost(headerHeight),
                     avatarCornerPercent = avatarCornerPercent

@@ -8,6 +8,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +37,7 @@ fun AvatarHeader(
     size: Dp,
     modifier: Modifier = Modifier,
     fallbackPath: String? = null,
+    identityKey: Any? = null,
     fontSize: Int = 64,
     isOnline: Boolean = false,
     avatarCornerPercent: Int = 0
@@ -41,7 +47,22 @@ fun AvatarHeader(
         .size(size)
         .clip(RoundedCornerShape(percent = avatarCornerPercent))
 
-    val resolvedPath = resolveAvatarPath(path, fallbackPath)
+    var cachedPath by remember(identityKey) {
+        mutableStateOf(path?.takeIf { it.isNotBlank() })
+    }
+    var cachedFallbackPath by remember(identityKey) {
+        mutableStateOf(fallbackPath?.takeIf { it.isNotBlank() })
+    }
+
+    LaunchedEffect(identityKey, path, fallbackPath) {
+        path?.takeIf { it.isNotBlank() }?.let { cachedPath = it }
+        fallbackPath?.takeIf { it.isNotBlank() }?.let { cachedFallbackPath = it }
+    }
+
+    val resolvedPath = resolveAvatarPath(
+        primaryPath = path?.takeIf { it.isNotBlank() } ?: cachedPath,
+        fallbackPath = fallbackPath?.takeIf { it.isNotBlank() } ?: cachedFallbackPath
+    )
 
     Box(modifier = combinedModifier) {
         val avatarFile = resolvedPath?.let { File(it) }
