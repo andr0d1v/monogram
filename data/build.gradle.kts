@@ -40,13 +40,13 @@ android {
 
     sourceSets {
         getByName("main") {
-            jniLibs.srcDirs(emptyList<String>())
+            jniLibs.directories.clear()
         }
         getByName("official") {
-            jniLibs.srcDirs("src/official/jniLibs")
+            jniLibs.directories.add("src/official/jniLibs")
         }
         getByName("telemt") {
-            jniLibs.srcDirs("src/telemt/jniLibs")
+            jniLibs.directories.add("src/telemt/jniLibs")
         }
     }
 
