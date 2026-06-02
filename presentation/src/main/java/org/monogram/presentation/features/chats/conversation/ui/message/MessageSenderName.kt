@@ -6,7 +6,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.Icon
@@ -30,6 +31,20 @@ fun MessageSenderName(
     modifier: Modifier = Modifier,
     toProfile: (Long) -> Unit = {}
 ) {
+    val tag = msg.senderCustomTitle?.trim()?.takeIf { it.isNotEmpty() }
+    val isLongTag = (tag?.length ?: 0) > 16
+    val badgeShape = RoundedCornerShape(if (msg.isSenderAdmin) 10.dp else 999.dp)
+    val badgeContainerColor = if (msg.isSenderAdmin) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHighest
+    }
+    val badgeContentColor = if (msg.isSenderAdmin) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Row(
         modifier = modifier.padding(bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -59,23 +74,26 @@ fun MessageSenderName(
             )
         }
 
-        // 3. Custom Title
-        if (!msg.senderCustomTitle.isNullOrEmpty()) {
+        // 3. Member Tag / Custom Title
+        if (tag != null) {
             Spacer(modifier = Modifier.width(6.dp))
 
             Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = badgeShape,
+                color = badgeContainerColor,
+                contentColor = badgeContentColor,
             ) {
                 Text(
-                    text = msg.senderCustomTitle.toString(),
+                    text = tag,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 10.sp
+                        fontWeight = if (msg.isSenderAdmin) FontWeight.SemiBold else FontWeight.Medium,
+                        fontSize = if (isLongTag) 10.sp else 11.sp
                     ),
                     maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .widthIn(max = if (msg.isSenderAdmin) 120.dp else 104.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
         }

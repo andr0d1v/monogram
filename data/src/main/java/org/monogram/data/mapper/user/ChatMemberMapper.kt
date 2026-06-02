@@ -9,14 +9,9 @@ import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.ChatMembersFilter
 
 fun TdApi.ChatMember.toDomain(user: UserModel): GroupMemberModel {
-    val rank = when (this.status) {
-        is TdApi.ChatMemberStatusCreator -> "Owner"
-        is TdApi.ChatMemberStatusAdministrator -> "Admin"
-        else -> null
-    }
     return GroupMemberModel(
         user = user,
-        rank = rank,
+        rank = tag?.trim()?.takeIf { it.isNotEmpty() },
         status = this.status.toDomain()
     )
 }

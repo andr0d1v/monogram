@@ -90,6 +90,7 @@ class MessageMapper internal constructor(
                 viaBotName = viaBotName,
                 senderPersonalAvatar = sender.senderPersonalAvatar,
                 senderCustomTitle = sender.senderCustomTitle,
+                isSenderAdmin = sender.isSenderAdmin,
                 isSenderPremium = sender.isSenderPremium,
                 senderStatusEmojiId = sender.senderStatusEmojiId,
                 senderStatusEmojiPath = sender.senderStatusEmojiPath
@@ -156,6 +157,7 @@ class MessageMapper internal constructor(
         viaBotName: String? = null,
         senderPersonalAvatar: String? = null,
         senderCustomTitle: String? = null,
+        isSenderAdmin: Boolean = false,
         isSenderPremium: Boolean = false,
         senderStatusEmojiId: Long = 0L,
         senderStatusEmojiPath: String? = null
@@ -192,6 +194,7 @@ class MessageMapper internal constructor(
             senderAvatar = senderAvatar,
             senderPersonalAvatar = senderPersonalAvatar,
             senderCustomTitle = senderCustomTitle,
+            isSenderAdmin = isSenderAdmin,
             isRead = isReadOverride,
             replyToMsgId = replyToMsgId,
             replyToMsg = replyToMsg,
@@ -501,6 +504,7 @@ class MessageMapper internal constructor(
             isReply = isReply,
             senderPersonalAvatar = sender.senderPersonalAvatar,
             senderCustomTitle = sender.senderCustomTitle,
+            isSenderAdmin = sender.isSenderAdmin,
             isSenderVerified = sender.isSenderVerified,
             isSenderPremium = sender.isSenderPremium,
             senderStatusEmojiId = sender.senderStatusEmojiId,

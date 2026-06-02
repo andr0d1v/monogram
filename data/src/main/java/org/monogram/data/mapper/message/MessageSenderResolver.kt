@@ -9,6 +9,7 @@ import org.monogram.data.gateway.TelegramGateway
 import org.monogram.data.mapper.SenderNameResolver
 import org.monogram.data.mapper.TdFileHelper
 import org.monogram.domain.repository.ChatInfoRepository
+import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.StringProvider
 import org.monogram.domain.repository.UserRepository
 import java.util.concurrent.ConcurrentHashMap
@@ -19,6 +20,7 @@ internal data class ResolvedSender(
     val senderAvatar: String? = null,
     val senderPersonalAvatar: String? = null,
     val senderCustomTitle: String? = null,
+    val isSenderAdmin: Boolean = false,
     val isSenderVerified: Boolean = false,
     val isSenderPremium: Boolean = false,
     val senderStatusEmojiId: Long = 0L,
@@ -51,6 +53,7 @@ internal class MessageSenderResolver(
     private val senderUserSnapshotCache = ConcurrentHashMap<Long, SenderUserSnapshot>()
     private val senderChatSnapshotCache = ConcurrentHashMap<Long, SenderChatSnapshot>()
     private val senderRankCache = ConcurrentHashMap<String, String>()
+    private val senderAdminCache = ConcurrentHashMap<String, Boolean>()
     private val queuedAvatarDownloads = ConcurrentHashMap.newKeySet<Int>()
     private val unknownUserName: String
         get() = stringProvider.getString("unknown_user")
@@ -63,6 +66,7 @@ internal class MessageSenderResolver(
         senderUserSnapshotCache.remove(userId)
         senderChatSnapshotCache.remove(userId)
         senderRankCache.entries.removeIf { it.key.endsWith(":$userId") }
+        senderAdminCache.entries.removeIf { it.key.endsWith(":$userId") }
     }
 
     fun resolveNameFromCache(senderId: Long, fallback: String): String {
@@ -138,6 +142,7 @@ internal class MessageSenderResolver(
         var senderAvatar: String? = null
         var senderPersonalAvatar: String? = null
         var senderCustomTitle: String? = null
+        var isSenderAdmin = false
         var isSenderVerified = false
         var isSenderPremium = false
         var senderStatusEmojiId = 0L
@@ -207,6 +212,7 @@ internal class MessageSenderResolver(
                     val cachedRank = senderRankCache[rankKey]
                     if (cachedRank != null) {
                         senderCustomTitle = cachedRank.takeUnless { it == NO_RANK_SENTINEL }
+                        isSenderAdmin = senderAdminCache[rankKey] == true
                     } else {
                         val member = try {
                             withTimeout(500) { chatInfoRepository.getChatMember(msg.chatId, senderId) }
@@ -215,7 +221,11 @@ internal class MessageSenderResolver(
                         }
 
                         senderCustomTitle = member?.rank
+                        isSenderAdmin =
+                            member?.status is ChatMemberStatus.Administrator ||
+                                    member?.status is ChatMemberStatus.Creator
                         senderRankCache[rankKey] = senderCustomTitle ?: NO_RANK_SENTINEL
+                        senderAdminCache[rankKey] = isSenderAdmin
                     }
                 }
             }
@@ -270,6 +280,7 @@ internal class MessageSenderResolver(
             senderAvatar = senderAvatar,
             senderPersonalAvatar = senderPersonalAvatar,
             senderCustomTitle = senderCustomTitle,
+            isSenderAdmin = isSenderAdmin,
             isSenderVerified = isSenderVerified,
             isSenderPremium = isSenderPremium,
             senderStatusEmojiId = senderStatusEmojiId,

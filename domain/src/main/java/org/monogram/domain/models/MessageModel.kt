@@ -13,6 +13,7 @@ data class MessageModel(
     val senderAvatar: String? = null,
     val senderPersonalAvatar: String? = null,
     val senderCustomTitle: String? = null,
+    val isSenderAdmin: Boolean = false,
     val isRead: Boolean = false,
     val replyToMsgId: Long? = null,
     val replyToMsg: MessageModel? = null,
