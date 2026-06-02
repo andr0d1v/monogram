@@ -465,6 +465,7 @@ class DefaultRootComponent(
 
     override fun logout() {
         authRepository.reset()
+        navigation.replaceAll(Config.Auth)
     }
 
     private fun openBrowser(url: String) {
