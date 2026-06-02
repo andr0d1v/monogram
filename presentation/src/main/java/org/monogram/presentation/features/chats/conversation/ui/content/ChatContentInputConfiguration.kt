@@ -15,7 +15,42 @@ internal fun rememberChatInputBarState(
     pendingMediaPaths: List<String>,
     pendingDocumentPaths: List<String>
 ): ChatInputBarState {
-    return remember(state, pendingMediaPaths, pendingDocumentPaths) {
+    val replyMarkup = remember(state.messages) {
+        state.messages.firstOrNull {
+            it.replyMarkup is ReplyMarkupModel.ShowKeyboard
+        }?.replyMarkup
+    }
+
+    return remember(
+        state.replyMessage,
+        state.editingMessage,
+        state.draftText,
+        pendingMediaPaths,
+        pendingDocumentPaths,
+        state.topics,
+        state.currentTopicId,
+        state.effectiveInputPermissions,
+        state.permissions,
+        state.slowModeDelay,
+        state.slowModeDelayExpiresIn,
+        state.isCurrentUserRestricted,
+        state.restrictedUntilDate,
+        state.isAdmin,
+        state.isChannel,
+        state.isBot,
+        state.botCommands,
+        state.botMenuButton,
+        replyMarkup,
+        state.mentionSuggestions,
+        state.inlineBotResults,
+        state.currentInlineBotUsername,
+        state.currentInlineQuery,
+        state.isInlineBotLoading,
+        state.attachMenuBots,
+        state.scheduledMessages,
+        state.currentUser?.isPremium,
+        state.isSecretChat
+    ) {
         ChatInputBarState(
             replyMessage = state.replyMessage,
             editingMessage = state.editingMessage,
@@ -34,9 +69,7 @@ internal fun rememberChatInputBarState(
             isBot = state.isBot,
             botCommands = state.botCommands,
             botMenuButton = state.botMenuButton,
-            replyMarkup = state.messages.firstOrNull {
-                it.replyMarkup is ReplyMarkupModel.ShowKeyboard
-            }?.replyMarkup,
+            replyMarkup = replyMarkup,
             mentionSuggestions = state.mentionSuggestions,
             inlineBotResults = state.inlineBotResults,
             currentInlineBotUsername = state.currentInlineBotUsername,
@@ -54,8 +87,6 @@ internal fun rememberChatInputBarState(
 internal fun rememberChatInputBarActions(
     component: ChatComponent,
     state: ChatComponent.State,
-    pendingMediaPaths: List<String>,
-    pendingDocumentPaths: List<String>,
     onPickMedia: () -> Unit,
     onHideKeyboardAndClearFocus: () -> Unit,
     onStartRecordingVideo: () -> Unit,
@@ -63,7 +94,17 @@ internal fun rememberChatInputBarActions(
     onSetPendingDocumentPaths: (List<String>) -> Unit,
     onEditMediaPath: (String) -> Unit
 ): ChatInputBarActions {
-    return remember(component, state, pendingMediaPaths, pendingDocumentPaths) {
+    return remember(
+        component,
+        state.chatId,
+        state.isBot,
+        onPickMedia,
+        onHideKeyboardAndClearFocus,
+        onStartRecordingVideo,
+        onSetPendingMediaPaths,
+        onSetPendingDocumentPaths,
+        onEditMediaPath
+    ) {
         ChatInputBarActions(
             onSend = { text, entities, options ->
                 component.onSendMessage(text, entities, options)

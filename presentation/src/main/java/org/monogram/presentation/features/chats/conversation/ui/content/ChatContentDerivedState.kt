@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.UserModel
 import org.monogram.presentation.features.chats.conversation.ChatComponent
 
@@ -28,6 +29,33 @@ internal data class ChatContentChromeState(
     val isCustomBackHandlingEnabled: Boolean,
     val selectedCount: Int,
     val canRevokeSelected: Boolean
+)
+
+@Immutable
+internal data class ChatContentMessagePresentationState(
+    val displayMessages: List<MessageModel>,
+    val groupedMessages: List<GroupedMessageItem>,
+    val groupedMessageIndexById: Map<Long, Int>,
+    val selectedMessage: MessageModel?,
+    val isComments: Boolean,
+    val isForumList: Boolean
+)
+
+@Immutable
+internal data class ChatContentBodyUiState(
+    val showTopOverlayPadding: Boolean,
+    val isSearchActive: Boolean,
+    val searchQuery: String,
+    val searchResults: List<MessageModel>,
+    val searchResultsTotalCount: Int,
+    val selectedSearchResultIndex: Int,
+    val isSearchingMessages: Boolean,
+    val searchSender: UserModel?,
+    val searchDateFromEpochSeconds: Int?,
+    val searchDateToEpochSeconds: Int?,
+    val unreadCount: Int,
+    val isGroup: Boolean,
+    val isChannel: Boolean
 )
 
 @Composable
@@ -99,9 +127,79 @@ internal fun rememberChatContentPermissionState(
 }
 
 @Composable
+internal fun rememberChatMessagePresentationState(
+    state: ChatComponent.State,
+    selectedMessageId: Long?,
+    transformedMessageTexts: Map<Long, String>
+): ChatContentMessagePresentationState {
+    val rootMessageId = state.rootMessage?.id
+    val displayMessages by remember(state.messages, rootMessageId, transformedMessageTexts) {
+        derivedStateOf {
+            state.messages.map { message ->
+                val transformedText = transformedMessageTexts[message.id]
+                val transformedMessage = if (transformedText != null) {
+                    message.withUpdatedTextContent(transformedText)
+                } else {
+                    message
+                }
+
+                if (rootMessageId != null && transformedMessage.replyToMsgId == rootMessageId) {
+                    transformedMessage.copy(
+                        replyToMsgId = null,
+                        replyToMsg = null
+                    )
+                } else {
+                    transformedMessage
+                }
+            }
+        }
+    }
+    val groupedMessages by remember(displayMessages) {
+        derivedStateOf { groupMessagesByAlbum(displayMessages) }
+    }
+    val groupedMessageIndexById by remember(groupedMessages) {
+        derivedStateOf {
+            buildMap {
+                groupedMessages.forEachIndexed { index, item ->
+                    when (item) {
+                        is GroupedMessageItem.Single -> put(item.message.id, index)
+                        is GroupedMessageItem.Album -> item.messages.forEach { message ->
+                            put(message.id, index)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val selectedMessage by remember(selectedMessageId, displayMessages) {
+        derivedStateOf { selectedMessageId?.let { id -> displayMessages.firstOrNull { it.id == id } } }
+    }
+    val isComments = rootMessageId != null
+    val isForumList = state.viewAsTopics && state.currentTopicId == null
+
+    return remember(
+        displayMessages,
+        groupedMessages,
+        groupedMessageIndexById,
+        selectedMessage,
+        isComments,
+        isForumList
+    ) {
+        ChatContentMessagePresentationState(
+            displayMessages = displayMessages,
+            groupedMessages = groupedMessages,
+            groupedMessageIndexById = groupedMessageIndexById,
+            selectedMessage = selectedMessage,
+            isComments = isComments,
+            isForumList = isForumList
+        )
+    }
+}
+
+@Composable
 internal fun rememberChatMessageListState(
     state: ChatComponent.State,
-    displayMessages: List<org.monogram.domain.models.MessageModel>,
+    displayMessages: List<MessageModel>,
     canSendAnything: Boolean,
     showInitialLoading: Boolean
 ): ChatMessageListUiState {
@@ -177,6 +275,45 @@ internal fun rememberChatMessageListState(
             showLinkPreviews = state.showLinkPreviews,
             isChatAnimationsEnabled = state.isChatAnimationsEnabled,
             suppressEntryAnimations = showInitialLoading || state.pendingScrollCommand != null
+        )
+    }
+}
+
+@Composable
+internal fun rememberChatContentBodyUiState(
+    state: ChatComponent.State
+): ChatContentBodyUiState {
+    return remember(
+        state.viewAsTopics,
+        state.currentTopicId,
+        state.rootMessage,
+        state.isSearchActive,
+        state.searchQuery,
+        state.searchResults,
+        state.searchResultsTotalCount,
+        state.selectedSearchResultIndex,
+        state.isSearchingMessages,
+        state.searchSender,
+        state.searchDateFromEpochSeconds,
+        state.searchDateToEpochSeconds,
+        state.unreadCount,
+        state.isGroup,
+        state.isChannel
+    ) {
+        ChatContentBodyUiState(
+            showTopOverlayPadding = (state.viewAsTopics && state.currentTopicId == null) || state.rootMessage != null,
+            isSearchActive = state.isSearchActive,
+            searchQuery = state.searchQuery,
+            searchResults = state.searchResults,
+            searchResultsTotalCount = state.searchResultsTotalCount,
+            selectedSearchResultIndex = state.selectedSearchResultIndex,
+            isSearchingMessages = state.isSearchingMessages,
+            searchSender = state.searchSender,
+            searchDateFromEpochSeconds = state.searchDateFromEpochSeconds,
+            searchDateToEpochSeconds = state.searchDateToEpochSeconds,
+            unreadCount = state.unreadCount,
+            isGroup = state.isGroup,
+            isChannel = state.isChannel
         )
     }
 }
