@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "org.monogram.baselineprofile"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 25
@@ -13,12 +13,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.javaToolchain.get().toIntOrNull()?: 25)
+        targetCompatibility = JavaVersion.toVersion(libs.versions.javaToolchain.get().toIntOrNull()?: 25)
     }
 
     kotlin {
-        jvmToolchain(21)
+        jvmToolchain(libs.versions.javaToolchain.get().toIntOrNull()?: 25)
     }
 
     targetProjectPath = ":app"

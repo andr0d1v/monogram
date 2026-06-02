@@ -18,7 +18,7 @@ val requestedTasks = gradle.startParameter.taskNames
 val requestsFirebaseVariant = requestedTasks.any { it.contains("Firebase", ignoreCase = true) }
 
 if (googleServicesFile.exists()) {
-    apply(plugin = "com.google.gms.google-services")
+    pluginManager.apply("com.google.gms.google-services")
 } else if (requestsFirebaseVariant) {
     throw GradleException(
         "Firebase build requested, but app/google-services.json is missing."
@@ -39,7 +39,7 @@ val hasReleaseSigning =
 
 android {
     namespace = "org.monogram.app"
-    compileSdk = 36
+    compileSdk = 37
 
     signingConfigs {
         if (hasReleaseSigning) {
@@ -55,7 +55,7 @@ android {
     defaultConfig {
         applicationId = "org.monogram"
         minSdk = 25
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 10
         versionName = "0.1.0"
     }
@@ -87,6 +87,7 @@ android {
     }
 
     androidResources {
+        @Suppress("UnstableApiUsage")
         generateLocaleConfig = true
     }
 
@@ -119,8 +120,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.javaToolchain.get().toIntOrNull()?: 25)
+        targetCompatibility = JavaVersion.toVersion(libs.versions.javaToolchain.get().toIntOrNull()?: 25)
     }
     buildFeatures {
         compose = true
@@ -161,6 +162,7 @@ androidComponents {
         }
 
         val copyTask = tasks.register<Copy>("copy${capitalizedVariantName}Apk") {
+            description = "Task for copy apk into releases folder"
             from(apkDirProvider)
             include("*.apk")
             into(layout.projectDirectory.dir("releases"))
