@@ -490,12 +490,7 @@ fun ChatContentList(
 
                 itemsIndexed(
                     items = groupedMessages,
-                    key = { _, item ->
-                        when (item) {
-                            is GroupedMessageItem.Single -> "msg_${item.message.id}"
-                            is GroupedMessageItem.Album -> "album_${item.albumId}"
-                        }
-                    },
+                    key = { _, item -> item.lazyItemKey },
                     contentType = { _, item ->
                         when (item) {
                             is GroupedMessageItem.Single -> "single"
@@ -567,12 +562,7 @@ fun ChatContentList(
                 }
                 itemsIndexed(
                     items = groupedMessages,
-                    key = { _, item ->
-                        when (item) {
-                            is GroupedMessageItem.Single -> "msg_${item.message.id}"
-                            is GroupedMessageItem.Album -> "album_${item.albumId}"
-                        }
-                    },
+                    key = { _, item -> item.lazyItemKey },
                     contentType = { _, item ->
                         when (item) {
                             is GroupedMessageItem.Single -> "single"
@@ -1373,12 +1363,6 @@ private fun isItemSelected(item: GroupedMessageItem, selectedIds: Set<Long>): Bo
     }
 }
 
-private val GroupedMessageItem.lastMessageId: Long
-    get() = when (this) {
-        is GroupedMessageItem.Single -> message.id
-        is GroupedMessageItem.Album -> messages.last().id
-    }
-
 private fun highlightRequestForItem(
     item: GroupedMessageItem,
     highlightRequest: MessageHighlightRequest?
@@ -1390,12 +1374,6 @@ private fun highlightRequestForItem(
     }
     return request.takeIf { isMatch }
 }
-
-private val GroupedMessageItem.firstMessageId: Long
-    get() = when (this) {
-        is GroupedMessageItem.Single -> message.id
-        is GroupedMessageItem.Album -> messages.first().id
-    }
 
 private fun ChatMessageListUiState.toAppearanceConfig(): MessageAppearanceConfig =
     MessageAppearanceConfig(

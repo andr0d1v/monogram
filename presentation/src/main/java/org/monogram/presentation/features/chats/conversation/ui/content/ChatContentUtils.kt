@@ -19,6 +19,18 @@ sealed class GroupedMessageItem {
             is Single -> message.id
             is Album -> messages.first().id
         }
+
+    val lastMessageId: Long
+        get() = when (this) {
+            is Single -> message.id
+            is Album -> messages.last().id
+        }
+
+    val lazyItemKey: String
+        get() = when (this) {
+            is Single -> "msg_${message.id}"
+            is Album -> "album_${albumId}_${firstMessageId}_${lastMessageId}"
+        }
 }
 
 fun groupMessagesByAlbum(messages: List<MessageModel>): List<GroupedMessageItem> {
