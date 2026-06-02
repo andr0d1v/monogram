@@ -1,19 +1,50 @@
 package org.monogram.presentation.features.profile.components
 
 import android.content.Intent
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PermMedia
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -41,13 +72,16 @@ import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.UserStatusType
 import org.monogram.presentation.R
+import org.monogram.presentation.core.media.VideoStickerPlayer
+import org.monogram.presentation.core.media.VideoType
 import org.monogram.presentation.core.ui.Avatar
 import org.monogram.presentation.core.ui.rememberShimmerBrush
 import org.monogram.presentation.core.util.DateFormatManager
 import org.monogram.presentation.core.util.getUserStatusText
-import org.monogram.presentation.core.media.VideoStickerPlayer
-import org.monogram.presentation.core.media.VideoType
 import org.monogram.presentation.features.profile.ProfileComponent
+import org.monogram.presentation.features.profile.ProfileTabContentType
+import org.monogram.presentation.features.profile.ProfileTabKey
+import org.monogram.presentation.features.profile.ProfileTabSpec
 import org.monogram.presentation.features.stickers.ui.view.StickerImage
 import java.io.File
 
@@ -56,9 +90,9 @@ private const val LOAD_MORE_THRESHOLD = 40
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyGridScope.profileMediaSection(
     state: ProfileComponent.State,
-    isGroup: Boolean,
-    tabs: MutableList<@Composable (() -> String)>,
-    onTabSelected: (Int) -> Unit,
+    tabs: List<ProfileTabSpec>,
+    selectedTabKey: ProfileTabKey,
+    onTabSelected: (ProfileTabKey) -> Unit,
     onMessageClick: (MessageModel) -> Unit,
     onMessageLongClick: (MessageModel) -> Unit,
     onLoadMore: () -> Unit,
@@ -66,6 +100,13 @@ fun LazyGridScope.profileMediaSection(
     onMemberLongClick: (Long) -> Unit = {},
     onLoadMedia: (MessageModel) -> Unit = {}
 ) {
+    if (tabs.isEmpty()) return
+
+    val selectedIndex = tabs.indexOfFirst { it.key == selectedTabKey }.takeIf { it >= 0 } ?: 0
+    val selectedTab = tabs.getOrElse(selectedIndex) { tabs.first() }
+    val selectedMessageTab = state.messageTabState(selectedTab.key)
+    val selectedMembersTab = state.membersTab
+
     stickyHeader {
         Surface(
             color = MaterialTheme.colorScheme.background,
@@ -80,11 +121,14 @@ fun LazyGridScope.profileMediaSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(24.dp))
+                        .background(
+                            MaterialTheme.colorScheme.surfaceContainer,
+                            RoundedCornerShape(24.dp)
+                        )
                         .clip(RoundedCornerShape(24.dp))
                 ) {
                     PrimaryScrollableTabRow(
-                        selectedTabIndex = state.selectedTabIndex,
+                        selectedTabIndex = selectedIndex,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 4.dp),
@@ -94,7 +138,7 @@ fun LazyGridScope.profileMediaSection(
                         indicator = {
                             Box(
                                 Modifier
-                                    .tabIndicatorOffset(state.selectedTabIndex)
+                                    .tabIndicatorOffset(selectedIndex)
                                     .fillMaxHeight()
                                     .padding(vertical = 4.dp)
                                     .zIndex(-1f)
@@ -103,12 +147,12 @@ fun LazyGridScope.profileMediaSection(
                             )
                         }
                     ) {
-                        tabs.forEachIndexed { index, titleFunc ->
-                            val selected = state.selectedTabIndex == index
+                        tabs.forEachIndexed { index, tab ->
+                            val selected = selectedIndex == index
 
                             Tab(
                                 selected = selected,
-                                onClick = { onTabSelected(index) },
+                                onClick = { onTabSelected(tab.key) },
                                 modifier = Modifier
                                     .height(44.dp)
                                     .padding(vertical = 4.dp)
@@ -117,7 +161,7 @@ fun LazyGridScope.profileMediaSection(
                                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 text = {
                                     Text(
-                                        text = titleFunc(),
+                                        text = stringResource(tab.titleRes),
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                                     )
@@ -130,66 +174,94 @@ fun LazyGridScope.profileMediaSection(
         }
     }
 
-    item(span = { GridItemSpan(3) }) {
-        LaunchedEffect(state.selectedTabIndex) {
-            val shouldLoad = if (isGroup) {
-                when (state.selectedTabIndex) {
-                    0 -> state.mediaMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    1 -> state.members.isEmpty() && state.canLoadMoreMembers && !state.isLoadingMembers
-                    2 -> state.fileMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    3 -> state.audioMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    4 -> state.voiceMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    5 -> state.linkMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    6 -> state.gifMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    else -> false
-                }
-            } else {
-                when (state.selectedTabIndex) {
-                    0 -> state.mediaMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    1 -> state.fileMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    2 -> state.audioMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    3 -> state.voiceMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    4 -> state.linkMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    5 -> state.gifMessages.isEmpty() && state.canLoadMoreMedia && !state.isLoadingMedia
-                    else -> false
-                }
-            }
-            if (shouldLoad) {
-                onLoadMore()
-            }
-        }
+    when (selectedTab.key) {
+        ProfileTabKey.MEDIA -> mediaGrid(
+            messages = state.mediaMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick,
+            onLoadMedia = onLoadMedia
+        )
+
+        ProfileTabKey.MEMBERS -> membersList(
+            members = state.members,
+            isLoading = selectedMembersTab.isLoadingInitial,
+            canLoadMore = selectedMembersTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMemberClick = onMemberClick,
+            onMemberLongClick = onMemberLongClick
+        )
+
+        ProfileTabKey.FILES -> filesList(
+            messages = state.fileMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick
+        )
+
+        ProfileTabKey.MUSIC -> musicList(
+            messages = state.musicMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick
+        )
+
+        ProfileTabKey.VOICE -> voiceList(
+            messages = state.voiceMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick
+        )
+
+        ProfileTabKey.LINKS -> linksList(
+            messages = state.linkMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick
+        )
+
+        ProfileTabKey.GIFS -> gifsGrid(
+            messages = state.gifMessages,
+            isLoading = selectedMessageTab.isLoadingInitial,
+            canLoadMore = selectedMessageTab.canLoadMore,
+            onLoadMore = onLoadMore,
+            onMessageClick = onMessageClick
+        )
     }
 
-    if (isGroup) {
-        when (state.selectedTabIndex) {
-            0 -> mediaGrid(state.mediaMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick, onLoadMedia)
-            1 -> membersList(state.members, state.isLoadingMembers, state.canLoadMoreMembers, onLoadMore, onMemberClick, onMemberLongClick)
-            2 -> filesList(state.fileMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            3 -> audioList(state.audioMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            4 -> voiceList(state.voiceMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            5 -> linksList(state.linkMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            6 -> gifsGrid(state.gifMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-        }
-    } else {
-        when (state.selectedTabIndex) {
-            0 -> mediaGrid(state.mediaMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick, onLoadMedia)
-            1 -> filesList(state.fileMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            2 -> audioList(state.audioMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            3 -> voiceList(state.voiceMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            4 -> linksList(state.linkMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-            5 -> gifsGrid(state.gifMessages, state.isLoadingMedia, state.canLoadMoreMedia, onLoadMore, onMessageClick)
-        }
+    val itemCount = when (selectedTab.key) {
+        ProfileTabKey.MEDIA -> state.mediaMessages.size
+        ProfileTabKey.MEMBERS -> state.members.size
+        ProfileTabKey.FILES -> state.fileMessages.size
+        ProfileTabKey.MUSIC -> state.musicMessages.size
+        ProfileTabKey.VOICE -> state.voiceMessages.size
+        ProfileTabKey.LINKS -> state.linkMessages.size
+        ProfileTabKey.GIFS -> state.gifMessages.size
     }
+    val shouldAutoLoadMore = when (selectedTab.key) {
+        ProfileTabKey.MEMBERS -> {
+            selectedMembersTab.canLoadMore &&
+                    !selectedMembersTab.isLoadingInitial &&
+                    !selectedMembersTab.isLoadingNext &&
+                    selectedMembersTab.items.isNotEmpty()
+        }
 
-    val shouldAutoLoadMore = if (isGroup && state.selectedTabIndex == 1) {
-        state.canLoadMoreMembers && !state.isLoadingMembers && state.members.isNotEmpty()
-    } else {
-        state.canLoadMoreMedia && !state.isLoadingMoreMedia && !state.isLoadingMedia
+        else -> {
+            selectedMessageTab.canLoadMore &&
+                    !selectedMessageTab.isLoadingInitial &&
+                    !selectedMessageTab.isLoadingNext &&
+                    selectedMessageTab.items.isNotEmpty()
+        }
     }
 
     if (shouldAutoLoadMore) {
-        item(span = { GridItemSpan(3) }, key = "loader") {
-            LaunchedEffect(state.selectedTabIndex, state.mediaMessages.size, state.members.size) {
+        item(span = { GridItemSpan(3) }, key = "loader_${selectedTab.key}_$itemCount") {
+            LaunchedEffect(selectedTab.key, itemCount) {
                 onLoadMore()
             }
             Spacer(modifier = Modifier.height(1.dp))
@@ -197,9 +269,13 @@ fun LazyGridScope.profileMediaSection(
     }
 
     val showMembersPaginationSkeleton =
-        isGroup && state.selectedTabIndex == 1 && state.isLoadingMembers && state.members.isNotEmpty()
+        selectedTab.key == ProfileTabKey.MEMBERS &&
+                selectedMembersTab.isLoadingNext &&
+                selectedMembersTab.items.isNotEmpty()
     val showMediaPaginationSkeleton =
-        (!isGroup || state.selectedTabIndex != 1) && state.isLoadingMoreMedia
+        selectedTab.key != ProfileTabKey.MEMBERS &&
+                selectedMessageTab.isLoadingNext &&
+                selectedMessageTab.items.isNotEmpty()
 
     if (showMembersPaginationSkeleton || showMediaPaginationSkeleton) {
         item(span = { GridItemSpan(3) }, key = "pagination_skeleton") {
@@ -217,14 +293,8 @@ fun LazyGridScope.profileMediaSection(
                         }
                     }
                 } else {
-                    val mediaTypeIndex = if (isGroup && state.selectedTabIndex > 1) {
-                        state.selectedTabIndex - 1
-                    } else {
-                        state.selectedTabIndex
-                    }
-
-                    when (mediaTypeIndex) {
-                        0, 5 -> {
+                    when (selectedTab.contentType) {
+                        ProfileTabContentType.MEDIA_GRID -> {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -240,7 +310,6 @@ fun LazyGridScope.profileMediaSection(
                                 }
                             }
                         }
-
                         else -> {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
@@ -549,7 +618,7 @@ private fun formatDuration(seconds: Int): String {
     return "%d:%02d".format(m, s)
 }
 
-private fun LazyGridScope.audioList(
+private fun LazyGridScope.musicList(
     messages: List<MessageModel>,
     isLoading: Boolean,
     canLoadMore: Boolean,
@@ -560,7 +629,7 @@ private fun LazyGridScope.audioList(
 
     if (uniqueMessages.isEmpty()) {
         if (isLoading) {
-            item(span = { GridItemSpan(3) }, key = "audio_skeleton") {
+            item(span = { GridItemSpan(3) }, key = "music_skeleton") {
                 val shimmer = rememberShimmerBrush()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     repeat(5) {
@@ -570,11 +639,14 @@ private fun LazyGridScope.audioList(
             }
         } else {
             item(span = { GridItemSpan(3) }) {
-                EmptyState(stringResource(R.string.empty_audio))
+                EmptyState(stringResource(R.string.empty_music))
             }
         }
     } else {
-        itemsIndexed(uniqueMessages, key = { _, msg -> "audio_${msg.id}" }, span = { _, _ -> GridItemSpan(3) }) { index, msg ->
+        itemsIndexed(
+            uniqueMessages,
+            key = { _, msg -> "music_${msg.id}" },
+            span = { _, _ -> GridItemSpan(3) }) { index, msg ->
 
             // Trigger pre-loading
             if (canLoadMore && !isLoading && index >= uniqueMessages.size - LOAD_MORE_THRESHOLD) {

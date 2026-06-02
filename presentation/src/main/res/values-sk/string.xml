@@ -1332,13 +1332,13 @@
     <string name="tab_media">Médiá</string>
     <string name="tab_members">Členovia</string>
     <string name="tab_files">Súbory</string>
-    <string name="tab_audio">Audio</string>
+    <string name="tab_music">Audio</string>
     <string name="tab_voice">Hlas</string>
     <string name="tab_links">Odkazy</string>
     <string name="tab_gifs">GIFy</string>
     <string name="empty_members">Žiadni členovia sa nenašli</string>
     <string name="empty_media">Žiadne médiá sa nenašli</string>
-    <string name="empty_audio">Žiadne audio sa nenašlo</string>
+    <string name="empty_music">Žiadne audio sa nenašlo</string>
     <string name="empty_voice">Žiadne hlasové správy sa nenašli</string>
     <string name="empty_files">Žiadne súbory sa nenašli</string>
     <string name="empty_links">Žiadne odkazy sa nenašli</string>

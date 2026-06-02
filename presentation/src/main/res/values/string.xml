@@ -1737,13 +1737,13 @@
     <string name="tab_media">Media</string>
     <string name="tab_members">Members</string>
     <string name="tab_files">Files</string>
-    <string name="tab_audio">Audio</string>
+    <string name="tab_music">Audio</string>
     <string name="tab_voice">Voice</string>
     <string name="tab_links">Links</string>
     <string name="tab_gifs">GIFs</string>
     <string name="empty_members">No members found</string>
     <string name="empty_media">No media found</string>
-    <string name="empty_audio">No audio found</string>
+    <string name="empty_music">No audio found</string>
     <string name="empty_voice">No voice messages found</string>
     <string name="empty_files">No files found</string>
     <string name="empty_links">No links found</string>

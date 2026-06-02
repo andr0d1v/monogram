@@ -9,7 +9,7 @@ interface ProfileStore : Store<ProfileStore.Intent, ProfileComponent.State, Prof
 
     sealed class Intent {
         object Back : Intent()
-        data class TabSelected(val index: Int) : Intent()
+        data class TabSelected(val key: ProfileTabKey) : Intent()
         data class MessageClick(val message: MessageModel) : Intent()
         data class MessageLongClick(val message: MessageModel) : Intent()
         object AvatarClick : Intent()

@@ -24,7 +24,7 @@ class ProfileStoreFactory(
         override fun executeIntent(intent: Intent) {
             when (intent) {
                 Intent.Back -> component.onBack()
-                is Intent.TabSelected -> component.onTabSelected(intent.index)
+                is Intent.TabSelected -> component.onTabSelected(intent.key)
                 is Intent.MessageClick -> component.onMessageClick(intent.message)
                 is Intent.MessageLongClick -> component.onMessageLongClick(intent.message)
                 Intent.AvatarClick -> component.onAvatarClick()

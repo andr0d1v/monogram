@@ -1184,13 +1184,13 @@
     <string name="tab_media">Մեդիա</string>
     <string name="tab_members">Անդամներ</string>
     <string name="tab_files">Ֆայլեր</string>
-    <string name="tab_audio">Աուդիո</string>
+    <string name="tab_music">Աուդիո</string>
     <string name="tab_voice">Ձայնային</string>
     <string name="tab_links">Հղումներ</string>
     <string name="tab_gifs">GIF-եր</string>
     <string name="empty_members">Անդամներ չեն գտնվել</string>
     <string name="empty_media">Մեդիա չի գտնվել</string>
-    <string name="empty_audio">Աուդիո չի գտնվել</string>
+    <string name="empty_music">Աուդիո չի գտնվել</string>
     <string name="empty_voice">Ձայնային հաղորդագրություններ չկան</string>
     <string name="empty_files">Ֆայլեր չկան</string>
     <string name="empty_links">Հղումներ չկան</string>

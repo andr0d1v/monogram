@@ -1314,13 +1314,13 @@
     <string name="tab_media">Medya</string>
     <string name="tab_members">Üyeler</string>
     <string name="tab_files">Dosyalar</string>
-    <string name="tab_audio">Müzik</string>
+    <string name="tab_music">Müzik</string>
     <string name="tab_voice">Ses</string>
     <string name="tab_links">Bağlantılar</string>
     <string name="tab_gifs">GIF\'ler</string>
     <string name="empty_members">Üye bulunamadı</string>
     <string name="empty_media">Medya bulunamadı</string>
-    <string name="empty_audio">Müzik dosyası bulunamadı</string>
+    <string name="empty_music">Müzik dosyası bulunamadı</string>
     <string name="empty_voice">Sesli mesaj bulunamadı</string>
     <string name="empty_files">Dosya bulunamadı</string>
     <string name="empty_links">Bağlantı bulunamadı</string>

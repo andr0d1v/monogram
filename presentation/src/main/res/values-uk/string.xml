@@ -1267,13 +1267,13 @@
     <string name="tab_media">Медіа</string>
     <string name="tab_members">Учасники</string>
     <string name="tab_files">Файли</string>
-    <string name="tab_audio">Музика</string>
+    <string name="tab_music">Музика</string>
     <string name="tab_voice">Голос</string>
     <string name="tab_links">Посилання</string>
     <string name="tab_gifs">GIF</string>
     <string name="empty_members">Учасників не знайдено</string>
     <string name="empty_media">Медіа не знайдено</string>
-    <string name="empty_audio">Аудіозаписів не знайдено</string>
+    <string name="empty_music">Аудіозаписів не знайдено</string>
     <string name="empty_voice">Голосових повідомлень не знайдено</string>
     <string name="empty_files">Файлів не знайдено</string>
     <string name="empty_links">Посилань не знайдено</string>

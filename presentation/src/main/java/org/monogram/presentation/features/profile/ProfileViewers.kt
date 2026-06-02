@@ -242,7 +242,8 @@ private fun ImagesOverlay(
                         autoDownload = autoDownload,
                         onPageChanged = { index ->
                             currentImageIndex = index
-                            if (!state.isViewingProfilePhotos && state.canLoadMoreMedia && !state.isLoadingMoreMedia &&
+                            val mediaTabState = state.messageTabState(ProfileTabKey.MEDIA)
+                            if (!state.isViewingProfilePhotos && mediaTabState.canLoadMore && !mediaTabState.isLoadingNext &&
                                 index >= viewerImages.size - 5
                             ) {
                                 component.onLoadMoreMedia()

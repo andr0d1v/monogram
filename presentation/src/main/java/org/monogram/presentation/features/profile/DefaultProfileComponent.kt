@@ -36,7 +36,6 @@ import org.monogram.domain.repository.GifRepository
 import org.monogram.domain.repository.LocationRepository
 import org.monogram.domain.repository.MessageRepository
 import org.monogram.domain.repository.PrivacyRepository
-import org.monogram.domain.repository.ProfileMediaFilter
 import org.monogram.domain.repository.ProfilePhotoRepository
 import org.monogram.domain.repository.UserRepository
 import org.monogram.presentation.core.util.IDownloadUtils
@@ -78,18 +77,14 @@ class DefaultProfileComponent(
     private val _state = MutableValue(ProfileComponent.State(chatId = chatId))
     override val state: Value<ProfileComponent.State> = _state
 
-    private var lastLoadedMessageId: Long = 0L
     private val INITIAL_MEDIA_PAGE_SIZE = 21
     private val MEDIA_PAGE_SIZE = 50
     private val PROFILE_PHOTOS_LIMIT = 50
-    private var membersOffset = 0
-    private var isCurrentlyLoadingMedia = false
     private var hasStartedProfilePhotoListPreload = false
-    private val canLoadMoreMediaByFilter = mutableMapOf<ProfileMediaFilter, Boolean>()
+    private val loadingTabs = mutableSetOf<ProfileTabKey>()
 
     init {
         loadData()
-        loadMediaNextPage(isFirstLoad = true)
         observeProfilePhotos()
         observeUserUpdates()
         observeCurrentUser()
@@ -132,6 +127,14 @@ class DefaultProfileComponent(
                 val linkedChat = linkedChatId?.let {
                     coRunCatching { chatListRepository.getChatById(it) }.getOrNull()
                 }
+                val isGroupOrChannel = chat?.let { it.isGroup || it.isChannel } ?: (chatId < 0)
+                val preferredTabKey = fullInfo?.mainProfileTab.toProfileTabKeyOrNull()
+                val visibleTabs = buildProfileTabSpecs(
+                    isGroupOrChannel = isGroupOrChannel,
+                    preferredTabKey = preferredTabKey
+                )
+                val selectedTabKey =
+                    visibleTabs.firstOrNull { it.initiallySelected }?.key ?: ProfileTabKey.MEDIA
 
                 _state.update {
                     it.copy(
@@ -146,9 +149,13 @@ class DefaultProfileComponent(
                         qrContent = link ?: "",
                         personalAvatarPath = user?.personalAvatarPath,
                         linkedChat = linkedChat,
-                        isTOSAccepted = isTOSAccepted
+                        isTOSAccepted = isTOSAccepted,
+                        visibleTabs = visibleTabs,
+                        selectedTabKey = selectedTabKey
                     )
                 }
+
+                ensureTabLoaded(selectedTabKey)
 
                 preloadProfilePhotoList(
                     resolvedChatId = chat?.id ?: chatId,
@@ -170,12 +177,7 @@ class DefaultProfileComponent(
     }
 
     override fun onLoadMoreMedia() {
-        val isGroup = _state.value.chat?.let { it.isGroup || it.isChannel } ?: false
-        if (isGroup && _state.value.selectedTabIndex == 1) {
-            loadMembersNextPage()
-        } else {
-            loadMediaNextPage(isFirstLoad = false)
-        }
+        loadNextPage(_state.value.selectedTabKey)
     }
 
     override fun onDownloadMedia(message: MessageModel) {
@@ -222,29 +224,20 @@ class DefaultProfileComponent(
         if (fileId == 0) return
 
         val currentState = _state.value
-
-        val updatedMedia = currentState.mediaMessages.map { msg ->
-            updateMessagePathIfNeeded(msg, fileId, newPath)
+        val updatedMessageTabs = currentState.messageTabs.mapValues { (_, tabState) ->
+            tabState.copy(
+                items = tabState.items.map { msg ->
+                    updateMessagePathIfNeeded(msg, fileId, newPath)
+                }
+            )
         }
 
-        val updatedFiles = currentState.fileMessages.map { msg ->
-            updateMessagePathIfNeeded(msg, fileId, newPath)
-        }
-
-        if (updatedMedia != currentState.mediaMessages || updatedFiles != currentState.fileMessages) {
+        if (updatedMessageTabs != currentState.messageTabs) {
             _state.update {
-                var nextState = it.copy(
-                    mediaMessages = updatedMedia,
-                    fileMessages = updatedFiles
-                )
+                var nextState = it.copy(messageTabs = updatedMessageTabs)
 
                 if (it.fullScreenImages != null && !it.isViewingProfilePhotos) {
-                    val allPhotos = updatedMedia.filter { it.content is MessageContent.Photo }
-                    val paths = allPhotos.mapNotNull { (it.content as? MessageContent.Photo)?.displayPath() }
-
-                    nextState = nextState.copy(
-                        fullScreenImages = paths
-                    )
+                    nextState = refreshViewerMedia(nextState)
                 }
                 nextState
             }
@@ -275,213 +268,180 @@ class DefaultProfileComponent(
 
     private fun MessageContent.Photo.displayPath(): String? = path ?: thumbnailPath
 
-    private fun loadMembersNextPage() {
-        if (_state.value.isLoadingMembers || !_state.value.canLoadMoreMembers) return
-
-        scope.launch {
-            _state.update { it.copy(isLoadingMembers = true) }
-            try {
-                val limit = 20
-                val newMembers =
-                    chatInfoRepository.getChatMembers(chatId, membersOffset, limit, ChatMembersFilter.Recent)
-
-                if (newMembers.isEmpty()) {
-                    _state.update { it.copy(canLoadMoreMembers = false) }
-                } else {
-                    membersOffset += newMembers.size
-                    _state.update {
-                        it.copy(
-                            members = it.members + newMembers,
-                            canLoadMoreMembers = newMembers.size >= limit
-                        )
-                    }
+    private fun ensureTabLoaded(tabKey: ProfileTabKey) {
+        when (tabKey) {
+            ProfileTabKey.MEMBERS -> {
+                if (!_state.value.membersTab.hasLoaded) {
+                    loadMembersNextPage()
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _state.update { it.copy(isLoadingMembers = false) }
+            }
+
+            else -> {
+                if (!_state.value.messageTabState(tabKey).hasLoaded) {
+                    loadMessageTabNextPage(tabKey)
+                }
             }
         }
     }
 
-    private fun loadMediaNextPage(isFirstLoad: Boolean) {
-        if (isCurrentlyLoadingMedia) return
-        val state = _state.value
-        val isGroup = state.chat?.let { it.isGroup || it.isChannel } ?: false
-        val tabIndex = state.selectedTabIndex
-        if (isGroup && tabIndex == 1) return
-
-        val mediaTypeIndex = if (isGroup && tabIndex > 1) tabIndex - 1 else tabIndex
-        val filter = when (mediaTypeIndex) {
-            0 -> ProfileMediaFilter.MEDIA
-            1 -> ProfileMediaFilter.FILES
-            2 -> ProfileMediaFilter.AUDIO
-            3 -> ProfileMediaFilter.VOICE
-            4 -> ProfileMediaFilter.LINKS
-            5 -> ProfileMediaFilter.GIFS
-            else -> return
+    private fun loadNextPage(tabKey: ProfileTabKey) {
+        when (tabKey) {
+            ProfileTabKey.MEMBERS -> loadMembersNextPage()
+            else -> loadMessageTabNextPage(tabKey)
         }
-        val canLoadMoreForFilter = canLoadMoreMediaByFilter[filter] ?: true
-        if (!isFirstLoad && !canLoadMoreForFilter) return
+    }
 
-        val lastId = if (isFirstLoad) 0L else getLastMessageIdForFilter(state, filter)
+    private fun loadMembersNextPage() {
+        val currentTab = _state.value.membersTab
+        if (!loadingTabs.add(ProfileTabKey.MEMBERS)) return
+        if (currentTab.isLoadingInitial || currentTab.isLoadingNext || (currentTab.hasLoaded && !currentTab.canLoadMore)) {
+            loadingTabs.remove(ProfileTabKey.MEMBERS)
+            return
+        }
 
         scope.launch {
-            isCurrentlyLoadingMedia = true
+            val isInitialLoad = !currentTab.hasLoaded
             _state.update {
                 it.copy(
-                    isLoadingMedia = isFirstLoad,
-                    isLoadingMoreMedia = !isFirstLoad
+                    membersTab = it.membersTab.copy(
+                        isLoadingInitial = isInitialLoad,
+                        isLoadingNext = !isInitialLoad
+                    )
                 )
             }
-
             try {
-                val pageLimit = if (isFirstLoad) INITIAL_MEDIA_PAGE_SIZE else MEDIA_PAGE_SIZE
-                val messages = messageRepository.getProfileMedia(
-                    chatId = chatId,
-                    filter = filter,
-                    fromMessageId = lastId,
-                    limit = pageLimit
-                )
+                val limit = 20
+                val newMembers =
+                    chatInfoRepository.getChatMembers(
+                        chatId,
+                        currentTab.nextOffset,
+                        limit,
+                        ChatMembersFilter.Recent
+                    )
+                val canLoadMore = newMembers.size >= limit
 
-                if (messages.isEmpty()) {
-                    canLoadMoreMediaByFilter[filter] = false
-                    _state.update { it.copy(canLoadMoreMedia = false) }
-                } else {
-                    _state.update { appendMessagesToState(it, filter, messages, pageLimit) }
+                _state.update {
+                    val latestTab = it.membersTab
+                    val mergedMembers =
+                        (latestTab.items + newMembers).distinctBy { member -> member.user.id }
+                    it.copy(
+                        membersTab = latestTab.copy(
+                            items = mergedMembers,
+                            canLoadMore = canLoadMore,
+                            nextOffset = latestTab.nextOffset + newMembers.size,
+                            hasLoaded = true
+                        )
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
-                isCurrentlyLoadingMedia = false
+                loadingTabs.remove(ProfileTabKey.MEMBERS)
                 _state.update {
                     it.copy(
-                        isLoadingMedia = false,
-                        isLoadingMoreMedia = false
+                        membersTab = it.membersTab.copy(
+                            isLoadingInitial = false,
+                            isLoadingNext = false
+                        )
                     )
                 }
             }
         }
     }
 
-    private fun getLastMessageIdForFilter(state: ProfileComponent.State, filter: ProfileMediaFilter): Long {
-        val list = when (filter) {
-            ProfileMediaFilter.MEDIA -> state.mediaMessages
-            ProfileMediaFilter.FILES -> state.fileMessages
-            ProfileMediaFilter.AUDIO -> state.audioMessages
-            ProfileMediaFilter.VOICE -> state.voiceMessages
-            ProfileMediaFilter.LINKS -> state.linkMessages
-            ProfileMediaFilter.GIFS -> state.gifMessages
+    private fun loadMessageTabNextPage(tabKey: ProfileTabKey) {
+        val filter = tabKey.toProfileMediaFilter() ?: return
+        val currentTab = _state.value.messageTabState(tabKey)
+        if (!loadingTabs.add(tabKey)) return
+        if (currentTab.isLoadingInitial || currentTab.isLoadingNext || (currentTab.hasLoaded && !currentTab.canLoadMore)) {
+            loadingTabs.remove(tabKey)
+            return
         }
-        return list.lastOrNull()?.id ?: 0L
+
+        scope.launch {
+            val isInitialLoad = !currentTab.hasLoaded
+            _state.update {
+                it.updateMessageTab(tabKey) { tab ->
+                    tab.copy(
+                        isLoadingInitial = isInitialLoad,
+                        isLoadingNext = !isInitialLoad
+                    )
+                }
+            }
+
+            try {
+                val pageLimit = if (isInitialLoad) INITIAL_MEDIA_PAGE_SIZE else MEDIA_PAGE_SIZE
+                val messages = messageRepository.getProfileMedia(
+                    chatId = chatId,
+                    filter = filter,
+                    fromMessageId = if (isInitialLoad) 0L else currentTab.nextFromMessageId,
+                    limit = pageLimit
+                )
+                val canLoadMore = messages.size >= pageLimit
+
+                _state.update { state ->
+                    var nextState = state.updateMessageTab(tabKey) { tab ->
+                        val mergedMessages =
+                            (tab.items + messages).distinctBy { message -> message.id }
+                        tab.copy(
+                            items = mergedMessages,
+                            canLoadMore = canLoadMore,
+                            nextFromMessageId = mergedMessages.lastOrNull()?.id
+                                ?: tab.nextFromMessageId,
+                            hasLoaded = true
+                        )
+                    }
+
+                    if (tabKey == ProfileTabKey.MEDIA && nextState.fullScreenImages != null && !nextState.isViewingProfilePhotos) {
+                        nextState = refreshViewerMedia(nextState)
+                    }
+
+                    nextState
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                loadingTabs.remove(tabKey)
+                _state.update {
+                    it.updateMessageTab(tabKey) { tab ->
+                        tab.copy(
+                            isLoadingInitial = false,
+                            isLoadingNext = false
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    private fun appendMessagesToState(
-        currentState: ProfileComponent.State,
-        filter: ProfileMediaFilter,
-        newMessages: List<MessageModel>,
-        pageLimit: Int
+    private fun refreshViewerMedia(state: ProfileComponent.State): ProfileComponent.State {
+        val allPhotos = state.mediaMessages.filter { it.content is MessageContent.Photo }
+        val paths = allPhotos.mapNotNull { (it.content as? MessageContent.Photo)?.displayPath() }
+        val captions = allPhotos.map { (it.content as? MessageContent.Photo)?.caption }
+        return state.copy(
+            fullScreenImages = paths,
+            fullScreenCaptions = captions
+        )
+    }
+
+    private fun ProfileComponent.State.updateMessageTab(
+        key: ProfileTabKey,
+        transform: (ProfileComponent.MessageTabState) -> ProfileComponent.MessageTabState
     ): ProfileComponent.State {
-        val canLoadMore = newMessages.size >= pageLimit
-        canLoadMoreMediaByFilter[filter] = canLoadMore
-
-        val nextState = when (filter) {
-            ProfileMediaFilter.MEDIA -> currentState.copy(
-                mediaMessages = currentState.mediaMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-            ProfileMediaFilter.FILES -> currentState.copy(
-                fileMessages = currentState.fileMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-            ProfileMediaFilter.AUDIO -> currentState.copy(
-                audioMessages = currentState.audioMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-            ProfileMediaFilter.VOICE -> currentState.copy(
-                voiceMessages = currentState.voiceMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-            ProfileMediaFilter.LINKS -> currentState.copy(
-                linkMessages = currentState.linkMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-            ProfileMediaFilter.GIFS -> currentState.copy(
-                gifMessages = currentState.gifMessages + newMessages,
-                canLoadMoreMedia = canLoadMore
-            )
-        }
-
-        if (filter == ProfileMediaFilter.MEDIA && nextState.fullScreenImages != null && !nextState.isViewingProfilePhotos) {
-            val allPhotos = nextState.mediaMessages.filter { it.content is MessageContent.Photo }
-            val paths = allPhotos.mapNotNull { (it.content as? MessageContent.Photo)?.path }
-            val captions = allPhotos.map { (it.content as? MessageContent.Photo)?.caption }
-            return nextState.copy(
-                fullScreenImages = paths,
-                fullScreenCaptions = captions
-            )
-        }
-
-        return nextState
+        val currentTab = messageTabState(key)
+        return copy(messageTabs = messageTabs + (key to transform(currentTab)))
     }
 
-    override fun onTabSelected(index: Int) {
-        if (_state.value.selectedTabIndex == index) return
+    override fun onTabSelected(tabKey: ProfileTabKey) {
+        if (_state.value.selectedTabKey == tabKey) return
+        if (_state.value.visibleTabs.none { it.key == tabKey }) return
 
-        val currentState = _state.value
-        val isGroup = currentState.chat?.let { it.isGroup || it.isChannel } ?: false
-        val selectedFilter = tabFilter(index, isGroup)
-        val tabCanLoadMore = selectedFilter?.let { canLoadMoreMediaByFilter[it] ?: true } ?: true
-        val isTabEmpty = when (selectedFilter) {
-            ProfileMediaFilter.MEDIA -> currentState.mediaMessages.isEmpty()
-            ProfileMediaFilter.FILES -> currentState.fileMessages.isEmpty()
-            ProfileMediaFilter.AUDIO -> currentState.audioMessages.isEmpty()
-            ProfileMediaFilter.VOICE -> currentState.voiceMessages.isEmpty()
-            ProfileMediaFilter.LINKS -> currentState.linkMessages.isEmpty()
-            ProfileMediaFilter.GIFS -> currentState.gifMessages.isEmpty()
-            null -> false
-        }
-
-        _state.update {
-            it.copy(
-                selectedTabIndex = index,
-                canLoadMoreMedia = tabCanLoadMore,
-                isLoadingMedia = isTabEmpty,
-                isLoadingMoreMedia = false
-            )
-        }
-
-        if (isGroup && index == 1) {
-            if (_state.value.members.isEmpty()) {
-                loadMembersNextPage()
-            } else {
-                 _state.update { it.copy(isLoadingMedia = false) }
-            }
-        } else {
-            if (isTabEmpty) {
-                loadMediaNextPage(isFirstLoad = true)
-            } else {
-                _state.update { it.copy(isLoadingMedia = false) }
-            }
-        }
-    }
-
-    private fun tabFilter(index: Int, isGroup: Boolean): ProfileMediaFilter? {
-        if (isGroup && index == 1) return null
-        val mediaTypeIndex = if (isGroup && index > 1) index - 1 else index
-        return when (mediaTypeIndex) {
-            0 -> ProfileMediaFilter.MEDIA
-            1 -> ProfileMediaFilter.FILES
-            2 -> ProfileMediaFilter.AUDIO
-            3 -> ProfileMediaFilter.VOICE
-            4 -> ProfileMediaFilter.LINKS
-            5 -> ProfileMediaFilter.GIFS
-            else -> null
-        }
+        _state.update { it.copy(selectedTabKey = tabKey) }
+        ensureTabLoaded(tabKey)
     }
 
     private fun observeUserUpdates() {
@@ -1078,9 +1038,10 @@ class DefaultProfileComponent(
     override fun onUpdateMemberStatus(userId: Long, status: ChatMemberStatus) {
         scope.launch {
             chatInfoRepository.setChatMemberStatus(chatId, userId, status)
-            membersOffset = 0
-            _state.update { it.copy(members = emptyList(), canLoadMoreMembers = true) }
-            loadMembersNextPage()
+            _state.update { it.copy(membersTab = ProfileComponent.MembersTabState()) }
+            if (_state.value.visibleTabs.any { it.key == ProfileTabKey.MEMBERS }) {
+                ensureTabLoaded(ProfileTabKey.MEMBERS)
+            }
         }
     }
 

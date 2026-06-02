@@ -1,7 +1,14 @@
 package org.monogram.presentation.features.profile
 
 import com.arkivanov.decompose.value.Value
-import org.monogram.domain.models.*
+import org.monogram.domain.models.ChatFullInfoModel
+import org.monogram.domain.models.ChatModel
+import org.monogram.domain.models.ChatPermissionsModel
+import org.monogram.domain.models.ChatRevenueStatisticsModel
+import org.monogram.domain.models.ChatStatisticsModel
+import org.monogram.domain.models.GroupMemberModel
+import org.monogram.domain.models.MessageModel
+import org.monogram.domain.models.UserModel
 import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.MessageRepository
 import org.monogram.presentation.core.util.IDownloadUtils
@@ -12,7 +19,7 @@ interface ProfileComponent {
     val downloadUtils: IDownloadUtils
 
     fun onBack()
-    fun onTabSelected(index: Int)
+    fun onTabSelected(tabKey: ProfileTabKey)
     fun onMessageClick(message: MessageModel)
     fun onMessageLongClick(message: MessageModel)
     fun onAvatarClick()
@@ -87,21 +94,10 @@ interface ProfileComponent {
         val about: String? = null,
         val publicLink: String? = null,
 
-        val selectedTabIndex: Int = 0,
-
-        val mediaMessages: List<MessageModel> = emptyList(),
-        val fileMessages: List<MessageModel> = emptyList(),
-        val audioMessages: List<MessageModel> = emptyList(),
-        val voiceMessages: List<MessageModel> = emptyList(),
-        val linkMessages: List<MessageModel> = emptyList(),
-        val gifMessages: List<MessageModel> = emptyList(),
-        val members: List<GroupMemberModel> = emptyList(),
-        val isLoadingMembers: Boolean = false,
-        val canLoadMoreMembers: Boolean = true,
-
-        val isLoadingMedia: Boolean = false,
-        val isLoadingMoreMedia: Boolean = false,
-        val canLoadMoreMedia: Boolean = true,
+        val visibleTabs: List<ProfileTabSpec> = emptyList(),
+        val selectedTabKey: ProfileTabKey = ProfileTabKey.MEDIA,
+        val messageTabs: Map<ProfileTabKey, MessageTabState> = defaultMessageTabStates(),
+        val membersTab: MembersTabState = MembersTabState(),
 
         val profilePhotos: List<String> = emptyList(),
         val personalAvatarPath: String? = null,
@@ -161,11 +157,66 @@ interface ProfileComponent {
         val pendingMiniAppName: String? = null,
 
         val selectedLocation: LocationData? = null
-    )
+    ) {
+        val selectedTab: ProfileTabSpec?
+            get() = visibleTabs.firstOrNull { it.key == selectedTabKey }
+
+        fun messageTabState(key: ProfileTabKey): MessageTabState =
+            messageTabs[key] ?: MessageTabState()
+
+        val mediaMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.MEDIA).items
+
+        val fileMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.FILES).items
+
+        val musicMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.MUSIC).items
+
+        val voiceMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.VOICE).items
+
+        val linkMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.LINKS).items
+
+        val gifMessages: List<MessageModel>
+            get() = messageTabState(ProfileTabKey.GIFS).items
+
+        val members: List<GroupMemberModel>
+            get() = membersTab.items
+    }
 
     data class LocationData(
         val latitude: Double,
         val longitude: Double,
         val address: String
     )
+
+    data class MessageTabState(
+        val items: List<MessageModel> = emptyList(),
+        val isLoadingInitial: Boolean = false,
+        val isLoadingNext: Boolean = false,
+        val canLoadMore: Boolean = true,
+        val nextFromMessageId: Long = 0L,
+        val hasLoaded: Boolean = false
+    )
+
+    data class MembersTabState(
+        val items: List<GroupMemberModel> = emptyList(),
+        val isLoadingInitial: Boolean = false,
+        val isLoadingNext: Boolean = false,
+        val canLoadMore: Boolean = true,
+        val nextOffset: Int = 0,
+        val hasLoaded: Boolean = false
+    )
 }
+
+private fun defaultMessageTabStates(): Map<ProfileTabKey, ProfileComponent.MessageTabState> =
+    listOf(
+        ProfileTabKey.MEDIA,
+        ProfileTabKey.FILES,
+        ProfileTabKey.MUSIC,
+        ProfileTabKey.VOICE,
+        ProfileTabKey.LINKS,
+        ProfileTabKey.GIFS
+    ).associateWith { ProfileComponent.MessageTabState() }

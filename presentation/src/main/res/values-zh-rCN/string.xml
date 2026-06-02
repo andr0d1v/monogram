@@ -1251,13 +1251,13 @@
     <string name="tab_media">媒体</string>
     <string name="tab_members">成员</string>
     <string name="tab_files">文件</string>
-    <string name="tab_audio">音乐</string>
+    <string name="tab_music">音乐</string>
     <string name="tab_voice">语音</string>
     <string name="tab_links">链接</string>
     <string name="tab_gifs">GIF</string>
     <string name="empty_members">未找到成员</string>
     <string name="empty_media">未找到媒体文件</string>
-    <string name="empty_audio">未找到音频文件</string>
+    <string name="empty_music">未找到音频文件</string>
     <string name="empty_voice">未找到语音消息</string>
     <string name="empty_files">未找到文件</string>
     <string name="empty_links">未找到链接</string>

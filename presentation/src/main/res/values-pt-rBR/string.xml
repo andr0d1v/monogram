@@ -1335,13 +1335,13 @@
     <string name="tab_media">Mídia</string>
     <string name="tab_members">Membros</string>
     <string name="tab_files">Arquivos</string>
-    <string name="tab_audio">Áudio</string>
+    <string name="tab_music">Áudio</string>
     <string name="tab_voice">Voz</string>
     <string name="tab_links">Links</string>
     <string name="tab_gifs">GIFs</string>
     <string name="empty_members">Nenhum membro encontrado</string>
     <string name="empty_media">Nenhuma mídia encontrada</string>
-    <string name="empty_audio">Nenhum áudio encontrado</string>
+    <string name="empty_music">Nenhum áudio encontrado</string>
     <string name="empty_voice">Nenhuma mensagem de voz encontrada</string>
     <string name="empty_files">Nenhum arquivo encontrado</string>
     <string name="empty_links">Nenhum link encontrado</string>

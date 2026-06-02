@@ -68,13 +68,13 @@ import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.CollapsingToolbarScaffold
 import org.monogram.presentation.core.ui.ConfirmationSheet
 import org.monogram.presentation.core.ui.ItemPosition
+import org.monogram.presentation.core.ui.SettingsTextField
 import org.monogram.presentation.core.ui.rememberCollapsingToolbarScaffoldState
 import org.monogram.presentation.core.ui.rememberShimmerBrush
 import org.monogram.presentation.core.util.DateFormatManager
 import org.monogram.presentation.core.util.LocalTabletInterfaceEnabled
 import org.monogram.presentation.core.util.ScrollStrategy
 import org.monogram.presentation.core.util.getUserStatusText
-import org.monogram.presentation.core.ui.SettingsTextField
 import org.monogram.presentation.features.profile.components.LocationViewer
 import org.monogram.presentation.features.profile.components.ProfileHeaderTransformed
 import org.monogram.presentation.features.profile.components.ProfileInfoSection
@@ -261,16 +261,6 @@ fun ProfileContent(component: ProfileComponent) {
             },
             containerColor = dynamicContainerColor
         ) { padding ->
-            val isGroup = state.chat?.isGroup == true || state.chat?.isChannel == true
-            val tabs = mutableListOf<@Composable () -> String>({ stringResource(R.string.tab_media) })
-            if (isGroup) tabs.add { stringResource(R.string.tab_members) }
-            tabs.addAll(listOf(
-                { stringResource(R.string.tab_files) },
-                { stringResource(R.string.tab_audio) },
-                { stringResource(R.string.tab_voice) },
-                { stringResource(R.string.tab_links) },
-                { stringResource(R.string.tab_gifs) }
-            ))
             CollapsingToolbarScaffold(
                 modifier = Modifier
                     .fillMaxSize()
@@ -382,8 +372,8 @@ fun ProfileContent(component: ProfileComponent) {
 
                     profileMediaSection(
                         state = state,
-                        isGroup = isGroup,
-                        tabs = tabs,
+                        tabs = state.visibleTabs,
+                        selectedTabKey = state.selectedTabKey,
                         onTabSelected = component::onTabSelected,
                         onMessageClick = component::onMessageClick,
                         onMessageLongClick = component::onMessageLongClick,
