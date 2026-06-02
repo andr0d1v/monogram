@@ -2,18 +2,28 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.FilterConfiguration
 import com.android.build.api.variant.impl.VariantOutputImpl
 import com.google.android.gms.oss.licenses.plugin.DependencyTask
-import com.google.gms.googleservices.GoogleServicesPlugin
+import org.gradle.api.GradleException
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.oss.licenses)
-    alias(libs.plugins.google.services)
     alias(libs.plugins.androidx.baselineprofile)
 }
 
 val localProperties = rootProject.extra["localProperties"] as Properties
+val googleServicesFile = layout.projectDirectory.file("google-services.json").asFile
+val requestedTasks = gradle.startParameter.taskNames
+val requestsFirebaseVariant = requestedTasks.any { it.contains("Firebase", ignoreCase = true) }
+
+if (googleServicesFile.exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else if (requestsFirebaseVariant) {
+    throw GradleException(
+        "Firebase build requested, but app/google-services.json is missing."
+    )
+}
 
 val releaseStoreFile = localProperties.getProperty("RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }
 val releaseStorePassword =
@@ -50,7 +60,7 @@ android {
         versionName = "0.1.0"
     }
 
-    flavorDimensions += "tdlib"
+    flavorDimensions += listOf("tdlib", "runtime")
 
     productFlavors {
         create("official") {
@@ -58,6 +68,12 @@ android {
         }
         create("telemt") {
             dimension = "tdlib"
+        }
+        create("firebase") {
+            dimension = "runtime"
+        }
+        create("libre") {
+            dimension = "runtime"
         }
     }
 
@@ -113,11 +129,16 @@ android {
 
 androidComponents {
     onVariants { variant ->
-        val flavorName = variant.productFlavors
-            .map { it.second }
-            .joinToString("-")
-            .ifEmpty { "default" }
-        val apkNamePrefix = if (flavorName == "telemt") "monogram-telemt" else "monogram"
+        val tdlibFlavor =
+            variant.productFlavors.firstOrNull { it.first == "tdlib" }?.second ?: "default"
+        val runtimeFlavor =
+            variant.productFlavors.firstOrNull { it.first == "runtime" }?.second ?: "default"
+        val apkNamePrefix = buildString {
+            append(if (tdlibFlavor == "telemt") "monogram-telemt" else "monogram")
+            if (runtimeFlavor == "libre") {
+                append("-libre")
+            }
+        }
 
         variant.outputs.forEach { output ->
             val variantOutput = output as? VariantOutputImpl ?: return@forEach
@@ -175,9 +196,9 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.play.services.oss.licenses)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.messaging)
     implementation(libs.unifiedpush.connector)
+    add("firebaseImplementation", platform(libs.firebase.bom))
+    add("firebaseImplementation", libs.firebase.messaging)
 
     implementation(libs.maplibre.compose)
 
@@ -207,8 +228,4 @@ tasks.withType(DependencyTask::class.java).configureEach {
             }
         }
     }
-}
-
-googleServices {
-    missingGoogleServicesStrategy = GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
 }

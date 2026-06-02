@@ -160,6 +160,8 @@ import org.monogram.domain.repository.WallpaperRepository
 import org.monogram.domain.repository.WebAppRepository
 
 val dataModule = module {
+    includes(fcmRuntimeOverrideModule)
+
     single { CoroutineScope(SupervisorJob() + get<DispatcherProvider>().default) }
 
     single(createdAtStart = true) { TdLibClient() }
@@ -832,6 +834,7 @@ val dataModule = module {
     single(createdAtStart = true) {
         TdNotificationManager(
             androidContext(),
+            get(),
             get(),
             get(),
             get(),
