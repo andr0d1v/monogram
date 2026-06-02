@@ -44,6 +44,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,6 +102,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -114,6 +116,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import org.monogram.domain.models.ChatModel
+import org.monogram.domain.models.FolderModel
 import org.monogram.domain.models.UserModel
 import org.monogram.domain.repository.ConnectionStatus
 import org.monogram.domain.repository.StickerRepository
@@ -731,494 +735,24 @@ fun ChatListContent(component: ChatListComponent) {
             shape = if (isTablet) RoundedCornerShape(16.dp) else RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = if (isTablet) Color.Transparent else MaterialTheme.colorScheme.surface
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
-            if (searchState.isSearchActive || foldersState.selectedFolderId == -2) {
-                var showAllGlobal by remember(searchState.isSearchActive, searchState.searchQuery) {
-                    mutableStateOf(false)
-                }
-                var showAllMessages by remember(searchState.isSearchActive, searchState.searchQuery) {
-                    mutableStateOf(false)
-                }
-
-                val archiveScrollPosition =
-                    if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive) {
-                        foldersState.scrollPositions[-2]
-                    } else {
-                        null
-                    }
-                val scrollState = rememberManagedChatListState(
-                    stateKey = if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive) {
-                        "archive"
-                    } else {
-                        "search"
-                    },
-                    restoredPosition = archiveScrollPosition
-                )
-
-                if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive) {
-                    scrollStates[-2] = scrollState
-                }
-
-                val firstItemId = if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive) {
-                    foldersState.chatsByFolder[-2]?.firstOrNull()?.id
-                } else {
-                    null
-                }
-
-                LaunchedEffect(firstItemId) {
-                    if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive && !scrollState.isScrollInProgress && scrollState.firstVisibleItemIndex <= 1) {
-                        scrollState.scrollToItem(0, 0)
-                    }
-                }
-
-                if (foldersState.selectedFolderId == -2 && !searchState.isSearchActive) {
-                    DisposableEffect(Unit) {
-                        onDispose {
-                            component.updateScrollPosition(-2, scrollState.firstVisibleItemIndex, scrollState.firstVisibleItemScrollOffset)
-                        }
-                    }
-                }
-
-                val isArchivedView = foldersState.selectedFolderId == -2 && !searchState.isSearchActive
-                val archivedChats = if (isArchivedView) chatsState.chats else emptyList()
-                val isArchivedLoading = if (isArchivedView) chatsState.isLoading else false
-                val hasArchivedLoadState = isArchivedView && (foldersState.isLoadingByFolder.containsKey(-2) || chatsState.chats.isNotEmpty())
-                val showArchivedShimmer =
-                    isArchivedView && archivedChats.isEmpty() && (isArchivedLoading || !hasArchivedLoadState)
-                val shouldAnimateFirstArchiveTransition = firstFolderTransitionCompleted[-2] != true
-
-                LaunchedEffect(isArchivedView, archivedChats.size, isArchivedLoading, scrollState) {
-                    if (!isArchivedView || isArchivedLoading || archivedChats.isEmpty()) {
-                        return@LaunchedEffect
-                    }
-
-                    snapshotFlow {
-                        val lastVisible = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-                        lastVisible >= archivedChats.lastIndex - 5
-                    }
-                        .distinctUntilChanged()
-                        .collect { shouldLoad ->
-                            if (shouldLoad) {
-                                component.loadMore(-2)
-                            }
-                        }
-                }
-
-                LaunchedEffect(isArchivedView, hasArchivedLoadState, showArchivedShimmer) {
-                    if (isArchivedView && shouldAnimateFirstArchiveTransition && hasArchivedLoadState && !showArchivedShimmer) {
-                        firstFolderTransitionCompleted[-2] = true
-                    }
-                }
-
-                Box(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = scrollState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .semantics { contentDescription = "ChatList" },
-                        contentPadding = PaddingValues(
-                            top = 12.dp,
-                            bottom = 88.dp,
-                            start = if (isTablet) 12.dp else 0.dp,
-                            end = if (isTablet) 12.dp else 0.dp
-                        ),
-                    ) {
-                        if (searchState.isSearchActive) {
-                        if (searchState.searchQuery.isEmpty() && (searchState.recentUsers.isNotEmpty() || searchState.recentOthers.isNotEmpty())) {
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(top = 12.dp, bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.search_recent),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    TextButton(onClick = { component.onClearSearchHistory() }) {
-                                        Text(stringResource(R.string.action_clear_all))
-                                    }
-                                }
-                            }
-
-                            if (searchState.recentUsers.isNotEmpty()) {
-                                item {
-                                    LazyRow(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(bottom = 8.dp),
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        itemsIndexed(items = searchState.recentUsers, key = { index, chat -> "recent_user_${chat.id}_$index" }) { _, chat ->
-                                            Column(
-                                                modifier = Modifier
-                                                    .width(64.dp)
-                                                    .combinedClickable(
-                                                        onClick = { onChatClicked(chat.id) },
-                                                        onLongClick = {
-                                                            component.onRemoveSearchHistoryItem(
-                                                                chat.id
-                                                            )
-                                                        }
-                                                    ),
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Box(contentAlignment = Alignment.TopEnd) {
-                                                    Avatar(
-                                                        path = chat.avatarPath,
-                                                        fallbackPath = chat.personalAvatarPath,
-                                                        name = chat.title,
-                                                        size = 64.dp,
-                                                        isOnline = chat.isOnline
-                                                    )
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(18.dp)
-                                                            .offset(x = 4.dp, y = (-4).dp)
-                                                            .clip(CircleShape)
-                                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                            .clickable {
-                                                                component.onRemoveSearchHistoryItem(
-                                                                    chat.id
-                                                                )
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Rounded.Close,
-                                                            null,
-                                                            modifier = Modifier.size(10.dp),
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                }
-                                                Spacer(Modifier.height(4.dp))
-                                                Text(
-                                                    text = chat.title,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    textAlign = TextAlign.Center,
-                                                    lineHeight = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (searchState.recentOthers.isNotEmpty()) {
-                                itemsIndexed(
-                                    items = searchState.recentOthers,
-                                    key = { _, chat -> "recent_${chat.id}" }) { _, chat ->
-                                    ChatListItem(
-                                        modifier = Modifier.animateItem(),
-                                        chat = chat,
-                                        currentUserId = uiState.currentUser?.id,
-                                        isSelected = false,
-                                        onClick = { onChatClicked(chat.id) },
-                                        onLongClick = { component.onRemoveSearchHistoryItem(chat.id) },
-                                        isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
-                                        emojiFontFamily = emojiFontFamily,
-                                        messageLines = messageLines,
-                                        showPhotos = showPhotos
-                                    )
-                                }
-                            }
-                        }
-
-                        if (searchState.searchResults.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = stringResource(R.string.search_section_chats),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            itemsIndexed(items = searchState.searchResults, key = { index, chat -> "search_${chat.id}_$index" }) { _, chat ->
-                                ChatListItem(
-                                    modifier = Modifier.animateItem(),
-                                    chat = chat,
-                                    currentUserId = uiState.currentUser?.id,
-                                    isSelected = selectionState.selectedChatIds.contains(chat.id),
-                                    onClick = { onChatClicked(chat.id) },
-                                    onLongClick = { onChatLongClicked(chat.id) },
-                                    isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
-                                    emojiFontFamily = emojiFontFamily,
-                                    messageLines = messageLines,
-                                    showPhotos = showPhotos
-                                )
-                            }
-                        }
-
-                        if (searchState.globalSearchResults.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = stringResource(R.string.search_section_global),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            val globalToDisplay =
-                                if (showAllGlobal) searchState.globalSearchResults else searchState.globalSearchResults.take(3)
-
-                            itemsIndexed(items = globalToDisplay, key = { _, chat -> "global_${chat.id}" }) { _, chat ->
-                                ChatListItem(
-                                    modifier = Modifier.animateItem(),
-                                    chat = chat,
-                                    currentUserId = uiState.currentUser?.id,
-                                    isSelected = selectionState.selectedChatIds.contains(chat.id),
-                                    onClick = { onChatClicked(chat.id) },
-                                    onLongClick = { onChatLongClicked(chat.id) },
-                                    isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
-                                    emojiFontFamily = emojiFontFamily,
-                                    messageLines = messageLines,
-                                    showPhotos = showPhotos
-                                )
-                            }
-
-                            if (!showAllGlobal && searchState.globalSearchResults.size > 3) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { showAllGlobal = true }
-                                            .padding(16.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.action_show_more),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        if (searchState.messageSearchResults.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = stringResource(R.string.search_section_messages),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            val messagesToDisplay =
-                                if (showAllMessages) searchState.messageSearchResults else searchState.messageSearchResults.take(3)
-
-                            itemsIndexed(
-                                items = messagesToDisplay,
-                                key = { index, msg -> "msg_${msg.id}_$index" }) { index, msg ->
-                                if (showAllMessages && index >= messagesToDisplay.lastIndex - 5 && searchState.canLoadMoreMessages) {
-                                    LaunchedEffect(Unit) { component.loadMoreMessages() }
-                                }
-
-                                MessageSearchItem(
-                                    modifier = Modifier.animateItem(),
-                                    message = msg,
-                                    onClick = { component.onMessageClicked(msg.chatId, msg.id) }
-                                )
-                            }
-
-                            if (!showAllMessages && searchState.messageSearchResults.size > 3) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { showAllMessages = true }
-                                            .padding(16.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.action_show_more),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        } else {
-                            if (archivedChats.isEmpty() && hasArchivedLoadState && !isArchivedLoading) {
-                                item {
-                                    EmptyStateView(modifier = Modifier.fillParentMaxSize())
-                                }
-                            }
-
-                            itemsIndexed(items = archivedChats, key = { _, chat -> chat.id }) { _, chat ->
-                                ChatListItem(
-                                    modifier = Modifier.animateItem(),
-                                    chat = chat,
-                                    currentUserId = uiState.currentUser?.id,
-                                    isSelected = selectionState.selectedChatIds.contains(chat.id),
-                                    onClick = { onChatClicked(chat.id) },
-                                    onLongClick = { onChatLongClicked(chat.id) },
-                                    isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
-                                    emojiFontFamily = emojiFontFamily,
-                                    messageLines = messageLines,
-                                    showPhotos = showPhotos
-                                )
-                            }
-                        }
-                    }
-
-                    if (isArchivedView) {
-                        Crossfade(
-                            targetState = showArchivedShimmer,
-                            animationSpec = if (shouldAnimateFirstArchiveTransition) MaterialTheme.motionScheme.defaultEffectsSpec() else snap(),
-                            label = "ArchiveChatsCrossfade"
-                        ) { showShimmer ->
-                            if (showShimmer) {
-                                ChatListShimmer(itemCount = 8)
-                            }
-                        }
-                    }
-                }
-            } else {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    beyondViewportPageCount = 1
-                ) { page ->
-                    val folder = visibleFolders.getOrNull(page)
-                        ?: visibleFolders.firstOrNull { it.id == foldersState.selectedFolderId }
-                    val folderId = folder?.id
-                    if (folderId == null) {
-                        Box(modifier = Modifier.fillMaxSize())
-                        return@HorizontalPager
-                    }
-                    val rawFolderChats = foldersState.chatsByFolder[folderId].orEmpty()
-                    val folderChats = rawFolderChats
-                    val isFolderLoading = foldersState.isLoadingByFolder[folderId] ?: false
-                    val hasFolderLoadState = foldersState.isLoadingByFolder.containsKey(folderId)
-                    val shouldAnimateFirstFolderTransition = firstFolderTransitionCompleted[folderId] != true
-                    val shouldHoldInitialFolderContent = folderId > 0 &&
-                            shouldAnimateFirstFolderTransition &&
-                            isFolderLoading
-                    val showFolderShimmer = shouldHoldInitialFolderContent ||
-                            (folderChats.isEmpty() && (isFolderLoading || !hasFolderLoadState))
-
-                    val scrollState = rememberManagedChatListState(
-                        stateKey = "folder:$folderId",
-                        restoredPosition = foldersState.scrollPositions[folderId]
-                    )
-
-                    scrollStates[folderId] = scrollState
-
-                    val firstItemId = folderChats.firstOrNull()?.id
-
-                    LaunchedEffect(firstItemId) {
-                        if (!scrollState.isScrollInProgress && scrollState.firstVisibleItemIndex <= 1) {
-                            scrollState.scrollToItem(0, 0)
-                        }
-                    }
-
-                    val shouldLoadMoreFolder by remember(folderChats, isFolderLoading, scrollState) {
-                        derivedStateOf {
-                            if (isFolderLoading || folderChats.isEmpty()) {
-                                false
-                            } else {
-                                val lastVisible = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-                                lastVisible >= folderChats.lastIndex - 5
-                            }
-                        }
-                    }
-
-                    LaunchedEffect(shouldLoadMoreFolder, folderId) {
-                        if (shouldLoadMoreFolder) {
-                            component.loadMore(folderId)
-                        }
-                    }
-
-                    val isInitialLoad = remember(folderId) { mutableStateOf(true) }
-                    LaunchedEffect(folderChats) {
-                        if (isInitialLoad.value && folderChats.isNotEmpty()) {
-                            if (foldersState.scrollPositions[folderId] == null) {
-                                scrollState.scrollToItem(0, 0)
-                            }
-                            isInitialLoad.value = false
-                        }
-                    }
-
-                    LaunchedEffect(folderId, hasFolderLoadState, showFolderShimmer) {
-                        if (shouldAnimateFirstFolderTransition && hasFolderLoadState && !showFolderShimmer) {
-                            firstFolderTransitionCompleted[folderId] = true
-                        }
-                    }
-
-                    DisposableEffect(Unit) {
-                        onDispose {
-                            component.updateScrollPosition(folderId, scrollState.firstVisibleItemIndex, scrollState.firstVisibleItemScrollOffset)
-                        }
-                    }
-
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Crossfade(
-                            targetState = showFolderShimmer,
-                            animationSpec = if (shouldAnimateFirstFolderTransition) MaterialTheme.motionScheme.defaultEffectsSpec() else snap(),
-                            label = "FolderChatsCrossfade"
-                        ) { showShimmer ->
-                            if (showShimmer) {
-                                ChatListShimmer()
-                            } else {
-                                LazyColumn(
-                                    state = scrollState,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .semantics { contentDescription = "ChatList" },
-                                    contentPadding = PaddingValues(
-                                        top = 12.dp,
-                                        bottom = 88.dp,
-                                        start = if (isTablet) 4.dp else 0.dp,
-                                        end = if (isTablet) 4.dp else 0.dp
-                                    )
-                                ) {
-                                    if (folderChats.isEmpty() && hasFolderLoadState && !isFolderLoading) {
-                                        item {
-                                            EmptyStateView(modifier = Modifier.fillParentMaxSize())
-                                        }
-                                    }
-
-                                    itemsIndexed(
-                                        items = folderChats,
-                                        key = { _, chat -> chat.id }
-                                    ) { _, chat ->
-                                        ChatListItem(
-                                            modifier = Modifier.animateItem(),
-                                            chat = chat,
-                                            currentUserId = uiState.currentUser?.id,
-                                            isSelected = selectionState.selectedChatIds.contains(chat.id),
-                                            onClick = { onChatClicked(chat.id) },
-                                            onLongClick = { onChatLongClicked(chat.id) },
-                                            isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
-                                            emojiFontFamily = emojiFontFamily,
-                                            messageLines = messageLines,
-                                            showPhotos = showPhotos
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-                }
-            }
+            ChatListBody(
+                component = component,
+                foldersState = foldersState,
+                chatsState = chatsState,
+                selectionState = selectionState,
+                searchState = searchState,
+                visibleFolders = visibleFolders,
+                pagerState = pagerState,
+                scrollStates = scrollStates,
+                firstFolderTransitionCompleted = firstFolderTransitionCompleted,
+                currentUserId = uiState.currentUser?.id,
+                isTablet = isTablet,
+                emojiFontFamily = emojiFontFamily,
+                messageLines = messageLines,
+                showPhotos = showPhotos,
+                onChatClicked = onChatClicked,
+                onChatLongClicked = onChatLongClicked
+            )
         }
     }
 
@@ -1385,6 +919,688 @@ private sealed interface ChatListTopBarMode {
         val isProxyEnabled: Boolean,
         val isSearchActive: Boolean
     ) : ChatListTopBarMode
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ChatListBody(
+    component: ChatListComponent,
+    foldersState: ChatListComponent.FoldersState,
+    chatsState: ChatListComponent.ChatsState,
+    selectionState: ChatListComponent.SelectionState,
+    searchState: ChatListComponent.SearchState,
+    visibleFolders: List<FolderModel>,
+    pagerState: PagerState,
+    scrollStates: MutableMap<Int, LazyListState>,
+    firstFolderTransitionCompleted: MutableMap<Int, Boolean>,
+    currentUserId: Long?,
+    isTablet: Boolean,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
+    onChatClicked: (Long) -> Unit,
+    onChatLongClicked: (Long) -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (searchState.isSearchActive || foldersState.selectedFolderId == -2) {
+            SearchOrArchiveContent(
+                component = component,
+                foldersState = foldersState,
+                chatsState = chatsState,
+                selectionState = selectionState,
+                searchState = searchState,
+                firstFolderTransitionCompleted = firstFolderTransitionCompleted,
+                scrollStates = scrollStates,
+                currentUserId = currentUserId,
+                isTablet = isTablet,
+                emojiFontFamily = emojiFontFamily,
+                messageLines = messageLines,
+                showPhotos = showPhotos,
+                onChatClicked = onChatClicked,
+                onChatLongClicked = onChatLongClicked
+            )
+        } else {
+            FolderPagerContent(
+                component = component,
+                foldersState = foldersState,
+                selectionState = selectionState,
+                visibleFolders = visibleFolders,
+                pagerState = pagerState,
+                firstFolderTransitionCompleted = firstFolderTransitionCompleted,
+                scrollStates = scrollStates,
+                currentUserId = currentUserId,
+                isTablet = isTablet,
+                emojiFontFamily = emojiFontFamily,
+                messageLines = messageLines,
+                showPhotos = showPhotos,
+                onChatClicked = onChatClicked,
+                onChatLongClicked = onChatLongClicked
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SearchOrArchiveContent(
+    component: ChatListComponent,
+    foldersState: ChatListComponent.FoldersState,
+    chatsState: ChatListComponent.ChatsState,
+    selectionState: ChatListComponent.SelectionState,
+    searchState: ChatListComponent.SearchState,
+    firstFolderTransitionCompleted: MutableMap<Int, Boolean>,
+    scrollStates: MutableMap<Int, LazyListState>,
+    currentUserId: Long?,
+    isTablet: Boolean,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
+    onChatClicked: (Long) -> Unit,
+    onChatLongClicked: (Long) -> Unit
+) {
+    var showAllGlobal by remember(searchState.isSearchActive, searchState.searchQuery) {
+        mutableStateOf(false)
+    }
+    var showAllMessages by remember(searchState.isSearchActive, searchState.searchQuery) {
+        mutableStateOf(false)
+    }
+
+    val isArchivedView = foldersState.selectedFolderId == -2 && !searchState.isSearchActive
+    val scrollState = rememberManagedChatListState(
+        stateKey = if (isArchivedView) "archive" else "search",
+        restoredPosition = if (isArchivedView) foldersState.scrollPositions[-2] else null
+    )
+
+    RegisterScrollState(
+        folderId = -2,
+        enabled = isArchivedView,
+        scrollState = scrollState,
+        scrollStates = scrollStates,
+        onSaveScrollPosition = component::updateScrollPosition
+    )
+
+    val archivedChats = if (isArchivedView) chatsState.chats else emptyList()
+    val isArchivedLoading = isArchivedView && chatsState.isLoading
+    val hasArchivedLoadState = isArchivedView && (
+            foldersState.isLoadingByFolder.containsKey(-2) || chatsState.chats.isNotEmpty()
+            )
+    val showArchivedShimmer =
+        isArchivedView && archivedChats.isEmpty() && (isArchivedLoading || !hasArchivedLoadState)
+    val shouldAnimateFirstArchiveTransition = firstFolderTransitionCompleted[-2] != true
+    val globalToDisplay = remember(showAllGlobal, searchState.globalSearchResults) {
+        if (showAllGlobal) searchState.globalSearchResults else searchState.globalSearchResults.take(
+            3
+        )
+    }
+    val messagesToDisplay = remember(showAllMessages, searchState.messageSearchResults) {
+        if (showAllMessages) searchState.messageSearchResults else searchState.messageSearchResults.take(
+            3
+        )
+    }
+    val messagePaginationKeys = remember(showAllMessages, messagesToDisplay) {
+        if (!showAllMessages) {
+            emptySet<String>()
+        } else {
+            messagesToDisplay.mapIndexedNotNull { index, message ->
+                if (index >= messagesToDisplay.lastIndex - 5) {
+                    "msg_${message.id}_$index"
+                } else {
+                    null
+                }
+            }.toSet()
+        }
+    }
+
+    LaunchedEffect(isArchivedView, archivedChats.firstOrNull()?.id) {
+        if (isArchivedView && !scrollState.isScrollInProgress && scrollState.firstVisibleItemIndex <= 1) {
+            scrollState.scrollToItem(0, 0)
+        }
+    }
+
+    LaunchedEffect(
+        isArchivedView,
+        archivedChats.size,
+        isArchivedLoading,
+        scrollState
+    ) {
+        if (!isArchivedView || isArchivedLoading || archivedChats.isEmpty()) return@LaunchedEffect
+
+        snapshotFlow {
+            val lastVisible = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= archivedChats.lastIndex - 5
+        }
+            .distinctUntilChanged()
+            .collect { shouldLoad ->
+                if (shouldLoad) {
+                    component.loadMore(-2)
+                }
+            }
+    }
+
+    LaunchedEffect(messagePaginationKeys, searchState.canLoadMoreMessages, scrollState) {
+        if (!searchState.canLoadMoreMessages || messagePaginationKeys.isEmpty()) {
+            return@LaunchedEffect
+        }
+
+        snapshotFlow {
+            scrollState.layoutInfo.visibleItemsInfo.any { visibleItem ->
+                (visibleItem.key as? String) in messagePaginationKeys
+            }
+        }
+            .distinctUntilChanged()
+            .collect { shouldLoad ->
+                if (shouldLoad) {
+                    component.loadMoreMessages()
+                }
+            }
+    }
+
+    LaunchedEffect(isArchivedView, hasArchivedLoadState, showArchivedShimmer) {
+        if (isArchivedView && shouldAnimateFirstArchiveTransition && hasArchivedLoadState && !showArchivedShimmer) {
+            firstFolderTransitionCompleted[-2] = true
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = scrollState,
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = "ChatList" },
+            contentPadding = PaddingValues(
+                top = 12.dp,
+                bottom = 88.dp,
+                start = if (isTablet) 12.dp else 0.dp,
+                end = if (isTablet) 12.dp else 0.dp
+            )
+        ) {
+            if (searchState.isSearchActive) {
+                if (searchState.searchQuery.isEmpty() &&
+                    (searchState.recentUsers.isNotEmpty() || searchState.recentOthers.isNotEmpty())
+                ) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 12.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.search_recent),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            TextButton(onClick = component::onClearSearchHistory) {
+                                Text(stringResource(R.string.action_clear_all))
+                            }
+                        }
+                    }
+
+                    if (searchState.recentUsers.isNotEmpty()) {
+                        item {
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                itemsIndexed(
+                                    items = searchState.recentUsers,
+                                    key = { index, chat -> "recent_user_${chat.id}_$index" }
+                                ) { _, chat ->
+                                    RecentSearchUserItem(
+                                        chat = chat,
+                                        onClick = { onChatClicked(chat.id) },
+                                        onRemove = { component.onRemoveSearchHistoryItem(chat.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (searchState.recentOthers.isNotEmpty()) {
+                        itemsIndexed(
+                            items = searchState.recentOthers,
+                            key = { _, chat -> "recent_${chat.id}" }
+                        ) { _, chat ->
+                            ChatListChatRow(
+                                chat = chat,
+                                currentUserId = currentUserId,
+                                isSelected = false,
+                                isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
+                                emojiFontFamily = emojiFontFamily,
+                                messageLines = messageLines,
+                                showPhotos = showPhotos,
+                                onClick = { onChatClicked(chat.id) },
+                                onLongClick = { component.onRemoveSearchHistoryItem(chat.id) }
+                            )
+                        }
+                    }
+                }
+
+                if (searchState.searchResults.isNotEmpty()) {
+                    item {
+                        SearchSectionHeader(text = stringResource(R.string.search_section_chats))
+                    }
+                    itemsIndexed(
+                        items = searchState.searchResults,
+                        key = { index, chat -> "search_${chat.id}_$index" }
+                    ) { _, chat ->
+                        ChatListChatRow(
+                            chat = chat,
+                            currentUserId = currentUserId,
+                            isSelected = selectionState.selectedChatIds.contains(chat.id),
+                            isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
+                            emojiFontFamily = emojiFontFamily,
+                            messageLines = messageLines,
+                            showPhotos = showPhotos,
+                            onClick = { onChatClicked(chat.id) },
+                            onLongClick = { onChatLongClicked(chat.id) }
+                        )
+                    }
+                }
+
+                if (searchState.globalSearchResults.isNotEmpty()) {
+                    item {
+                        SearchSectionHeader(text = stringResource(R.string.search_section_global))
+                    }
+                    itemsIndexed(
+                        items = globalToDisplay,
+                        key = { _, chat -> "global_${chat.id}" }
+                    ) { _, chat ->
+                        ChatListChatRow(
+                            chat = chat,
+                            currentUserId = currentUserId,
+                            isSelected = selectionState.selectedChatIds.contains(chat.id),
+                            isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
+                            emojiFontFamily = emojiFontFamily,
+                            messageLines = messageLines,
+                            showPhotos = showPhotos,
+                            onClick = { onChatClicked(chat.id) },
+                            onLongClick = { onChatLongClicked(chat.id) }
+                        )
+                    }
+
+                    if (!showAllGlobal && searchState.globalSearchResults.size > 3) {
+                        item {
+                            ShowMoreButton(onClick = { showAllGlobal = true })
+                        }
+                    }
+                }
+
+                if (searchState.messageSearchResults.isNotEmpty()) {
+                    item {
+                        SearchSectionHeader(text = stringResource(R.string.search_section_messages))
+                    }
+                    itemsIndexed(
+                        items = messagesToDisplay,
+                        key = { index, msg -> "msg_${msg.id}_$index" }
+                    ) { _, msg ->
+                        MessageSearchItem(
+                            modifier = Modifier.animateItem(),
+                            message = msg,
+                            onClick = { component.onMessageClicked(msg.chatId, msg.id) }
+                        )
+                    }
+
+                    if (!showAllMessages && searchState.messageSearchResults.size > 3) {
+                        item {
+                            ShowMoreButton(onClick = { showAllMessages = true })
+                        }
+                    }
+                }
+            } else {
+                if (archivedChats.isEmpty() && hasArchivedLoadState && !isArchivedLoading) {
+                    item {
+                        EmptyStateView(modifier = Modifier.fillParentMaxSize())
+                    }
+                }
+
+                itemsIndexed(items = archivedChats, key = { _, chat -> chat.id }) { _, chat ->
+                    ChatListChatRow(
+                        chat = chat,
+                        currentUserId = currentUserId,
+                        isSelected = selectionState.selectedChatIds.contains(chat.id),
+                        isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
+                        emojiFontFamily = emojiFontFamily,
+                        messageLines = messageLines,
+                        showPhotos = showPhotos,
+                        onClick = { onChatClicked(chat.id) },
+                        onLongClick = { onChatLongClicked(chat.id) }
+                    )
+                }
+            }
+        }
+
+        if (isArchivedView) {
+            Crossfade(
+                targetState = showArchivedShimmer,
+                animationSpec = if (shouldAnimateFirstArchiveTransition) {
+                    MaterialTheme.motionScheme.defaultEffectsSpec()
+                } else {
+                    snap()
+                },
+                label = "ArchiveChatsCrossfade"
+            ) { showShimmer ->
+                if (showShimmer) {
+                    ChatListShimmer(itemCount = 8)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FolderPagerContent(
+    component: ChatListComponent,
+    foldersState: ChatListComponent.FoldersState,
+    selectionState: ChatListComponent.SelectionState,
+    visibleFolders: List<FolderModel>,
+    pagerState: PagerState,
+    firstFolderTransitionCompleted: MutableMap<Int, Boolean>,
+    scrollStates: MutableMap<Int, LazyListState>,
+    currentUserId: Long?,
+    isTablet: Boolean,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
+    onChatClicked: (Long) -> Unit,
+    onChatLongClicked: (Long) -> Unit
+) {
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+        beyondViewportPageCount = 1
+    ) { page ->
+        val folder = visibleFolders.getOrNull(page)
+            ?: visibleFolders.firstOrNull { it.id == foldersState.selectedFolderId }
+        val folderId = folder?.id
+        if (folderId == null) {
+            Box(modifier = Modifier.fillMaxSize())
+            return@HorizontalPager
+        }
+
+        FolderPageContent(
+            component = component,
+            folderId = folderId,
+            folderChats = foldersState.chatsByFolder[folderId].orEmpty(),
+            isFolderLoading = foldersState.isLoadingByFolder[folderId] ?: false,
+            hasFolderLoadState = foldersState.isLoadingByFolder.containsKey(folderId),
+            restoredPosition = foldersState.scrollPositions[folderId],
+            selectionState = selectionState,
+            shouldAnimateFirstFolderTransition = firstFolderTransitionCompleted[folderId] != true,
+            scrollStates = scrollStates,
+            onMarkFirstTransitionComplete = { firstFolderTransitionCompleted[folderId] = true },
+            currentUserId = currentUserId,
+            isTablet = isTablet,
+            emojiFontFamily = emojiFontFamily,
+            messageLines = messageLines,
+            showPhotos = showPhotos,
+            onChatClicked = onChatClicked,
+            onChatLongClicked = onChatLongClicked
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun FolderPageContent(
+    component: ChatListComponent,
+    folderId: Int,
+    folderChats: List<ChatModel>,
+    isFolderLoading: Boolean,
+    hasFolderLoadState: Boolean,
+    restoredPosition: Pair<Int, Int>?,
+    selectionState: ChatListComponent.SelectionState,
+    shouldAnimateFirstFolderTransition: Boolean,
+    scrollStates: MutableMap<Int, LazyListState>,
+    onMarkFirstTransitionComplete: () -> Unit,
+    currentUserId: Long?,
+    isTablet: Boolean,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
+    onChatClicked: (Long) -> Unit,
+    onChatLongClicked: (Long) -> Unit
+) {
+    val shouldHoldInitialFolderContent = folderId > 0 &&
+            shouldAnimateFirstFolderTransition &&
+            isFolderLoading
+    val showFolderShimmer = shouldHoldInitialFolderContent ||
+            (folderChats.isEmpty() && (isFolderLoading || !hasFolderLoadState))
+    val scrollState = rememberManagedChatListState(
+        stateKey = "folder:$folderId",
+        restoredPosition = restoredPosition
+    )
+
+    RegisterScrollState(
+        folderId = folderId,
+        enabled = true,
+        scrollState = scrollState,
+        scrollStates = scrollStates,
+        onSaveScrollPosition = component::updateScrollPosition
+    )
+
+    LaunchedEffect(folderChats.firstOrNull()?.id) {
+        if (!scrollState.isScrollInProgress && scrollState.firstVisibleItemIndex <= 1) {
+            scrollState.scrollToItem(0, 0)
+        }
+    }
+
+    LaunchedEffect(folderId, folderChats.size, isFolderLoading, scrollState) {
+        if (isFolderLoading || folderChats.isEmpty()) return@LaunchedEffect
+
+        snapshotFlow {
+            val lastVisible = scrollState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= folderChats.lastIndex - 5
+        }
+            .distinctUntilChanged()
+            .collect { shouldLoad ->
+                if (shouldLoad) {
+                    component.loadMore(folderId)
+                }
+            }
+    }
+
+    val isInitialLoad = remember(folderId) { mutableStateOf(true) }
+    LaunchedEffect(folderChats) {
+        if (isInitialLoad.value && folderChats.isNotEmpty()) {
+            if (restoredPosition == null) {
+                scrollState.scrollToItem(0, 0)
+            }
+            isInitialLoad.value = false
+        }
+    }
+
+    LaunchedEffect(folderId, hasFolderLoadState, showFolderShimmer) {
+        if (shouldAnimateFirstFolderTransition && hasFolderLoadState && !showFolderShimmer) {
+            onMarkFirstTransitionComplete()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Crossfade(
+            targetState = showFolderShimmer,
+            animationSpec = if (shouldAnimateFirstFolderTransition) {
+                MaterialTheme.motionScheme.defaultEffectsSpec()
+            } else {
+                snap()
+            },
+            label = "FolderChatsCrossfade"
+        ) { showShimmer ->
+            if (showShimmer) {
+                ChatListShimmer()
+            } else {
+                LazyColumn(
+                    state = scrollState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics { contentDescription = "ChatList" },
+                    contentPadding = PaddingValues(
+                        top = 12.dp,
+                        bottom = 88.dp,
+                        start = if (isTablet) 4.dp else 0.dp,
+                        end = if (isTablet) 4.dp else 0.dp
+                    )
+                ) {
+                    if (folderChats.isEmpty() && hasFolderLoadState && !isFolderLoading) {
+                        item {
+                            EmptyStateView(modifier = Modifier.fillParentMaxSize())
+                        }
+                    }
+
+                    itemsIndexed(items = folderChats, key = { _, chat -> chat.id }) { _, chat ->
+                        ChatListChatRow(
+                            chat = chat,
+                            currentUserId = currentUserId,
+                            isSelected = selectionState.selectedChatIds.contains(chat.id),
+                            isTabletSelected = isTablet && selectionState.activeChatId == chat.id,
+                            emojiFontFamily = emojiFontFamily,
+                            messageLines = messageLines,
+                            showPhotos = showPhotos,
+                            onClick = { onChatClicked(chat.id) },
+                            onLongClick = { onChatLongClicked(chat.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegisterScrollState(
+    folderId: Int,
+    enabled: Boolean,
+    scrollState: LazyListState,
+    scrollStates: MutableMap<Int, LazyListState>,
+    onSaveScrollPosition: (Int, Int, Int) -> Unit
+) {
+    DisposableEffect(folderId, enabled, scrollState) {
+        if (enabled) {
+            scrollStates[folderId] = scrollState
+        }
+        onDispose {
+            if (enabled) {
+                onSaveScrollPosition(
+                    folderId,
+                    scrollState.firstVisibleItemIndex,
+                    scrollState.firstVisibleItemScrollOffset
+                )
+                scrollStates.remove(folderId, scrollState)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ChatListChatRow(
+    chat: ChatModel,
+    currentUserId: Long?,
+    isSelected: Boolean,
+    isTabletSelected: Boolean,
+    emojiFontFamily: FontFamily,
+    messageLines: Int,
+    showPhotos: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    ChatListItem(
+        modifier = Modifier,
+        chat = chat,
+        currentUserId = currentUserId,
+        isSelected = isSelected,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        isTabletSelected = isTabletSelected,
+        emojiFontFamily = emojiFontFamily,
+        messageLines = messageLines,
+        showPhotos = showPhotos
+    )
+}
+
+@Composable
+private fun SearchSectionHeader(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun ShowMoreButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stringResource(R.string.action_show_more),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
+
+@Composable
+private fun RecentSearchUserItem(
+    chat: ChatModel,
+    onClick: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(64.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onRemove
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(contentAlignment = Alignment.TopEnd) {
+            Avatar(
+                path = chat.avatarPath,
+                fallbackPath = chat.personalAvatarPath,
+                name = chat.title,
+                size = 64.dp,
+                isOnline = chat.isOnline
+            )
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = chat.title,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            lineHeight = 12.sp
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
