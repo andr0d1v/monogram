@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -30,7 +31,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -72,13 +72,11 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -118,6 +116,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.coerceAtLeast
@@ -300,9 +299,14 @@ fun MessageOptionsMenu(
     }
     var hasReactionsInMessage by remember(message.id) { mutableStateOf(false) }
     var suppressNextReactionsAppearanceAnimation by remember(message.id) { mutableStateOf(false) }
-    var availableReactions by remember(message.chatId, message.id) { mutableStateOf<List<String>>(emptyList()) }
+    var availableReactions by remember(message.chatId, message.id) {
+        mutableStateOf<List<String>?>(
+            null
+        )
+    }
 
     LaunchedEffect(message.chatId, message.id) {
+        availableReactions = null
         availableReactions = emojiRepository.getMessageAvailableReactions(message.chatId, message.id)
     }
 
@@ -351,7 +355,6 @@ fun MessageOptionsMenu(
             IntOffset(x - containerOffset.x.toInt(), y - containerOffset.y.toInt())
         }
     }
-
     val transformOrigin by remember(menuPosition, menuSize, clickOffset, containerOffset) {
         derivedStateOf {
             if (menuSize == IntSize.Zero) return@derivedStateOf TransformOrigin.Center
@@ -502,16 +505,20 @@ fun MessageOptionsMenu(
                 .align(Alignment.TopStart)
                 .offset { menuPosition }
                 .width(IntrinsicSize.Min)
-                .widthIn(min = 208.dp, max = 276.dp)
+                .widthIn(min = 196.dp, max = 268.dp)
                 .heightIn(max = maxMenuHeight)
+                .animateContentSize(
+                    animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing),
+                    alignment = Alignment.TopCenter
+                )
                 .graphicsLayer {
                     this.alpha =
                         if (menuSize == IntSize.Zero || containerSize == IntSize.Zero) 0f else menuAlpha
                     scaleX = menuScale
                     scaleY = menuScale
                     this.transformOrigin = transformOrigin
-                    shadowElevation = 16.dp.toPx()
-                    shape = RoundedCornerShape(16.dp)
+                    shadowElevation = 14.dp.toPx()
+                    shape = RoundedCornerShape(14.dp)
                     clip = true
                 }
                 .onGloballyPositioned { coordinates ->
@@ -520,9 +527,9 @@ fun MessageOptionsMenu(
                     }
                 }
                 .clickable(enabled = false) {},
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            tonalElevation = 6.dp,
-            shape = RoundedCornerShape(16.dp)
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp,
+            shape = RoundedCornerShape(14.dp)
         ) {
             AnimatedContent(
                 targetState = menuPage,
@@ -599,16 +606,55 @@ fun MessageOptionsMenu(
 
                 Column(
                     modifier = contentModifier
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = 6.dp)
                 ) {
-                    DropdownMenuGroup(
-                        shapes = MenuDefaults.groupShape(0, 1),
-                        contentPadding = PaddingValues(0.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
-                    ) {
                     if (page == MenuPage.Main) {
+                        val quickActions = buildList {
+                            if (sections.hasReplyAction) {
+                                add(
+                                    MessageMenuAction(
+                                        icon = Icons.AutoMirrored.Rounded.Reply,
+                                        label = stringResource(R.string.menu_reply),
+                                        onClick = { animateOutAndDismiss(onReply) }
+                                    )
+                                )
+                            }
+                            if (sections.hasCopyAction) {
+                                add(
+                                    MessageMenuAction(
+                                        icon = Icons.Rounded.ContentCopy,
+                                        label = stringResource(R.string.menu_copy),
+                                        onClick = { animateOutAndDismiss(onCopy) }
+                                    )
+                                )
+                            }
+                            if (sections.hasEditAction) {
+                                add(
+                                    MessageMenuAction(
+                                        icon = Icons.Rounded.Edit,
+                                        label = stringResource(R.string.menu_edit),
+                                        onClick = { animateOutAndDismiss(onEdit) }
+                                    )
+                                )
+                            }
+                            if (sections.hasDeleteAction) {
+                                add(
+                                    MessageMenuAction(
+                                        icon = Icons.Rounded.Delete,
+                                        label = stringResource(R.string.menu_delete),
+                                        tint = MaterialTheme.colorScheme.error,
+                                        onClick = { showDeleteSheet = true }
+                                    )
+                                )
+                            }
+                        }
+
+                        InternalMenuHeaderInfo(
+                            message = message,
+                            showReadInfo = showReadInfo,
+                            showViewsInfo = showViewsInfo
+                        )
+
                         ReactionsRow(
                             message = message,
                             availableReactions = availableReactions,
@@ -624,36 +670,32 @@ fun MessageOptionsMenu(
                             }
                         )
 
-                        InternalMenuHeaderInfo(
-                            message = message,
-                            showReadInfo = showReadInfo,
-                            showViewsInfo = showViewsInfo
+                        if (sections.hasForwardAction) {
+                            InternalMenuOptionItem(
+                                icon = Icons.AutoMirrored.Rounded.Forward,
+                                text = stringResource(R.string.menu_forward),
+                                onClick = { animateOutAndDismiss(onForward) }
+                            )
+                        }
+
+                        if (sections.hasPinAction) {
+                            InternalMenuOptionItem(
+                                icon = Icons.Rounded.PushPin,
+                                text = if (isPinned) stringResource(R.string.menu_unpin) else stringResource(
+                                    R.string.menu_pin
+                                ),
+                                onClick = { animateOutAndDismiss(onPin) }
+                            )
+                        }
+
+                        InternalMenuOptionItem(
+                            icon = Icons.Rounded.CheckCircle,
+                            text = stringResource(R.string.menu_select),
+                            onClick = { animateOutAndDismiss(onSelect) }
                         )
 
-                        if (sections.hasViewersSection) {
-                            InternalMenuOptionItem(
-                                icon = Icons.Rounded.Visibility,
-                                text = "${viewers.size} ${stringResource(R.string.info_views)}",
-                                trailingContent = {
-                                    if (isLoadingViewers) {
-                                        LoadingIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Rounded.ChevronRight,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onReloadViewers()
-                                    menuPage = MenuPage.Viewers
-                                }
-                            )
+                        if (sections.hasPackAction || sections.hasCocoonSection || sections.hasMoreSection || sections.hasViewersSection) {
+                            MenuDivider()
                         }
 
                         if (sections.hasPackAction) {
@@ -686,52 +728,6 @@ fun MessageOptionsMenu(
                             )
                         }
 
-                        if (sections.hasReplyAction) {
-                            InternalMenuOptionItem(
-                                icon = Icons.AutoMirrored.Rounded.Reply,
-                                text = stringResource(R.string.menu_reply),
-                                onClick = { animateOutAndDismiss(onReply) }
-                            )
-                        }
-
-                        if (sections.hasPinAction) {
-                            InternalMenuOptionItem(
-                                icon = Icons.Rounded.PushPin,
-                                text = if (isPinned) stringResource(R.string.menu_unpin) else stringResource(R.string.menu_pin),
-                                onClick = { animateOutAndDismiss(onPin) }
-                            )
-                        }
-
-                        if (sections.hasEditAction) {
-                            InternalMenuOptionItem(
-                                icon = Icons.Rounded.Edit,
-                                text = stringResource(R.string.menu_edit),
-                                onClick = { animateOutAndDismiss(onEdit) }
-                            )
-                        }
-
-                        if (sections.hasCopyAction) {
-                            InternalMenuOptionItem(
-                                icon = Icons.Rounded.ContentCopy,
-                                text = stringResource(R.string.menu_copy),
-                                onClick = { animateOutAndDismiss(onCopy) }
-                            )
-                        }
-
-                        if (sections.hasForwardAction) {
-                            InternalMenuOptionItem(
-                                icon = Icons.AutoMirrored.Rounded.Forward,
-                                text = stringResource(R.string.menu_forward),
-                                onClick = { animateOutAndDismiss(onForward) }
-                            )
-                        }
-
-                        InternalMenuOptionItem(
-                            icon = Icons.Rounded.CheckCircle,
-                            text = stringResource(R.string.menu_select),
-                            onClick = { animateOutAndDismiss(onSelect) }
-                        )
-
                         if (sections.hasCocoonSection) {
                             InternalMenuOptionItem(
                                 icon = Icons.Rounded.AutoAwesome,
@@ -756,25 +752,41 @@ fun MessageOptionsMenu(
                             )
                         }
 
-                        if (sections.hasDeleteAction) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
+                        if (sections.hasViewersSection) {
                             InternalMenuOptionItem(
-                                icon = Icons.Rounded.Delete,
-                                text = stringResource(R.string.menu_delete),
-                                textColor = MaterialTheme.colorScheme.error,
-                                iconTint = MaterialTheme.colorScheme.error,
-                                onClick = { showDeleteSheet = true }
+                                icon = Icons.Rounded.Visibility,
+                                text = "${viewers.size} ${stringResource(R.string.info_views)}",
+                                trailingContent = {
+                                    if (isLoadingViewers) {
+                                        LoadingIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.ChevronRight,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.62f
+                                            ),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onReloadViewers()
+                                    menuPage = MenuPage.Viewers
+                                }
                             )
                         }
+
+                        if (quickActions.isNotEmpty()) {
+                            MenuDivider()
+                            QuickActionsBar(actions = quickActions)
+                        }
                     } else if (page == MenuPage.More) {
-                        InternalMenuOptionItem(
-                            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        MenuBackRow(
                             text = stringResource(R.string.cd_back),
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            textColor = MaterialTheme.colorScheme.primary,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (hasReactionsInMessage) {
@@ -784,10 +796,7 @@ fun MessageOptionsMenu(
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
+                        MenuDivider()
 
                         if (sections.hasCommentsAction) {
                             InternalMenuOptionItem(
@@ -848,11 +857,8 @@ fun MessageOptionsMenu(
                             }
                         }
                     } else if (page == MenuPage.Packs) {
-                        InternalMenuOptionItem(
-                            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        MenuBackRow(
                             text = stringResource(R.string.cd_back),
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            textColor = MaterialTheme.colorScheme.primary,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (hasReactionsInMessage) {
@@ -862,10 +868,7 @@ fun MessageOptionsMenu(
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
+                        MenuDivider()
 
                         packOptions.forEach { option ->
                             InternalMenuOptionItem(
@@ -888,11 +891,8 @@ fun MessageOptionsMenu(
                             )
                         }
                     } else if (page == MenuPage.Cocoon) {
-                        InternalMenuOptionItem(
-                            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        MenuBackRow(
                             text = stringResource(R.string.cd_back),
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            textColor = MaterialTheme.colorScheme.primary,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (hasReactionsInMessage) {
@@ -902,10 +902,7 @@ fun MessageOptionsMenu(
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
+                        MenuDivider()
 
                         if (sections.hasTelegramSummaryAction) {
                             InternalMenuOptionItem(
@@ -931,11 +928,8 @@ fun MessageOptionsMenu(
                             )
                         }
                     } else {
-                        InternalMenuOptionItem(
-                            icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        MenuBackRow(
                             text = stringResource(R.string.viewer_back),
-                            iconTint = MaterialTheme.colorScheme.primary,
-                            textColor = MaterialTheme.colorScheme.primary,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (hasReactionsInMessage) {
@@ -945,27 +939,27 @@ fun MessageOptionsMenu(
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
+                        MenuDivider()
 
                         when {
                             isLoadingViewers -> {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 24.dp),
+                                        .heightIn(min = 48.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    LoadingIndicator()
+                                    LoadingIndicator(modifier = Modifier.size(22.dp))
                                 }
                             }
 
                             viewers.isEmpty() -> {
                                 Text(
                                     text = stringResource(R.string.info_views),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                                    modifier = Modifier.padding(
+                                        horizontal = 14.dp,
+                                        vertical = 12.dp
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -995,7 +989,6 @@ fun MessageOptionsMenu(
                                 }
                             }
                         }
-                    }
                     }
                 }
             }
@@ -1156,10 +1149,17 @@ private enum class MenuPage {
     Viewers
 }
 
+private data class MessageMenuAction(
+    val icon: ImageVector,
+    val label: String,
+    val tint: Color? = null,
+    val onClick: () -> Unit
+)
+
 @Composable
 private fun ReactionsRow(
     message: MessageModel,
-    availableReactions: List<String>,
+    availableReactions: List<String>?,
     suppressAppearanceAnimation: Boolean,
     onAppearanceAnimationConsumed: () -> Unit,
     onReactionsChanged: (Int) -> Unit,
@@ -1172,16 +1172,19 @@ private fun ReactionsRow(
     val emojiStyle by appPreferences.emojiStyle.collectAsState()
     val emojiFontFamily = remember(context, emojiStyle) { getEmojiFontFamily(context, emojiStyle) }
 
+    val isLoading = availableReactions == null
     val reactions = remember(availableReactions) {
-        if (availableReactions.isNotEmpty()) {
+        if (!availableReactions.isNullOrEmpty()) {
             availableReactions.map { RecentEmojiModel(it) }
         } else {
             emptyList()
         }
     }
 
-    LaunchedEffect(reactions.size) {
-        onReactionsChanged(reactions.size)
+    LaunchedEffect(isLoading, reactions.size) {
+        if (!isLoading) {
+            onReactionsChanged(reactions.size)
+        }
     }
 
     LaunchedEffect(suppressAppearanceAnimation, reactions.isNotEmpty()) {
@@ -1191,7 +1194,7 @@ private fun ReactionsRow(
     }
 
     AnimatedVisibility(
-        visible = reactions.isNotEmpty(),
+        visible = isLoading || reactions.isNotEmpty(),
         enter = if (suppressAppearanceAnimation) {
             EnterTransition.None
         } else {
@@ -1201,65 +1204,117 @@ private fun ReactionsRow(
         label = "ReactionsRowVisibility"
     ) {
         Column {
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 4.dp)
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Box(
+                modifier = Modifier.heightIn(min = 39.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                reactions.forEach { reaction ->
-                    val isChosen = message.reactions.any { it.isChosen && it.emoji == reaction.emoji }
-
-                    val backgroundColor by animateColorAsState(
-                        targetValue = if (isChosen) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        animationSpec = spring(stiffness = Spring.StiffnessLow),
-                        label = "reactionBg"
-                    )
-
-                    val scale by animateFloatAsState(
-                        targetValue = if (isChosen) 1.06f else 1f,
-                        animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing),
-                        label = "reactionScale"
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .clip(CircleShape)
-                            .background(backgroundColor)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onReaction(reaction.emoji)
-                            },
-                        contentAlignment = Alignment.Center
+                if (isLoading) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val sticker = reaction.sticker
-                        if (sticker != null) {
-                            StickerImage(
-                                path = sticker.path,
-                                modifier = Modifier.size(28.dp),
+                        repeat(5) { index ->
+                            val alpha = 0.18f - (index * 0.018f)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha))
                             )
-                        } else {
-                            Text(
-                                text = reaction.emoji,
-                                fontSize = 24.sp,
-                                fontFamily = emojiFontFamily
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        reactions.forEachIndexed { index, reaction ->
+                            val isChosen =
+                                message.reactions.any { it.isChosen && it.emoji == reaction.emoji }
+                            var itemVisible by remember(reaction.emoji) {
+                                mutableStateOf(
+                                    suppressAppearanceAnimation
+                                )
+                            }
+                            LaunchedEffect(reaction.emoji, suppressAppearanceAnimation) {
+                                if (!suppressAppearanceAnimation) {
+                                    delay(index.coerceAtMost(5) * 14L)
+                                    itemVisible = true
+                                }
+                            }
+
+                            val backgroundColor by animateColorAsState(
+                                targetValue = if (isChosen) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                                label = "reactionBg"
                             )
+
+                            val selectedScale by animateFloatAsState(
+                                targetValue = if (isChosen) 1.06f else 1f,
+                                animationSpec = tween(
+                                    durationMillis = 160,
+                                    easing = LinearOutSlowInEasing
+                                ),
+                                label = "reactionScale"
+                            )
+                            val appearanceScale by animateFloatAsState(
+                                targetValue = if (itemVisible) 1f else 0.86f,
+                                animationSpec = tween(
+                                    durationMillis = 150,
+                                    easing = LinearOutSlowInEasing
+                                ),
+                                label = "reactionAppearScale"
+                            )
+                            val appearanceAlpha by animateFloatAsState(
+                                targetValue = if (itemVisible) 1f else 0f,
+                                animationSpec = tween(
+                                    durationMillis = 140,
+                                    easing = LinearOutSlowInEasing
+                                ),
+                                label = "reactionAppearAlpha"
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .graphicsLayer {
+                                        val scale = selectedScale * appearanceScale
+                                        scaleX = scale
+                                        scaleY = scale
+                                        alpha = appearanceAlpha
+                                    }
+                                    .clip(CircleShape)
+                                    .background(backgroundColor)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onReaction(reaction.emoji)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val sticker = reaction.sticker
+                                if (sticker != null) {
+                                    StickerImage(
+                                        path = sticker.path,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                } else {
+                                    Text(
+                                        text = reaction.emoji,
+                                        fontSize = 21.sp,
+                                        fontFamily = emojiFontFamily
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
+            MenuDivider()
         }
     }
 }
@@ -1287,7 +1342,7 @@ private fun ViewerRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Avatar(
@@ -1305,13 +1360,17 @@ private fun ViewerRow(
             Text(
                 text = fullName,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             if (subtitle.isNotEmpty()) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -1338,7 +1397,7 @@ private fun InternalMenuHeaderInfo(
     val hasHeader = editDate != null || readDate != null || views != null
 
     if (hasHeader) {
-        Column {
+        Column(modifier = Modifier.padding(top = 2.dp)) {
             if (editDate != null) {
                 InternalMenuInfoRow(
                     icon = Icons.Rounded.Edit,
@@ -1364,10 +1423,7 @@ private fun InternalMenuHeaderInfo(
                 )
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
+            MenuDivider()
         }
     }
 }
@@ -1382,32 +1438,88 @@ private fun InternalMenuInfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 14.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = iconTint
+            modifier = Modifier.size(15.dp),
+            tint = iconTint.copy(alpha = 0.82f)
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
+}
+
+@Composable
+private fun MenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.34f)
+    )
+}
+
+@Composable
+private fun QuickActionsBar(
+    actions: List<MessageMenuAction>
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        actions.take(4).forEach { action ->
+            val tint = action.tint ?: MaterialTheme.colorScheme.onSurface
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = action.onClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = action.icon,
+                    contentDescription = action.label,
+                    tint = tint,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuBackRow(
+    text: String,
+    onClick: () -> Unit
+) {
+    InternalMenuOptionItem(
+        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+        text = text,
+        iconTint = MaterialTheme.colorScheme.primary,
+        textColor = MaterialTheme.colorScheme.primary,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -1425,12 +1537,13 @@ private fun InternalMenuOptionItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .heightIn(min = 44.dp)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (leadingContent != null) {
             Box(
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(21.dp),
                 contentAlignment = Alignment.Center
             ) {
                 leadingContent()
@@ -1440,15 +1553,17 @@ private fun InternalMenuOptionItem(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(21.dp)
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
             color = textColor,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         if (trailingContent != null) {
             trailingContent()
@@ -1456,7 +1571,7 @@ private fun InternalMenuOptionItem(
             Icon(
                 imageVector = trailingIcon,
                 contentDescription = null,
-                tint = iconTint.copy(alpha = 0.5f),
+                tint = iconTint.copy(alpha = 0.58f),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1469,7 +1584,7 @@ private fun PackPreview(option: MessagePackMenuOption) {
         !option.previewPath.isNullOrEmpty() -> {
             StickerImage(
                 path = option.previewPath,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(21.dp),
                 animate = false
             )
         }
@@ -1486,8 +1601,8 @@ private fun PackPreview(option: MessagePackMenuOption) {
             Icon(
                 imageVector = Icons.Rounded.AutoAwesome,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.onSurface
+                modifier = Modifier.size(21.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f)
             )
         }
     }
