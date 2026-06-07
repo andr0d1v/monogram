@@ -324,8 +324,7 @@ fun ProxyAddEditSheet(
                         MenuOptionRow(
                             icon = Icons.Rounded.Delete,
                             title = stringResource(R.string.proxy_action_delete),
-                            textColor = MaterialTheme.colorScheme.error,
-                            iconTint = MaterialTheme.colorScheme.error,
+                            destructive = true,
                             onClick = onDelete
                         )
                     }

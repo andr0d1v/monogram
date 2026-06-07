@@ -330,8 +330,7 @@ fun ImageSettingsMenu(
                 icon = Icons.Rounded.Delete,
                 title = stringResource(R.string.action_delete),
                 onClick = onDelete,
-                iconTint = MaterialTheme.colorScheme.error,
-                textColor = MaterialTheme.colorScheme.error
+                destructive = true
             )
         }
     }

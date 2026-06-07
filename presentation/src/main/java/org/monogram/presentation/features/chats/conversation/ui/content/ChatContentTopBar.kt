@@ -34,7 +34,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -273,8 +272,7 @@ fun ChatContentTopBar(
                                                 MenuOptionRow(
                                                     icon = Icons.Default.Delete,
                                                     title = stringResource(R.string.menu_delete),
-                                                    textColor = MaterialTheme.colorScheme.error,
-                                                    iconTint = MaterialTheme.colorScheme.error,
+                                                    destructive = true,
                                                     onClick = {
                                                         showMenu = false
                                                         showDeleteSheet = true

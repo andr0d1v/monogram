@@ -1265,8 +1265,7 @@ fun ProxyContent(component: ProxyComponent) {
                                     showTopMenu = false
                                     component.onRemoveAllProxies()
                                 },
-                                iconTint = MaterialTheme.colorScheme.error,
-                                textColor = MaterialTheme.colorScheme.error
+                                destructive = true
                             )
                         }
                     }

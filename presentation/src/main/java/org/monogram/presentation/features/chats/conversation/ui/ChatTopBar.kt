@@ -1,22 +1,15 @@
 package org.monogram.presentation.features.chats.conversation.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,32 +46,27 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import androidx.window.core.layout.WindowSizeClass
 import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.AvatarForChat
 import org.monogram.presentation.core.ui.ConfirmationSheet
 import org.monogram.presentation.core.ui.TypingDots
 import org.monogram.presentation.core.util.LocalTabletInterfaceEnabled
+import org.monogram.presentation.features.stickers.ui.menu.ActionMenuPopup
 import org.monogram.presentation.features.stickers.ui.menu.MenuOptionRow
 import org.monogram.presentation.features.stickers.ui.view.StickerImage
-import org.monogram.presentation.features.viewers.components.ViewerSettingsDropdown
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -331,135 +319,99 @@ fun ChatTopBar(
                 }
             }
 
-            if (showMenu) {
-                Popup(
-                    onDismissRequest = { showMenu = false },
-                    properties = PopupProperties(focusable = true)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { showMenu = false }
-                    ) {
-                        var isVisible by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) { isVisible = true }
-
-                        @Suppress("RemoveRedundantQualifierName")
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(150)) + scaleIn(
-                                animationSpec = spring(
-                                    dampingRatio = 0.8f,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                initialScale = 0.8f,
-                                transformOrigin = TransformOrigin(1f, 0f)
-                            ),
-                            exit = fadeOut(tween(150)) + scaleOut(
-                                animationSpec = tween(150),
-                                targetScale = 0.9f,
-                                transformOrigin = TransformOrigin(1f, 0f)
-                            ),
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .windowInsetsPadding(windowInsets)
-                                .padding(top = 56.dp, end = 16.dp)
-                        ) {
-                            ViewerSettingsDropdown {
-                                if (onToggleMute != null) {
-                                    MenuOptionRow(
-                                        icon = if (isMuted) {
-                                            Icons.AutoMirrored.Rounded.VolumeUp
-                                        } else {
-                                            Icons.AutoMirrored.Rounded.VolumeOff
-                                        },
-                                        title = if (isMuted) {
-                                            stringResource(R.string.menu_unmute)
-                                        } else {
-                                            stringResource(R.string.menu_mute)
-                                        },
-                                        onClick = {
-                                            showMenu = false
-                                            onToggleMute()
-                                        }
-                                    )
-                                }
-                                if (isChannel && onToggleAdBlockWhitelist != null) {
-                                    MenuOptionRow(
-                                        icon = if (isWhitelistedInAdBlock) {
-                                            Icons.Rounded.Block
-                                        } else {
-                                            Icons.AutoMirrored.Rounded.PlaylistAddCheck
-                                        },
-                                        title = if (isWhitelistedInAdBlock) {
-                                            stringResource(R.string.menu_filter_ads)
-                                        } else {
-                                            stringResource(R.string.menu_whitelist_channel)
-                                        },
-                                        onClick = {
-                                            showMenu = false
-                                            onToggleAdBlockWhitelist()
-                                        }
-                                    )
-                                }
-                                if (onCopyLink != null) {
-                                    MenuOptionRow(
-                                        icon = Icons.Rounded.Link,
-                                        title = stringResource(R.string.menu_copy_link),
-                                        onClick = {
-                                            showMenu = false
-                                            onCopyLink()
-                                        }
-                                    )
-                                }
-                                if (onManageMembers != null) {
-                                    MenuOptionRow(
-                                        icon = Icons.Rounded.Groups,
-                                        title = stringResource(R.string.members),
-                                        onClick = {
-                                            showMenu = false
-                                            onManageMembers()
-                                        }
-                                    )
-                                }
-                                if (onClearHistory != null) {
-                                    MenuOptionRow(
-                                        icon = Icons.Rounded.CleaningServices,
-                                        title = stringResource(R.string.menu_clear_history),
-                                        onClick = {
-                                            showMenu = false
-                                            showClearHistorySheet = true
-                                        }
-                                    )
-                                }
-                                if (onDeleteChat != null) {
-                                    MenuOptionRow(
-                                        icon = Icons.Rounded.Delete,
-                                        title = stringResource(R.string.menu_delete_chat),
-                                        textColor = MaterialTheme.colorScheme.error,
-                                        iconTint = MaterialTheme.colorScheme.error,
-                                        onClick = {
-                                            showMenu = false
-                                            showDeleteChatSheet = true
-                                        }
-                                    )
-                                }
-                                if (onReport != null) {
-                                    MenuOptionRow(
-                                        icon = Icons.Rounded.Report,
-                                        title = stringResource(R.string.menu_report),
-                                        onClick = {
-                                            showMenu = false
-                                            onReport()
-                                        }
-                                    )
-                                }
-                            }
+            ActionMenuPopup(
+                visible = showMenu,
+                onDismiss = { showMenu = false },
+                modifier = Modifier
+                    .windowInsetsPadding(windowInsets)
+                    .padding(top = 8.dp, end = 16.dp)
+            ) {
+                if (onToggleMute != null) {
+                    MenuOptionRow(
+                        icon = if (isMuted) {
+                            Icons.AutoMirrored.Rounded.VolumeUp
+                        } else {
+                            Icons.AutoMirrored.Rounded.VolumeOff
+                        },
+                        title = if (isMuted) {
+                            stringResource(R.string.menu_unmute)
+                        } else {
+                            stringResource(R.string.menu_mute)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onToggleMute()
                         }
-                    }
+                    )
+                }
+                if (isChannel && onToggleAdBlockWhitelist != null) {
+                    MenuOptionRow(
+                        icon = if (isWhitelistedInAdBlock) {
+                            Icons.Rounded.Block
+                        } else {
+                            Icons.AutoMirrored.Rounded.PlaylistAddCheck
+                        },
+                        title = if (isWhitelistedInAdBlock) {
+                            stringResource(R.string.menu_filter_ads)
+                        } else {
+                            stringResource(R.string.menu_whitelist_channel)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onToggleAdBlockWhitelist()
+                        }
+                    )
+                }
+                if (onCopyLink != null) {
+                    MenuOptionRow(
+                        icon = Icons.Rounded.Link,
+                        title = stringResource(R.string.menu_copy_link),
+                        onClick = {
+                            showMenu = false
+                            onCopyLink()
+                        }
+                    )
+                }
+                if (onManageMembers != null) {
+                    MenuOptionRow(
+                        icon = Icons.Rounded.Groups,
+                        title = stringResource(R.string.members),
+                        onClick = {
+                            showMenu = false
+                            onManageMembers()
+                        }
+                    )
+                }
+                if (onClearHistory != null) {
+                    MenuOptionRow(
+                        icon = Icons.Rounded.CleaningServices,
+                        title = stringResource(R.string.menu_clear_history),
+                        onClick = {
+                            showMenu = false
+                            showClearHistorySheet = true
+                        }
+                    )
+                }
+                if (onDeleteChat != null) {
+                    MenuOptionRow(
+                        icon = Icons.Rounded.Delete,
+                        title = stringResource(R.string.menu_delete_chat),
+                        destructive = true,
+                        onClick = {
+                            showMenu = false
+                            showDeleteChatSheet = true
+                        }
+                    )
+                }
+                if (onReport != null) {
+                    MenuOptionRow(
+                        icon = Icons.Rounded.Report,
+                        title = stringResource(R.string.menu_report),
+                        onClick = {
+                            showMenu = false
+                            onReport()
+                        }
+                    )
                 }
             }
 
