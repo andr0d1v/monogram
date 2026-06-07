@@ -163,7 +163,7 @@ internal class MessageContentMapper(
                     }
                 }
 
-                if (path == null && context.networkAutoDownload && video.supportsStreaming) {
+                if (path == null && context.networkAutoDownload && !video.supportsStreaming) {
                     fileHelper.enqueueDownload(
                         videoFile.id,
                         1,

@@ -220,7 +220,11 @@ class FileDownloadQueue(
             }
 
             val completed = withTimeoutOrNull(timeoutMs) {
-                deferred.await()
+                if (req.limit > 0L) {
+                    waitForRequestedRange(req)
+                } else {
+                    deferred.await()
+                }
             }
 
             if (completed == null) {
@@ -418,6 +422,23 @@ class FileDownloadQueue(
         }
         stalledRecoveryAt.remove(fileId)
         trigger.trySend(Unit)
+    }
+
+    private suspend fun waitForRequestedRange(req: DownloadRequest) {
+        while (true) {
+            val cached = cache.fileCache[req.fileId]
+            if (cached?.local?.isDownloadingCompleted == true) return
+
+            val prefix = withContext(dispatcherProvider.io) {
+                coRunCatching {
+                    gateway.execute(TdApi.GetFileDownloadedPrefixSize(req.fileId, req.offset))
+                }.getOrNull()
+            }
+            val available = (prefix?.size ?: 0L).coerceAtLeast(0L)
+            if (available >= req.limit) return
+
+            delay(80L)
+        }
     }
 
     fun updateFileCache(file: TdApi.File) {

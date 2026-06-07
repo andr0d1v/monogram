@@ -7,8 +7,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.drinkless.tdlib.TdApi
+import org.monogram.data.infra.FileDownloadQueue
 import java.io.IOException
 
 @OptIn(UnstableApi::class)
@@ -36,6 +39,8 @@ class TelegramStreamingDataSource(
     private var bufferLength: Int = 0
 
     private val PREFETCH_SIZE = 512 * 1024L
+    private val PREFIX_WAIT_TIMEOUT_MS = 5_000L
+    private val PREFIX_WAIT_POLL_MS = 80L
 
     override fun open(dataSpec: DataSpec): Long {
         this.dataSpec = dataSpec
@@ -64,7 +69,8 @@ class TelegramStreamingDataSource(
                     priority = 16,
                     offset = position,
                     limit = kotlin.math.min(PREFETCH_SIZE, bytesRemaining),
-                    synchronous = false
+                    synchronous = false,
+                    type = FileDownloadQueue.DownloadType.VIDEO
                 )
             }
         }
@@ -84,20 +90,30 @@ class TelegramStreamingDataSource(
             runBlocking {
                 try {
                     val targetSize = bytesToFetch.toLong()
-                    val prefix = fileDataSource.getFileDownloadedPrefixSize(fileId, position)
-                    val downloadedPrefix = prefix?.size ?: 0L
-                    val availableFromPosition = (downloadedPrefix - position).coerceAtLeast(0L)
 
-                    if (availableFromPosition < targetSize) {
-                        fileDataSource.downloadFile(fileId, 24, position, targetSize, synchronous = false)
-                        if (availableFromPosition == 0L) {
-                            fileDataSource.downloadFile(fileId, 32, position, targetSize, synchronous = true)
-                        }
+                    if (getAvailableFromPosition(position) < targetSize) {
+                        fileDataSource.downloadFile(
+                            fileId = fileId,
+                            priority = 24,
+                            offset = position,
+                            limit = targetSize,
+                            synchronous = false,
+                            type = FileDownloadQueue.DownloadType.VIDEO
+                        )
+                        waitForPrefix(position, targetSize)
                     }
 
                     var filePart = fileDataSource.readFilePart(fileId, position, targetSize)
                     if (filePart?.data?.isEmpty() != false) {
-                        fileDataSource.downloadFile(fileId, 32, position, targetSize, synchronous = true)
+                        fileDataSource.downloadFile(
+                            fileId = fileId,
+                            priority = 24,
+                            offset = position,
+                            limit = targetSize,
+                            synchronous = false,
+                            type = FileDownloadQueue.DownloadType.VIDEO
+                        )
+                        waitForPrefix(position, targetSize)
                         filePart = fileDataSource.readFilePart(fileId, position, targetSize)
                     }
 
@@ -109,7 +125,14 @@ class TelegramStreamingDataSource(
                         val nextOffset = position + bufferLength
                         val nextLimit = kotlin.math.min(PREFETCH_SIZE, bytesRemaining - bufferLength)
                         if (nextLimit > 0) {
-                            fileDataSource.downloadFile(fileId, 16, nextOffset, nextLimit, synchronous = false)
+                            fileDataSource.downloadFile(
+                                fileId = fileId,
+                                priority = 16,
+                                offset = nextOffset,
+                                limit = nextLimit,
+                                synchronous = false,
+                                type = FileDownloadQueue.DownloadType.VIDEO
+                            )
                         }
                     }
                 } catch (e: Exception) {
@@ -129,6 +152,20 @@ class TelegramStreamingDataSource(
         bytesTransferred(bytesToRead)
 
         return bytesToRead
+    }
+
+    private suspend fun waitForPrefix(offset: Long, size: Long): Boolean {
+        return withTimeoutOrNull(PREFIX_WAIT_TIMEOUT_MS) {
+            while (getAvailableFromPosition(offset) < size) {
+                delay(PREFIX_WAIT_POLL_MS)
+            }
+            true
+        } == true
+    }
+
+    private suspend fun getAvailableFromPosition(offset: Long): Long {
+        val prefix = fileDataSource.getFileDownloadedPrefixSize(fileId, offset)
+        return (prefix?.size ?: 0L).coerceAtLeast(0L)
     }
 
     override fun getUri(): Uri? = dataSpec?.uri

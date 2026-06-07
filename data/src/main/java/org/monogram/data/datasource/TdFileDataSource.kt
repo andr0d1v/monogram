@@ -10,12 +10,36 @@ class TdFileDataSource(
     private val gateway: TelegramGateway,
     private val fileDownloadQueue: FileDownloadQueue
 ) : FileDataSource {
-    override suspend fun downloadFile(fileId: Int, priority: Int, offset: Long, limit: Long, synchronous: Boolean): TdApi.File?  {
+    override suspend fun downloadFile(
+        fileId: Int,
+        priority: Int,
+        offset: Long,
+        limit: Long,
+        synchronous: Boolean
+    ): TdApi.File? {
+        return downloadFile(
+            fileId = fileId,
+            priority = priority,
+            offset = offset,
+            limit = limit,
+            synchronous = synchronous,
+            type = FileDownloadQueue.DownloadType.DEFAULT
+        )
+    }
+
+    override suspend fun downloadFile(
+        fileId: Int,
+        priority: Int,
+        offset: Long,
+        limit: Long,
+        synchronous: Boolean,
+        type: FileDownloadQueue.DownloadType
+    ): TdApi.File? {
         fileDownloadQueue.clearSuppression(fileId)
         fileDownloadQueue.enqueue(
             fileId,
             priority,
-            FileDownloadQueue.DownloadType.DEFAULT,
+            type,
             offset,
             limit,
             synchronous,
