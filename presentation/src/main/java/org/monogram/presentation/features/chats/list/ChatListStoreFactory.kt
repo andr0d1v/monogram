@@ -6,7 +6,6 @@ import com.arkivanov.mvikotlin.core.store.StoreFactory
 import com.arkivanov.mvikotlin.extensions.coroutines.CoroutineExecutor
 import org.monogram.presentation.features.chats.list.ChatListStore.Intent
 import org.monogram.presentation.features.chats.list.ChatListStore.Label
-import org.monogram.presentation.features.chats.list.DefaultChatListComponent
 
 class ChatListStoreFactory(
     private val storeFactory: StoreFactory,
@@ -44,6 +43,10 @@ class ChatListStoreFactory(
                 Intent.PinSelected -> component.handlePinSelected()
                 Intent.ToggleReadSelected -> component.handleToggleReadSelected()
                 Intent.DeleteSelected -> component.handleDeleteSelected()
+                Intent.MarkCurrentFolderRead -> component.handleMarkCurrentFolderRead()
+                Intent.LeaveSelected -> component.handleLeaveSelected()
+                is Intent.ClearHistorySelected -> component.handleClearHistorySelected(intent.revoke)
+                is Intent.ReportSelected -> component.handleReportSelected(intent.reason)
                 Intent.ArchivePinToggle -> component.handleArchivePinToggle()
                 Intent.ConfirmForwarding -> component.handleConfirmForwarding()?.let(::publish)
                 Intent.NewChatClicked -> publish(Label.OpenNewChat)

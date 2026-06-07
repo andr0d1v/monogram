@@ -181,13 +181,22 @@ class DefaultChatListComponent(
         val canPin = selectedChats.all { currentFolderChatIds.contains(it.id) }
         val canDelete =
             selectedChats.all { it.canBeDeletedOnlyForSelf || it.canBeDeletedForAllUsers }
+        val singleChat = selectedChats.singleOrNull()
+        val canLeave = singleChat?.let {
+            it.isMember && (it.type == ChatType.BASIC_GROUP || it.type == ChatType.SUPERGROUP || it.isChannel)
+        } ?: false
+        val canClearHistory = singleChat != null
+        val canReport = singleChat?.canBeReported ?: false
 
         return ChatListComponent.SelectionCapabilities(
             canPin = canPin,
             canMute = true,
             canArchive = true,
             canDelete = canDelete,
-            canToggleRead = true
+            canToggleRead = true,
+            canLeave = canLeave,
+            canClearHistory = canClearHistory,
+            canReport = canReport
         )
     }
 
@@ -660,6 +669,67 @@ class DefaultChatListComponent(
 
         scope.launch(Dispatchers.IO) {
             chatOperationsRepository.deleteChats(selectedIds)
+            handleClearSelection()
+        }
+    }
+
+    override fun onMarkCurrentFolderRead() =
+        store.accept(ChatListStore.Intent.MarkCurrentFolderRead)
+
+    internal fun handleMarkCurrentFolderRead() {
+        val state = _state.value
+        val unreadChatIds = state.chats
+            .asSequence()
+            .filter(::hasUnreadState)
+            .map { it.id }
+            .toSet()
+        if (unreadChatIds.isEmpty()) return
+
+        scope.launch(Dispatchers.IO) {
+            chatOperationsRepository.markFolderAsRead(state.selectedFolderId, unreadChatIds)
+        }
+    }
+
+    override fun onLeaveSelected() = store.accept(ChatListStore.Intent.LeaveSelected)
+
+    internal fun handleLeaveSelected() {
+        val selection = _selectionState.value
+        if (!selection.capabilities.canLeave) return
+        val selectedIds = selection.selectedChatIds
+        if (selectedIds.isEmpty()) return
+
+        scope.launch(Dispatchers.IO) {
+            chatOperationsRepository.leaveChats(selectedIds)
+            handleClearSelection()
+        }
+    }
+
+    override fun onClearHistorySelected(revoke: Boolean) =
+        store.accept(ChatListStore.Intent.ClearHistorySelected(revoke))
+
+    internal fun handleClearHistorySelected(revoke: Boolean) {
+        val selection = _selectionState.value
+        if (!selection.capabilities.canClearHistory) return
+        val selectedIds = selection.selectedChatIds
+        if (selectedIds.isEmpty()) return
+
+        scope.launch(Dispatchers.IO) {
+            chatOperationsRepository.clearChatHistories(selectedIds, revoke)
+            handleClearSelection()
+        }
+    }
+
+    override fun onReportSelected(reason: String) =
+        store.accept(ChatListStore.Intent.ReportSelected(reason))
+
+    internal fun handleReportSelected(reason: String) {
+        val selection = _selectionState.value
+        if (!selection.capabilities.canReport) return
+        val selectedIds = selection.selectedChatIds
+        if (selectedIds.isEmpty()) return
+
+        scope.launch(Dispatchers.IO) {
+            chatOperationsRepository.reportChats(selectedIds, reason)
             handleClearSelection()
         }
     }

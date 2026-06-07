@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -50,11 +51,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -137,7 +148,9 @@ import org.monogram.presentation.features.chats.list.components.MessageSearchIte
 import org.monogram.presentation.features.chats.list.components.PermissionRequestSheet
 import org.monogram.presentation.features.chats.list.components.SelectionTopBar
 import org.monogram.presentation.features.instantview.InstantViewer
+import org.monogram.presentation.features.stickers.ui.menu.ActionMenuPopup
 import org.monogram.presentation.features.stickers.ui.menu.EmojisGrid
+import org.monogram.presentation.features.stickers.ui.menu.MenuOptionRow
 import org.monogram.presentation.features.webapp.MiniAppViewer
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -157,8 +170,12 @@ fun ChatListContent(component: ChatListComponent) {
     val haptic = LocalHapticFeedback.current
 
     var showAccountMenu by remember { mutableStateOf(false) }
+    var showChatListActionsMenu by remember { mutableStateOf(false) }
+    var showSelectionActionsMenu by remember { mutableStateOf(false) }
     var showStatusMenu by remember { mutableStateOf(false) }
     var showDeleteChatsSheet by remember { mutableStateOf(false) }
+    var showLeaveChatSheet by remember { mutableStateOf(false) }
+    var showClearHistorySheet by remember { mutableStateOf(false) }
     var statusAnchorBounds by remember { mutableStateOf<Rect?>(null) }
     val statusMenuTransitionState = remember { MutableTransitionState(false) }
 
@@ -175,10 +192,23 @@ fun ChatListContent(component: ChatListComponent) {
         adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) && isTabletInterfaceEnabled
 
     val isCustomBackHandlingEnabled =
-        searchState.isSearchActive || selectionState.selectedChatIds.isNotEmpty() || foldersState.selectedFolderId == -2 || uiState.isForwarding || uiState.instantViewUrl != null || uiState.webAppUrl != null || uiState.webViewUrl != null || showStatusMenu
+        searchState.isSearchActive ||
+                selectionState.selectedChatIds.isNotEmpty() ||
+                foldersState.selectedFolderId == -2 ||
+                uiState.isForwarding ||
+                uiState.instantViewUrl != null ||
+                uiState.webAppUrl != null ||
+                uiState.webViewUrl != null ||
+                showStatusMenu ||
+                showChatListActionsMenu ||
+                showSelectionActionsMenu
 
     BackHandler(enabled = isCustomBackHandlingEnabled) {
-        if (showStatusMenu) {
+        if (showChatListActionsMenu) {
+            showChatListActionsMenu = false
+        } else if (showSelectionActionsMenu) {
+            showSelectionActionsMenu = false
+        } else if (showStatusMenu) {
             showStatusMenu = false
         } else {
             component.handleBack()
@@ -236,6 +266,10 @@ fun ChatListContent(component: ChatListComponent) {
 
     val isArchivePersistent = uiState.isArchivePinned && (uiState.isArchiveAlwaysVisible || isMainFolder)
     val canShowArchive = isArchivePersistent || isMainFolder
+    val currentFolderChats = foldersState.chatsByFolder[foldersState.selectedFolderId].orEmpty()
+    val hasUnreadInCurrentFolder = remember(currentFolderChats) {
+        currentFolderChats.any(::hasChatListUnreadState)
+    }
 
     val lastArchivePersistent = remember { mutableStateOf(isArchivePersistent) }
 
@@ -543,13 +577,8 @@ fun ChatListContent(component: ChatListComponent) {
                         is ChatListTopBarMode.Selection -> {
                             SelectionModeTopBar(
                                 selectionState = selectionState,
-                                isInArchive = mode.isInArchive,
                                 onClearSelection = component::clearSelection,
-                                onPinClick = component::onPinSelected,
-                                onMuteClick = { component.onMuteSelected(!selectionState.allMuted) },
-                                onArchiveClick = { component.onArchiveSelected(!mode.isInArchive) },
-                                onDeleteClick = { showDeleteChatsSheet = true },
-                                onToggleReadClick = component::onToggleReadSelected
+                                onMoreClick = { showSelectionActionsMenu = true }
                             )
                         }
 
@@ -564,7 +593,8 @@ fun ChatListContent(component: ChatListComponent) {
                         ChatListTopBarMode.Archive -> {
                             ArchiveModeTopBar(
                                 onBackClick = component::handleBack,
-                                onSearchClick = component::onSearchToggle
+                                onSearchClick = component::onSearchToggle,
+                                onMoreClick = { showChatListActionsMenu = true }
                             )
                         }
 
@@ -583,6 +613,7 @@ fun ChatListContent(component: ChatListComponent) {
                                     statusAnchorBounds = anchorBounds ?: statusAnchorBounds
                                     showStatusMenu = true
                                 },
+                                onActionsClick = { showChatListActionsMenu = true },
                                 onMenuClick = { showAccountMenu = true }
                             )
                         }
@@ -907,6 +938,88 @@ fun ChatListContent(component: ChatListComponent) {
             onDismiss = { showDeleteChatsSheet = false }
         )
     }
+
+    if (showLeaveChatSheet) {
+        ConfirmationSheet(
+            icon = Icons.AutoMirrored.Rounded.ExitToApp,
+            title = stringResource(R.string.leave_chat_title),
+            description = stringResource(R.string.leave_chat_confirmation),
+            confirmText = stringResource(R.string.action_leave),
+            onConfirm = {
+                component.onLeaveSelected()
+                showLeaveChatSheet = false
+            },
+            onDismiss = { showLeaveChatSheet = false }
+        )
+    }
+
+    if (showClearHistorySheet) {
+        ConfirmationSheet(
+            icon = Icons.Rounded.CleaningServices,
+            title = stringResource(R.string.clear_history_title),
+            description = stringResource(R.string.clear_history_confirmation),
+            confirmText = stringResource(R.string.action_clear_history),
+            onConfirm = {
+                component.onClearHistorySelected(revoke = false)
+                showClearHistorySheet = false
+            },
+            onDismiss = { showClearHistorySheet = false }
+        )
+    }
+
+    ChatListActionsPopup(
+        visible = showChatListActionsMenu,
+        hasUnreadChats = hasUnreadInCurrentFolder,
+        canEditFolders = foldersState.selectedFolderId != -2,
+        onDismiss = { showChatListActionsMenu = false },
+        onMarkAllRead = {
+            showChatListActionsMenu = false
+            component.onMarkCurrentFolderRead()
+        },
+        onEditFolders = {
+            showChatListActionsMenu = false
+            component.onEditFoldersClicked()
+        }
+    )
+
+    SelectionActionsPopup(
+        visible = showSelectionActionsMenu,
+        selectionState = selectionState,
+        isInArchive = foldersState.selectedFolderId == -2,
+        onDismiss = { showSelectionActionsMenu = false },
+        onPin = {
+            showSelectionActionsMenu = false
+            component.onPinSelected()
+        },
+        onMute = {
+            showSelectionActionsMenu = false
+            component.onMuteSelected(!selectionState.allMuted)
+        },
+        onArchive = {
+            showSelectionActionsMenu = false
+            component.onArchiveSelected(foldersState.selectedFolderId != -2)
+        },
+        onToggleRead = {
+            showSelectionActionsMenu = false
+            component.onToggleReadSelected()
+        },
+        onClearHistory = {
+            showSelectionActionsMenu = false
+            showClearHistorySheet = true
+        },
+        onReport = {
+            showSelectionActionsMenu = false
+            component.onReportSelected("other")
+        },
+        onLeave = {
+            showSelectionActionsMenu = false
+            showLeaveChatSheet = true
+        },
+        onDelete = {
+            showSelectionActionsMenu = false
+            showDeleteChatsSheet = true
+        }
+    )
 }
 
 private sealed interface ChatListTopBarMode {
@@ -919,6 +1032,123 @@ private sealed interface ChatListTopBarMode {
         val isProxyEnabled: Boolean,
         val isSearchActive: Boolean
     ) : ChatListTopBarMode
+}
+
+@Composable
+private fun ChatListActionsPopup(
+    visible: Boolean,
+    hasUnreadChats: Boolean,
+    canEditFolders: Boolean,
+    onDismiss: () -> Unit,
+    onMarkAllRead: () -> Unit,
+    onEditFolders: () -> Unit
+) {
+    ActionMenuPopup(
+        visible = visible,
+        onDismiss = onDismiss,
+        modifier = Modifier
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(top = 8.dp, end = 16.dp)
+    ) {
+        MenuOptionRow(
+            icon = Icons.Rounded.DoneAll,
+            title = stringResource(R.string.action_mark_all_as_read),
+            enabled = hasUnreadChats,
+            onClick = onMarkAllRead
+        )
+        if (canEditFolders) {
+            MenuOptionRow(
+                icon = Icons.Rounded.Edit,
+                title = stringResource(R.string.action_edit_folders),
+                onClick = onEditFolders
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectionActionsPopup(
+    visible: Boolean,
+    selectionState: ChatListComponent.SelectionState,
+    isInArchive: Boolean,
+    onDismiss: () -> Unit,
+    onPin: () -> Unit,
+    onMute: () -> Unit,
+    onArchive: () -> Unit,
+    onToggleRead: () -> Unit,
+    onClearHistory: () -> Unit,
+    onReport: () -> Unit,
+    onLeave: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val capabilities = selectionState.capabilities
+    ActionMenuPopup(
+        visible = visible,
+        onDismiss = onDismiss,
+        modifier = Modifier
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(top = 8.dp, end = 16.dp)
+    ) {
+        MenuOptionRow(
+            icon = Icons.Rounded.PushPin,
+            title = stringResource(if (selectionState.allPinned) R.string.action_unpin else R.string.action_pin),
+            enabled = capabilities.canPin,
+            onClick = onPin
+        )
+        MenuOptionRow(
+            icon = if (selectionState.allMuted) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
+            title = stringResource(if (selectionState.allMuted) R.string.menu_unmute else R.string.menu_mute),
+            enabled = capabilities.canMute,
+            onClick = onMute
+        )
+        MenuOptionRow(
+            icon = if (isInArchive) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
+            title = stringResource(if (isInArchive) R.string.menu_unarchive else R.string.menu_archive),
+            enabled = capabilities.canArchive,
+            onClick = onArchive
+        )
+        MenuOptionRow(
+            icon = Icons.Rounded.DoneAll,
+            title = stringResource(
+                if (selectionState.canMarkUnread) {
+                    R.string.action_mark_as_unread
+                } else {
+                    R.string.action_mark_as_read
+                }
+            ),
+            enabled = capabilities.canToggleRead,
+            onClick = onToggleRead
+        )
+        if (capabilities.canClearHistory) {
+            MenuOptionRow(
+                icon = Icons.Rounded.CleaningServices,
+                title = stringResource(R.string.menu_clear_history),
+                onClick = onClearHistory
+            )
+        }
+        if (capabilities.canReport) {
+            MenuOptionRow(
+                icon = Icons.Rounded.Report,
+                title = stringResource(R.string.menu_report),
+                onClick = onReport
+            )
+        }
+        if (capabilities.canLeave) {
+            MenuOptionRow(
+                icon = Icons.AutoMirrored.Rounded.ExitToApp,
+                title = stringResource(R.string.menu_leave),
+                destructive = true,
+                onClick = onLeave
+            )
+        }
+        MenuOptionRow(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.action_delete),
+            enabled = capabilities.canDelete,
+            destructive = true,
+            onClick = onDelete
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1607,31 +1837,13 @@ private fun RecentSearchUserItem(
 @Composable
 private fun SelectionModeTopBar(
     selectionState: ChatListComponent.SelectionState,
-    isInArchive: Boolean,
     onClearSelection: () -> Unit,
-    onPinClick: () -> Unit,
-    onMuteClick: () -> Unit,
-    onArchiveClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onToggleReadClick: () -> Unit
+    onMoreClick: () -> Unit
 ) {
     SelectionTopBar(
         selectedCount = selectionState.selectedChatIds.size,
-        isInArchive = isInArchive,
-        allPinned = selectionState.allPinned,
-        allMuted = selectionState.allMuted,
-        canPin = selectionState.capabilities.canPin,
-        canMute = selectionState.capabilities.canMute,
-        canArchive = selectionState.capabilities.canArchive,
-        canDelete = selectionState.capabilities.canDelete,
-        canToggleRead = selectionState.capabilities.canToggleRead,
         onClearSelection = onClearSelection,
-        onPinClick = onPinClick,
-        onMuteClick = onMuteClick,
-        onArchiveClick = onArchiveClick,
-        onDeleteClick = onDeleteClick,
-        onToggleReadClick = onToggleReadClick,
-        canMarkUnread = selectionState.canMarkUnread
+        onMoreClick = onMoreClick
     )
 }
 
@@ -1689,7 +1901,8 @@ private fun ForwardingModeTopBar(
 @Composable
 private fun ArchiveModeTopBar(
     onBackClick: () -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    onMoreClick: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -1708,6 +1921,12 @@ private fun ArchiveModeTopBar(
                 Icon(
                     Icons.Rounded.Search,
                     contentDescription = stringResource(R.string.action_search)
+                )
+            }
+            IconButton(onClick = onMoreClick) {
+                Icon(
+                    Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.menu_more)
                 )
             }
         },
@@ -1730,4 +1949,11 @@ private fun rememberManagedChatListState(
             firstVisibleItemScrollOffset = initialOffset
         )
     }
+}
+
+private fun hasChatListUnreadState(chat: ChatModel): Boolean {
+    return chat.unreadCount > 0 ||
+            chat.isMarkedAsUnread ||
+            chat.unreadMentionCount > 0 ||
+            chat.unreadReactionCount > 0
 }

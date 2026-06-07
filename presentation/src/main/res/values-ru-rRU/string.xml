@@ -158,6 +158,7 @@
     <string name="cd_show_accounts">Показать аккаунты</string>
     <!-- Current Chat -->
     <string name="search_messages_hint">Поиск сообщений…</string>
+    <string name="search_results_hide_all">Скрыть результаты</string>
     <string name="search_sender_all">Все авторы</string>
     <string name="search_date_all">Все даты</string>
     <string name="search_date_from">С</string>
@@ -1606,6 +1607,7 @@
     <string name="logs_media_venue">Место</string>
     <string name="logs_media_unsupported">Неподдерживаемое сообщение</string>
     <!-- Date and Formats -->
+    <string name="chat_date_yesterday">Вчера</string>
     <string name="format_duration">%1$02d:%2$02d</string>
     <!-- Views Count -->
     <string name="views_k">%1$.1fK</string>
@@ -1874,6 +1876,8 @@
     <string name="delete_chats_title">Удалить %1$d чатов?</string>
     <string name="delete_chats_confirmation">Вы уверены, что хотите удалить выбранные чаты?</string>
     <string name="action_delete_chats">Удалить чаты</string>
+    <string name="action_mark_all_as_read">Прочитать всё</string>
+    <string name="action_edit_folders">Изменить папки</string>
     <string name="block_user_title">Заблокировать пользователя?</string>
     <string name="block_user_confirmation">Вы уверены, что хотите заблокировать этого пользователя? Он не сможет отправлять вам сообщения.</string>
     <string name="action_block">Заблокировать</string>
@@ -2279,4 +2283,7 @@
         <item quantity="one">%1$d секунда</item>
         <item quantity="other">%1$d секунд</item>
     </plurals>
+    <string name="chat_date_today">Сегодня</string>
+    <string name="search_results_show_all">Показать все</string>
+    <string name="search_results_loading">Поиск...</string>
 </resources>

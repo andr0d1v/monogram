@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.ShieldMoon
@@ -77,6 +78,7 @@ fun ChatListTopBar(
     onSearchQueryChange: (String) -> Unit,
     onSearchToggle: () -> Unit,
     onStatusClick: (Rect?) -> Unit,
+    onActionsClick: () -> Unit,
     onMenuClick: () -> Unit
 ) {
     var statusAnchorBounds by remember { mutableStateOf<Rect?>(null) }
@@ -307,6 +309,15 @@ fun ChatListTopBar(
                             Icon(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = stringResource(R.string.action_search),
+                                modifier = Modifier.size(26.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        IconButton(onClick = onActionsClick, shapes = iconButtonShapes) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = stringResource(R.string.menu_more),
                                 modifier = Modifier.size(26.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
