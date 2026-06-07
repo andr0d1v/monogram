@@ -247,7 +247,7 @@ class DefaultProfileComponent(
     private fun updateMessagePathIfNeeded(msg: MessageModel, targetFileId: Int, newPath: String): MessageModel {
         val content = msg.content
         val shouldUpdate = when (content) {
-            is MessageContent.Photo -> content.fileId == targetFileId
+            is MessageContent.Photo -> content.fileId == targetFileId || content.originalFileId == targetFileId
             is MessageContent.Video -> content.fileId == targetFileId
             is MessageContent.Document -> content.fileId == targetFileId
             else -> false

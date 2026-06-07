@@ -1063,12 +1063,15 @@ internal fun DefaultChatComponent.setupMessageCollectors() {
 
                         val newContent = when (val content = message.content) {
                             is MessageContent.Photo -> {
-                                if (downloadedFileId == content.fileId) {
-                                    mainFileId = content.fileId
+                                val isMainPhotoFile =
+                                    downloadedFileId == content.fileId ||
+                                            (content.originalFileId != 0 && downloadedFileId == content.originalFileId)
+                                if (isMainPhotoFile) {
+                                    mainFileId = downloadedFileId
                                     mainPathUpdated = true
-                                    if (isError) fileIdToRetry = content.fileId
+                                    if (isError) fileIdToRetry = downloadedFileId
                                     content.copy(
-                                        path = finalPath,
+                                        path = finalPath ?: content.path,
                                         isDownloading = false,
                                         downloadError = isError
                                     )

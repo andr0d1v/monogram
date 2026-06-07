@@ -99,6 +99,7 @@ sealed interface MessageContent {
         val downloadProgress: Float = 0f,
         val downloadError: Boolean = false,
         val fileId: Int = 0,
+        val originalFileId: Int = 0,
         val minithumbnail: ByteArray? = null,
         val hasSpoiler: Boolean = false
     ) : MessageContent {
@@ -116,6 +117,7 @@ sealed interface MessageContent {
             if (downloadProgress != other.downloadProgress) return false
             if (downloadError != other.downloadError) return false
             if (fileId != other.fileId) return false
+            if (originalFileId != other.originalFileId) return false
             if (hasSpoiler != other.hasSpoiler) return false
             if (path != other.path) return false
             if (thumbnailPath != other.thumbnailPath) return false

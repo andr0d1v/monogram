@@ -62,15 +62,18 @@ internal class MessageContentMapper(
 
             is TdApi.MessagePhoto -> {
                 val sizes = content.photo.sizes
+                val originalSize = sizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
+                    ?: sizes.lastOrNull()
                 val photoSize = sizes.find { it.type == "x" }
                     ?: sizes.find { it.type == "m" }
                     ?: sizes.getOrNull(sizes.size / 2)
-                    ?: sizes.lastOrNull()
+                    ?: originalSize
                 val thumbnailSize = sizes.find { it.type == "m" }
                     ?: sizes.find { it.type == "s" }
                     ?: sizes.firstOrNull()
 
                 val photoFile = photoSize?.photo?.let(fileHelper::getUpdatedFile)
+                val originalFile = originalSize?.photo?.let(fileHelper::getUpdatedFile)
                 val thumbnailFile = thumbnailSize?.photo?.let(fileHelper::getUpdatedFile)
 
                 val path = fileHelper.findBestAvailablePath(photoFile, sizes)
@@ -88,6 +91,13 @@ internal class MessageContentMapper(
                             false
                         )
                     }
+                }
+                if (originalFile != null && originalFile.id != photoFile?.id) {
+                    fileHelper.registerCachedFile(
+                        originalFile.id,
+                        context.chatId,
+                        context.messageId
+                    )
                 }
 
                 if (thumbnailFile != null) {
@@ -125,6 +135,7 @@ internal class MessageContentMapper(
                     isDownloading = isDownloading || isQueued,
                     downloadProgress = downloadProgress,
                     fileId = photoFile?.id ?: 0,
+                    originalFileId = originalFile?.id ?: photoFile?.id ?: 0,
                     minithumbnail = content.photo.minithumbnail?.data
                 )
             }

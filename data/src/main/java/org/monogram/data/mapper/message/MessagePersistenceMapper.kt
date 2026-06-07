@@ -101,19 +101,22 @@ internal class MessagePersistenceMapper(
             is TdApi.MessageText -> CachedMessageContent("text", content.text.text, null)
             is TdApi.MessagePhoto -> {
                 val sizes = content.photo.sizes
+                val original = sizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
+                    ?: sizes.lastOrNull()
                 val best = sizes.find { it.type == "x" }
                     ?: sizes.find { it.type == "m" }
                     ?: sizes.getOrNull(sizes.size / 2)
-                    ?: sizes.lastOrNull()
+                    ?: original
                 val thumbnail = sizes.find { it.type == "m" }
                     ?: sizes.find { it.type == "s" }
                 val fileId = best?.photo?.id ?: 0
+                val originalFileId = original?.photo?.id ?: fileId
                 val path = best?.photo?.local?.path?.takeIf { fileHelper.isValidPath(it) }
                 val thumbnailPath = thumbnail?.photo?.local?.path?.takeIf { fileHelper.isValidPath(it) }
                 CachedMessageContent(
                     "photo",
                     content.caption.text,
-                    encodeMeta(best?.width ?: 0, best?.height ?: 0),
+                    encodeMeta(best?.width ?: 0, best?.height ?: 0, originalFileId),
                     fileId = fileId,
                     path = path,
                     thumbnailPath = thumbnailPath,
@@ -358,7 +361,9 @@ internal class MessagePersistenceMapper(
 
             "photo" -> {
                 val fileId = mediaFileId
+                val originalFileId = meta.getOrNull(2)?.toIntOrNull() ?: fileId
                 fileHelper.registerCachedFile(fileId, entity.chatId, entity.id)
+                fileHelper.registerCachedFile(originalFileId, entity.chatId, entity.id)
                 MessageContent.Photo(
                     path = fileHelper.resolveCachedPath(fileId, mediaPath),
                     thumbnailPath = entity.mediaThumbnailPath?.takeIf { fileHelper.isValidPath(it) },
@@ -367,6 +372,7 @@ internal class MessagePersistenceMapper(
                     caption = entity.content,
                     entities = decodeEntities(entity.entities),
                     fileId = fileId,
+                    originalFileId = originalFileId,
                     minithumbnail = entity.minithumbnail
                 )
             }

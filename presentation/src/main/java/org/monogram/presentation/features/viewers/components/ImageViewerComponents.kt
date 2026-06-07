@@ -461,28 +461,60 @@ fun ZoomableImage(
     val applyTransforms = pageIndex == pagerIndex
     val context = LocalContext.current
 
-    var isHighResLoading by remember(data) { mutableStateOf(true) }
+    var displayedData by remember { mutableStateOf(data) }
+    var pendingData by remember { mutableStateOf<Any?>(null) }
+    var isPendingReady by remember { mutableStateOf(false) }
 
-    val thumbnailRequest = remember(data) {
+    LaunchedEffect(data) {
+        if (data != displayedData) {
+            pendingData = data
+            isPendingReady = false
+        }
+    }
+
+    val displayedPreviewRequest = remember(displayedData) {
         ImageRequest.Builder(context)
-            .data(data)
+            .data(displayedData)
             .size(100, 100)
             .crossfade(false)
             .build()
     }
 
-    val fullRequest = remember(data) {
+    val displayedRequest = remember(displayedData) {
         ImageRequest.Builder(context)
-            .data(data)
+            .data(displayedData)
             .size(Size.ORIGINAL)
             .precision(Precision.EXACT)
             .crossfade(false)
             .build()
     }
 
+    val pendingRequest = remember(pendingData) {
+        val nextData = pendingData ?: return@remember null
+        ImageRequest.Builder(context)
+            .data(nextData)
+            .size(Size.ORIGINAL)
+            .precision(Precision.EXACT)
+            .crossfade(false)
+            .build()
+    }
+
+    val pendingAlpha by animateFloatAsState(
+        targetValue = if (isPendingReady) 1f else 0f,
+        animationSpec = tween(420),
+        label = "pendingImageAlpha",
+        finishedListener = { alpha ->
+            if (alpha == 1f) {
+                pendingData?.let { displayedData = it }
+                pendingData = null
+                isPendingReady = false
+            }
+        }
+    )
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AsyncImage(
-            model = thumbnailRequest,
+            model = displayedPreviewRequest,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
@@ -498,7 +530,7 @@ fun ZoomableImage(
         )
 
         AsyncImage(
-            model = fullRequest,
+            model = displayedRequest,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
@@ -510,13 +542,32 @@ fun ZoomableImage(
                         scaleX = zoomState.scale.value
                         scaleY = zoomState.scale.value
                     }
-                },
-            onState = { state ->
-                isHighResLoading = state is AsyncImagePainter.State.Loading
-            }
+                }
         )
 
-        if (isHighResLoading || isDownloading) {
+        pendingRequest?.let { request ->
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = pendingAlpha
+                        if (applyTransforms) {
+                            translationX = zoomState.offsetX.value
+                            translationY = zoomState.offsetY.value
+                            scaleX = zoomState.scale.value
+                            scaleY = zoomState.scale.value
+                        }
+                    },
+                onState = { state ->
+                    isPendingReady = state is AsyncImagePainter.State.Success
+                }
+            )
+        }
+
+        if (isDownloading) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -533,11 +584,7 @@ fun ZoomableImage(
                     }
                 )
                 Text(
-                    text = if (isDownloading) {
-                        stringResource(R.string.viewer_loading_original)
-                    } else {
-                        stringResource(R.string.loading_text)
-                    },
+                    text = stringResource(R.string.viewer_loading_original),
                     color = Color.White,
                     style = MaterialTheme.typography.bodyMedium
                 )
