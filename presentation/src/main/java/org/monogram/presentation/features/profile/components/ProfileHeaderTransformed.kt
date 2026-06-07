@@ -2,7 +2,9 @@ package org.monogram.presentation.features.profile.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.UserModel
+import org.monogram.domain.models.UserTypeEnum
 import org.monogram.presentation.R
 import org.monogram.presentation.core.ui.AvatarHeader
 import org.monogram.presentation.features.stickers.ui.view.StickerImage
@@ -67,6 +71,7 @@ fun ProfileHeaderTransformed(
     contentPadding: PaddingValues,
     onAvatarClick: () -> Unit,
     chatModel: ChatModel? = null,
+    slowModeDelay: Int = 0,
     onActionClick: () -> Unit = {}
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
@@ -188,48 +193,34 @@ fun ProfileHeaderTransformed(
                             )
                         }
 
-                        if (isBot) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            HeaderStatusBadge(
-                                text = stringResource(R.string.label_bot_badge),
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-
-                        if (isScam) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            HeaderStatusBadge(
-                                text = stringResource(R.string.label_scam_badge),
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-
-                        if (isFake) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            HeaderStatusBadge(
-                                text = stringResource(R.string.label_fake_badge),
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
                     }
 
 
                 }
 
-                Text(
-                    text = subtitle,
-                    color = if (isOnline) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.9f),
-                    fontSize = 16.sp,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.5f),
-                            offset = Offset(1f, 1f),
-                            blurRadius = 4f
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        color = if (isOnline) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.9f),
+                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                offset = Offset(1f, 1f),
+                                blurRadius = 4f
+                            )
                         )
                     )
+                }
+
+                ProfileMetaBadges(
+                    userModel = userModel,
+                    chatModel = chatModel,
+                    isBot = isBot,
+                    isSponsor = isSponsor,
+                    isScam = isScam,
+                    isFake = isFake,
+                    slowModeDelay = slowModeDelay
                 )
             }
         }
@@ -247,6 +238,101 @@ fun ProfileHeaderTransformed(
                     )
                 )
         )
+    }
+}
+
+@Composable
+private fun ProfileMetaBadges(
+    userModel: UserModel?,
+    chatModel: ChatModel?,
+    isBot: Boolean,
+    isSponsor: Boolean,
+    isScam: Boolean,
+    isFake: Boolean,
+    slowModeDelay: Int
+) {
+    val isGroupOrChannel = chatModel?.isGroup == true || chatModel?.isChannel == true
+    val scrollState = rememberScrollState()
+
+    Row(
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (userModel != null && !isGroupOrChannel) {
+            if (userModel.type == UserTypeEnum.BOT || isBot) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.label_bot_badge),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+            if (userModel.isPremium) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.profile_badge_premium),
+                    containerColor = Color(0xFF31A6FD),
+                    contentColor = Color.White
+                )
+            }
+            if (isSponsor) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.profile_badge_sponsor),
+                    containerColor = Color(0xFFE53935),
+                    contentColor = Color.White
+                )
+            }
+        }
+
+        if (chatModel != null && isGroupOrChannel) {
+            HeaderStatusBadge(
+                text = if (chatModel.isChannel) {
+                    stringResource(R.string.profile_badge_channel)
+                } else {
+                    stringResource(R.string.profile_badge_group)
+                },
+                containerColor = Color.Black.copy(alpha = 0.42f),
+                contentColor = Color.White
+            )
+            if (chatModel.isAdmin) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.profile_badge_admin),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            if (chatModel.hasProtectedContent) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.protected_content_title),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            if (slowModeDelay > 0) {
+                HeaderStatusBadge(
+                    text = stringResource(R.string.slow_mode_title),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        }
+
+        if (isScam) {
+            HeaderStatusBadge(
+                text = stringResource(R.string.label_scam_badge),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+        if (isFake) {
+            HeaderStatusBadge(
+                text = stringResource(R.string.label_fake_badge),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
     }
 }
 

@@ -4,10 +4,28 @@ package org.monogram.presentation.features.profile.components
 
 import android.content.ClipData
 import android.content.Intent
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,9 +34,56 @@ import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.AlternateEmail
+import androidx.compose.material.icons.rounded.AssignmentTurnedIn
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.ForwardToInbox
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Numbers
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Portrait
+import androidx.compose.material.icons.rounded.RocketLaunch
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,11 +101,17 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import org.monogram.domain.models.UserTypeEnum
 import org.monogram.presentation.R
-import org.monogram.presentation.core.ui.*
+import org.monogram.presentation.core.ui.ItemPosition
+import org.monogram.presentation.core.ui.SettingsTile
+import org.monogram.presentation.core.ui.StyledQRCode
+import org.monogram.presentation.core.ui.generatePureBitmap
+import org.monogram.presentation.core.ui.rememberShimmerBrush
+import org.monogram.presentation.core.ui.saveBitmapToGallery
+import org.monogram.presentation.core.ui.shareBitmap
 import org.monogram.presentation.core.util.CountryManager
 import org.monogram.presentation.core.util.OperatorManager
 import org.monogram.presentation.features.profile.ProfileComponent
-import java.util.*
+import java.util.Calendar
 
 @Composable
 fun ProfileInfoSectionSkeleton(
@@ -273,7 +344,6 @@ fun ProfileInfoSection(
     onLinkedChatClick: () -> Unit = {},
     onShowPermissions: () -> Unit = {},
     onAcceptTOS: () -> Unit = {},
-    onToggleContact: () -> Unit = {},
     onLocationClick: (Double, Double, String) -> Unit = { _, _, _ -> }
 ) {
     val user = state.user
@@ -363,7 +433,8 @@ fun ProfileInfoSection(
             onSendMessage = onSendMessage,
             onLeave = onLeave,
             onJoin = onJoin,
-            onShowQRCode = onShowQRCode
+            onShowQRCode = onShowQRCode,
+            onToggleMute = onToggleMute
         )
     }
 
@@ -375,10 +446,13 @@ fun ProfileInfoSection(
         )
     }
 
-    val items = mutableListOf<@Composable (ItemPosition) -> Unit>()
+    val overviewItems = mutableListOf<@Composable (ItemPosition) -> Unit>()
+    val managementItems = mutableListOf<@Composable (ItemPosition) -> Unit>()
+    val detailsItems = mutableListOf<@Composable (ItemPosition) -> Unit>()
+    val technicalItems = mutableListOf<@Composable (ItemPosition) -> Unit>()
 
     if (user?.isSponsor == true) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Favorite,
                 title = stringResource(R.string.sponsor_profile_title),
@@ -391,7 +465,7 @@ fun ProfileInfoSection(
     }
 
     if (!isCurrentUser && !isGroupOrChannel && (state.personalAvatarPath != null || chat?.personalAvatarPath != null)) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Portrait,
                 title = stringResource(R.string.personal_photo_title),
@@ -405,7 +479,7 @@ fun ProfileInfoSection(
 
     if (user?.type == UserTypeEnum.BOT && !state.botWebAppUrl.isNullOrEmpty()) {
         val botName = listOfNotNull(user.firstName, user.lastName).joinToString(" ").trim()
-        items.add { pos ->
+        managementItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.RocketLaunch,
                 title = state.botWebAppName ?: stringResource(R.string.open_mini_app),
@@ -419,7 +493,7 @@ fun ProfileInfoSection(
 
     if (user?.type == UserTypeEnum.BOT) {
         if (!state.isTOSAccepted) {
-            items.add { pos ->
+            managementItems.add { pos ->
                 SettingsTile(
                     icon = Icons.Rounded.AssignmentTurnedIn,
                     title = stringResource(R.string.accept_tos),
@@ -431,7 +505,7 @@ fun ProfileInfoSection(
             }
         }
 
-        items.add { pos ->
+        managementItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Security,
                 title = stringResource(R.string.bot_permissions),
@@ -449,7 +523,7 @@ fun ProfileInfoSection(
     val collectibleUsernames = usernames?.collectibleUsernames ?: emptyList()
 
     if (activeUsernames.isNotEmpty() || collectibleUsernames.isNotEmpty() || disabledUsernames.isNotEmpty()) {
-        items.add { pos ->
+        overviewItems.add { pos ->
             UsernamesTile(
                 activeUsernames = activeUsernames,
                 collectibleUsernames = collectibleUsernames,
@@ -466,7 +540,7 @@ fun ProfileInfoSection(
             user?.username ?: chat?.username ?: state.publicLink
         }
         if (!displayLink.isNullOrEmpty()) {
-            items.add { pos ->
+            overviewItems.add { pos ->
                 val isLink = displayLink.startsWith("http", ignoreCase = true) ||
                         displayLink.startsWith("t.me", ignoreCase = true)
                 val isPrivateInviteLink = isGroupOrChannel && isLink && (
@@ -485,7 +559,7 @@ fun ProfileInfoSection(
                     else -> stringResource(R.string.username_label)
                 }
 
-                SettingsTile(
+                CompactInfoTile(
                     icon = icon,
                     title = finalTitle,
                     subtitle = subtitleText,
@@ -503,7 +577,7 @@ fun ProfileInfoSection(
 
     val aboutText = fullInfo?.botInfo ?: fullInfo?.description ?: state.about
     if (!aboutText.isNullOrEmpty()) {
-        items.add { pos ->
+        overviewItems.add { pos ->
             val title = when {
                 user?.type == UserTypeEnum.BOT -> stringResource(R.string.bot_info_label)
                 isGroupOrChannel -> stringResource(R.string.description_label)
@@ -526,7 +600,7 @@ fun ProfileInfoSection(
     }
 
     if (!isGroupOrChannel && fullInfo?.usesUnofficialApp == true) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Security,
                 title = stringResource(R.string.unofficial_app_title),
@@ -539,7 +613,7 @@ fun ProfileInfoSection(
     }
 
     fullInfo?.botVerification?.let { botVerification ->
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Verified,
                 title = stringResource(R.string.bot_verification_title),
@@ -558,7 +632,7 @@ fun ProfileInfoSection(
         }
         val country = CountryManager.getCountryForPhone(phone)
         val operator = OperatorManager.detectOperator(phone, country?.iso)
-        items.add { pos ->
+        overviewItems.add { pos ->
             val subtitle = buildString {
                 country?.let { append("${it.flagEmoji} ${it.name}") }
                 operator?.let {
@@ -567,7 +641,7 @@ fun ProfileInfoSection(
                 }
             }
 
-            SettingsTile(
+            CompactInfoTile(
                 icon = Icons.Rounded.Phone,
                 title = formattedPhone,
                 subtitle = subtitle,
@@ -598,7 +672,7 @@ fun ProfileInfoSection(
             }
         }
 
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Cake,
                 title = birthdateText,
@@ -612,7 +686,7 @@ fun ProfileInfoSection(
 
     fullInfo?.businessInfo?.let { business ->
         business.location?.let { loc ->
-            items.add { pos ->
+            detailsItems.add { pos ->
                 SettingsTile(
                     icon = Icons.Rounded.LocationOn,
                     title = loc.address,
@@ -625,7 +699,7 @@ fun ProfileInfoSection(
         }
 
         business.openingHours?.let { hours ->
-            items.add { pos ->
+            detailsItems.add { pos ->
                 val days = listOf(
                     stringResource(R.string.monday_short),
                     stringResource(R.string.tuesday_short),
@@ -665,7 +739,7 @@ fun ProfileInfoSection(
     }
 
     if (chat?.isAdmin == true && isGroupOrChannel) {
-        items.add { pos ->
+        managementItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.History,
                 title = stringResource(R.string.recent_actions_title),
@@ -679,7 +753,7 @@ fun ProfileInfoSection(
 
     val hasStatisticsAccess = isGroupOrChannel && fullInfo?.canGetStatistics == true
     if (hasStatisticsAccess) {
-        items.add { pos ->
+        managementItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.BarChart,
                 title = stringResource(R.string.statistics_title),
@@ -691,40 +765,9 @@ fun ProfileInfoSection(
         }
     }
 
-    if (!isGroupOrChannel && !isCurrentUser && user != null && user.type != UserTypeEnum.BOT) {
-        val savedByYou = user.isContact
-        items.add { pos ->
-            SettingsTile(
-                icon = Icons.Rounded.PersonAdd,
-                title = if (savedByYou) stringResource(R.string.action_remove_contact) else stringResource(R.string.action_add_contact),
-                subtitle = if (savedByYou) {
-                    stringResource(R.string.contact_saved_by_you)
-                } else {
-                    stringResource(R.string.contact_not_saved_by_you)
-                },
-                iconColor = Color(0xFF5C6BC0),
-                position = pos,
-                onClick = onToggleContact
-            )
-        }
-    }
-
     if (!isGroupOrChannel && isCurrentUser && fullInfo != null) {
-        if (fullInfo.hasPostedToProfileStories) {
-            items.add { pos ->
-                SettingsTile(
-                    icon = Icons.Rounded.Collections,
-                    title = stringResource(R.string.profile_feature_stories_title),
-                    subtitle = stringResource(R.string.profile_feature_stories_subtitle),
-                    iconColor = Color(0xFFAB47BC),
-                    position = pos,
-                    onClick = { }
-                )
-            }
-        }
-
         if (fullInfo.setChatBackground) {
-            items.add { pos ->
+            detailsItems.add { pos ->
                 SettingsTile(
                     icon = Icons.Rounded.Palette,
                     title = stringResource(R.string.profile_feature_background_title),
@@ -737,7 +780,7 @@ fun ProfileInfoSection(
         }
 
         if (fullInfo.hasRestrictedVoiceAndVideoNoteMessages) {
-            items.add { pos ->
+            detailsItems.add { pos ->
                 SettingsTile(
                     icon = Icons.Rounded.MicOff,
                     title = stringResource(R.string.profile_feature_voice_restricted_title),
@@ -751,7 +794,7 @@ fun ProfileInfoSection(
     }
 
     if (isGroupOrChannel && (fullInfo?.slowModeDelay ?: 0) > 0) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Timer,
                 title = stringResource(R.string.slow_mode_title),
@@ -767,7 +810,7 @@ fun ProfileInfoSection(
     }
 
     if (isGroupOrChannel && chat?.hasProtectedContent == true) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Shield,
                 title = stringResource(R.string.protected_content_title),
@@ -780,7 +823,7 @@ fun ProfileInfoSection(
     }
 
     if (!isGroupOrChannel && fullInfo?.hasPrivateForwards == true) {
-        items.add { pos ->
+        detailsItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.ForwardToInbox,
                 title = stringResource(R.string.private_forwards_title),
@@ -795,7 +838,7 @@ fun ProfileInfoSection(
     val hasRevenueAccess = chat?.isChannel == true && fullInfo?.canGetRevenueStatistics == true
 
     if (hasRevenueAccess) {
-        items.add { pos ->
+        managementItems.add { pos ->
             SettingsTile(
                 icon = Icons.Rounded.Payments,
                 title = stringResource(R.string.revenue_title),
@@ -809,11 +852,11 @@ fun ProfileInfoSection(
 
     val id = user?.id ?: chat?.id
     if (id != null) {
-        items.add { pos ->
+        technicalItems.add { pos ->
             val title = id.toString()
             val subtitle = stringResource(R.string.label_id)
 
-            SettingsTile(
+            CompactInfoTile(
                 icon = Icons.Rounded.Numbers,
                 title = title,
                 subtitle = subtitle,
@@ -828,6 +871,56 @@ fun ProfileInfoSection(
         }
     }
 
+    if (chat != null && chat.messageAutoDeleteTime > 0) {
+        detailsItems.add { pos ->
+            SettingsTile(
+                icon = Icons.Rounded.Timer,
+                title = "${chat.messageAutoDeleteTime}s",
+                subtitle = stringResource(R.string.auto_delete_subtitle),
+                iconColor = Color(0xFF009688),
+                position = pos,
+                onClick = { /* */ }
+            )
+        }
+    }
+
+    if (!isGroupOrChannel && !isCurrentUser && user != null && user.type != UserTypeEnum.BOT && user.isMutualContact) {
+        detailsItems.add { pos ->
+            CompactInfoTile(
+                icon = Icons.Rounded.Person,
+                title = stringResource(R.string.contact_added_you_yes),
+                subtitle = stringResource(R.string.contact_status_label),
+                iconColor = MaterialTheme.colorScheme.primary,
+                position = pos,
+            )
+        }
+    }
+
+    ProfileSectionGroup(
+        title = stringResource(R.string.profile_section_overview),
+        items = overviewItems,
+        onEditClick = if (canEdit) onEdit else null
+    )
+    ProfileSectionGroup(
+        title = stringResource(R.string.profile_section_management),
+        items = managementItems
+    )
+    ProfileSectionGroup(
+        title = stringResource(R.string.profile_section_details),
+        items = detailsItems
+    )
+    ProfileSectionGroup(
+        title = stringResource(R.string.profile_section_technical),
+        items = technicalItems
+    )
+}
+
+@Composable
+private fun ProfileSectionGroup(
+    title: String,
+    items: List<@Composable (ItemPosition) -> Unit>,
+    onEditClick: (() -> Unit)? = null
+) {
     AnimatedVisibility(
         visible = items.isNotEmpty(),
         enter = fadeIn() + expandVertically(),
@@ -835,8 +928,8 @@ fun ProfileInfoSection(
     ) {
         Column {
             SectionHeader(
-                text = stringResource(R.string.info_section_header),
-                onEditClick = if (canEdit) onEdit else null
+                text = title,
+                onEditClick = onEditClick
             )
             items.forEachIndexed { index, item ->
                 val position = when {
@@ -849,55 +942,89 @@ fun ProfileInfoSection(
             }
         }
     }
+}
 
-    val settingsItems = mutableListOf<@Composable (ItemPosition) -> Unit>()
-
-    if (!isCurrentUser) {
-        settingsItems.add { pos ->
-            SettingsSwitchTile(
-                icon = Icons.Rounded.Notifications,
-                title = stringResource(R.string.notifications_title),
-                checked = chat?.isMuted == false,
-                iconColor = Color(0xFFFF6D66),
-                position = pos,
-                onCheckedChange = { onToggleMute() }
-            )
-        }
-    }
-
-    if (chat != null && chat.messageAutoDeleteTime > 0) {
-        settingsItems.add { pos ->
-            SettingsTile(
-                icon = Icons.Rounded.Timer,
-                title = "${chat.messageAutoDeleteTime}s",
-                subtitle = stringResource(R.string.auto_delete_subtitle),
-                iconColor = Color(0xFF009688),
-                position = pos,
-                onClick = { /* */ }
-            )
-        }
-    }
-
-    AnimatedVisibility(
-        visible = settingsItems.isNotEmpty(),
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
+@Composable
+private fun CompactInfoTile(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    iconColor: Color,
+    position: ItemPosition,
+    onClick: (() -> Unit)? = null
+) {
+    val shape = compactTileShape(position)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
-        Column {
-            SectionHeader(
-                text = stringResource(R.string.settings_section_header),
-                onEditClick = null
-            )
-            settingsItems.forEachIndexed { index, item ->
-                val position = when {
-                    settingsItems.size == 1 -> ItemPosition.STANDALONE
-                    index == 0 -> ItemPosition.TOP
-                    index == settingsItems.size - 1 -> ItemPosition.BOTTOM
-                    else -> ItemPosition.MIDDLE
-                }
-                item(position)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(iconColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
+    }
+    if (position != ItemPosition.BOTTOM && position != ItemPosition.STANDALONE) {
+        Spacer(modifier = Modifier.height(2.dp))
+    }
+}
+
+private fun compactTileShape(position: ItemPosition): RoundedCornerShape {
+    return when (position) {
+        ItemPosition.TOP -> RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 16.dp,
+            bottomStart = 4.dp,
+            bottomEnd = 4.dp
+        )
+
+        ItemPosition.MIDDLE -> RoundedCornerShape(4.dp)
+        ItemPosition.BOTTOM -> RoundedCornerShape(
+            bottomStart = 16.dp,
+            bottomEnd = 16.dp,
+            topStart = 4.dp,
+            topEnd = 4.dp
+        )
+
+        ItemPosition.STANDALONE -> RoundedCornerShape(16.dp)
     }
 }
 
@@ -909,7 +1036,8 @@ private fun ProfileQuickActions(
     onSendMessage: () -> Unit,
     onLeave: () -> Unit,
     onJoin: () -> Unit,
-    onShowQRCode: () -> Unit
+    onShowQRCode: () -> Unit,
+    onToggleMute: () -> Unit
 ) {
     val chat = state.chat
 
@@ -950,6 +1078,13 @@ private fun ProfileQuickActions(
             icon = Icons.Default.QrCode,
             label = stringResource(R.string.action_qr_code),
             onClick = onShowQRCode
+        )
+        items += QuickActionConfig(
+            icon = if (chat?.isMuted == true) Icons.Rounded.NotificationsOff else Icons.Rounded.Notifications,
+            label = if (chat?.isMuted == true) stringResource(R.string.menu_unmute) else stringResource(
+                R.string.menu_mute
+            ),
+            onClick = onToggleMute
         )
     }
 
@@ -1413,25 +1548,7 @@ private fun UsernamesTile(
         else -> MaterialTheme.colorScheme.outline
     }
 
-    val cornerRadius = 16.dp
-    val shape = when (position) {
-        ItemPosition.TOP -> RoundedCornerShape(
-            topStart = cornerRadius,
-            topEnd = cornerRadius,
-            bottomStart = 4.dp,
-            bottomEnd = 4.dp
-        )
-
-        ItemPosition.MIDDLE -> RoundedCornerShape(4.dp)
-        ItemPosition.BOTTOM -> RoundedCornerShape(
-            bottomStart = cornerRadius,
-            bottomEnd = cornerRadius,
-            topStart = 4.dp,
-            topEnd = 4.dp
-        )
-
-        ItemPosition.STANDALONE -> RoundedCornerShape(cornerRadius)
-    }
+    val shape = compactTileShape(position)
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -1469,12 +1586,17 @@ private fun UsernamesTile(
                     style = MaterialTheme.typography.titleMedium,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = if (isGroupOrChannel) stringResource(R.string.link_label) else stringResource(R.string.username_label),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 val otherUsernames = allUsernames.filter { it != primaryUsername }

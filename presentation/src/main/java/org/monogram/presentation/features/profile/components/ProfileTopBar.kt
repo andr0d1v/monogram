@@ -28,6 +28,8 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.PersonRemove
 import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
@@ -86,6 +88,7 @@ fun ProfileTopBar(
     canShare: Boolean = false,
     canEdit: Boolean = false,
     canEditContact: Boolean = false,
+    canToggleContact: Boolean = false,
     canReport: Boolean = false,
     canBlock: Boolean = false,
     isBlocked: Boolean = false,
@@ -94,12 +97,14 @@ fun ProfileTopBar(
     onShare: () -> Unit = {},
     onEdit: () -> Unit = {},
     onEditContact: () -> Unit = {},
+    onToggleContact: () -> Unit = {},
     onReport: () -> Unit = {},
     onBlock: () -> Unit = {},
     onDelete: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val hasMenuActions = canShare || canEdit || canEditContact || canReport || canBlock || canDelete
+    val hasMenuActions =
+        canShare || canEdit || canEditContact || canToggleContact || canReport || canBlock || canDelete
     val iconButtonShapes = ExpressiveDefaults.iconButtonShapes()
     val hasTextStatusBadges = isBot || isScam || isFake
     val shouldCompactTopBar = hasTextStatusBadges && (title.length >= 18 || canSearch || hasMenuActions)
@@ -307,6 +312,21 @@ fun ProfileTopBar(
                                     onClick = {
                                         showMenu = false
                                         onEditContact()
+                                    }
+                                )
+                            }
+                            if (canToggleContact && userModel != null) {
+                                MenuOptionRow(
+                                    icon = if (userModel.isContact) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
+                                    title = if (userModel.isContact) {
+                                        stringResource(R.string.action_remove_contact)
+                                    } else {
+                                        stringResource(R.string.action_add_contact)
+                                    },
+                                    destructive = userModel.isContact,
+                                    onClick = {
+                                        showMenu = false
+                                        onToggleContact()
                                     }
                                 )
                             }

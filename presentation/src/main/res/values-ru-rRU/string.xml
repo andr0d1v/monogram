@@ -296,6 +296,7 @@
     <string name="contact_added_you_no">Не добавил(а) Вас в контакты</string>
     <string name="contact_saved_by_you">Сохранён(а) в Ваших контактах</string>
     <string name="contact_not_saved_by_you">Не сохранён(а) в Ваших контактах</string>
+    <string name="profile_badge_admin">Админ</string>
     <string name="profile_feature_stories_title">Истории профиля</string>
     <string name="profile_feature_stories_subtitle">Вы можете публиковать истории от своего профиля</string>
     <string name="profile_feature_background_title">Фон чата</string>
@@ -2286,4 +2287,13 @@
     <string name="chat_date_today">Сегодня</string>
     <string name="search_results_show_all">Показать все</string>
     <string name="search_results_loading">Поиск...</string>
+    <string name="contact_status_label">Статус контакта</string>
+    <string name="profile_section_management">Администрирование</string>
+    <string name="profile_section_details">Детали</string>
+    <string name="profile_section_technical">Тех. информация</string>
+    <string name="profile_badge_premium">Премиум</string>
+    <string name="profile_badge_sponsor">Спонсор</string>
+    <string name="profile_badge_group">Группа</string>
+    <string name="profile_badge_channel">Канал</string>
+    <string name="profile_section_overview">Основное</string>
 </resources>

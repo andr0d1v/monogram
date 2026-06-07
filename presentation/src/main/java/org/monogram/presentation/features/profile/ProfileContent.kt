@@ -71,6 +71,7 @@ import org.monogram.presentation.core.ui.ItemPosition
 import org.monogram.presentation.core.ui.SettingsTextField
 import org.monogram.presentation.core.ui.rememberCollapsingToolbarScaffoldState
 import org.monogram.presentation.core.ui.rememberShimmerBrush
+import org.monogram.presentation.core.util.CountryManager
 import org.monogram.presentation.core.util.DateFormatManager
 import org.monogram.presentation.core.util.LocalTabletInterfaceEnabled
 import org.monogram.presentation.core.util.ScrollStrategy
@@ -128,7 +129,6 @@ fun ProfileContent(component: ProfileComponent) {
     }
 
     val membersOnlineCountFormat = stringResource(R.string.members_online_count_format)
-    val ownProfileSubtitle = stringResource(R.string.menu_my_profile_subtitle)
     val subtitle = when {
         chat?.isGroup == true || chat?.isChannel == true -> {
             val members = pluralStringResource(
@@ -146,14 +146,19 @@ fun ProfileContent(component: ProfileComponent) {
         isCurrentUserProfile -> {
             user.username
                 ?.takeIf { it.isNotBlank() }
-                ?.let { "$ownProfileSubtitle • @$it" }
-                ?: ownProfileSubtitle
+                ?.let { "@$it" }
+                ?: user.phoneNumber
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { CountryManager.formatPhoneNumber(it) }
+                ?: state.about?.takeIf { it.isNotBlank() }
+                ?: ""
         }
 
         else -> getUserStatusText(user, context, timeFormat)
     }
 
-    val isOnline = user?.type != UserTypeEnum.BOT && user?.userStatus == UserStatusType.ONLINE
+    val isOnline =
+        !isCurrentUserProfile && user?.type != UserTypeEnum.BOT && user?.userStatus == UserStatusType.ONLINE
     val isBot = user?.type == UserTypeEnum.BOT || chat?.isBot == true
     val isScam = user?.isScam == true || chat?.isScam == true
     val isFake = user?.isFake == true || chat?.isFake == true
@@ -197,6 +202,8 @@ fun ProfileContent(component: ProfileComponent) {
     val canReportTopBar = isGroupOrChannel && !isCurrentUserProfile
     val canBlockTopBar = !isCurrentUserProfile && !isGroupOrChannel && user?.type != UserTypeEnum.BOT
     val canEditContactTopBar = !isCurrentUserProfile && !isGroupOrChannel && user?.isContact == true
+    val canToggleContactTopBar =
+        !isCurrentUserProfile && !isGroupOrChannel && user != null && user.type != UserTypeEnum.BOT
     val canDeleteTopBar = !isCurrentUserProfile && (!isGroupOrChannel || chat.isMember)
     var showLeaveSheet by remember { mutableStateOf(false) }
     var showDeleteChatSheet by remember { mutableStateOf(false) }
@@ -224,6 +231,7 @@ fun ProfileContent(component: ProfileComponent) {
                     canShare = canShareTopBar,
                     canEdit = canEditTopBar,
                     canEditContact = canEditContactTopBar,
+                    canToggleContact = canToggleContactTopBar,
                     canReport = canReportTopBar,
                     canBlock = canBlockTopBar,
                     isBlocked = state.isBlocked,
@@ -248,6 +256,7 @@ fun ProfileContent(component: ProfileComponent) {
                         editContactLastName = currentUser.lastName.orEmpty()
                         showEditContactDialog = true
                     },
+                    onToggleContact = component::onToggleContact,
                     onReport = component::onShowReport,
                     onBlock = { showBlockSheet = true },
                     onDelete = {
@@ -322,6 +331,7 @@ fun ProfileContent(component: ProfileComponent) {
                                 onAvatarClick = component::onAvatarClick,
                                 userModel = user,
                                 chatModel = chat,
+                                slowModeDelay = state.fullInfo?.slowModeDelay ?: 0,
                                 onActionClick = {}
                             )
                         }
@@ -362,7 +372,6 @@ fun ProfileContent(component: ProfileComponent) {
                                     onLinkedChatClick = component::onLinkedChatClick,
                                     onShowPermissions = component::onShowPermissions,
                                     onAcceptTOS = component::onAcceptTOS,
-                                    onToggleContact = component::onToggleContact,
                                     onLocationClick = component::onLocationClick
                                 )
                             }
