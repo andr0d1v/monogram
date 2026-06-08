@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -202,7 +201,9 @@ private fun DocumentPreview(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(paths, key = { it }) { path ->
+            itemsIndexed(
+                paths,
+                key = { index, path -> "document_preview_${path}_$index" }) { _, path ->
                 val file = File(path)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -653,7 +654,9 @@ private fun MediaPreview(
             contentPadding = PaddingValues(horizontal = 4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            itemsIndexed(paths, key = { _, path -> path }) { index, path ->
+            itemsIndexed(
+                paths,
+                key = { index, path -> "media_preview_${path}_$index" }) { index, path ->
                 val isDragging = draggingIndex == index
                 val scale by animateFloatAsState(
                     targetValue = if (isDragging) 1.1f else 1f,
