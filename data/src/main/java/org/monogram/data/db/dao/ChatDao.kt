@@ -21,6 +21,9 @@ interface ChatDao {
     @Query("SELECT * FROM chats ORDER BY isPinned DESC, `order` DESC LIMIT :limit")
     suspend fun getTopChats(limit: Int): List<ChatEntity>
 
+    @Query("SELECT * FROM chats WHERE `order` != 0 ORDER BY isPinned DESC, `order` DESC LIMIT :limit")
+    suspend fun getStartupChats(limit: Int): List<ChatEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChat(chat: ChatEntity)
 

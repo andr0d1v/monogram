@@ -1,9 +1,16 @@
 package org.monogram.data.db.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "chats")
+@Entity(
+    tableName = "chats",
+    indices = [
+        Index(value = ["isPinned", "order"]),
+        Index(value = ["createdAt"])
+    ]
+)
 data class ChatEntity(
     @PrimaryKey val id: Long,
     val title: String,

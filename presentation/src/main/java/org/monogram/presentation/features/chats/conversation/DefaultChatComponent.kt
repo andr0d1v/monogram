@@ -121,6 +121,7 @@ class DefaultChatComponent(
     internal val remappedMessageIds = ConcurrentHashMap<Long, Long>()
     internal val mediaDownloadRetryCount = ConcurrentHashMap<Int, Int>()
     internal val pendingSenderRefreshes = ConcurrentHashMap.newKeySet<Long>()
+    internal val senderRefreshRequestedAtMs = ConcurrentHashMap<Long, Long>()
     internal var chatInfoObserversStarted: Boolean = false
 
     internal var lastLoadedOlderId: Long = 0L

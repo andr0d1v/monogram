@@ -62,8 +62,7 @@ class ChatCache : ChatsCacheDataSource, UserCacheDataSource {
                 existing.type = chat.type
                 existing.lastMessage = chat.lastMessage
 
-                existing.positions =
-                    mergePositionsPreservingStronger(existing.positions, chat.positions)
+                existing.positions = chat.positions
                 
                 existing.unreadCount = chat.unreadCount
                 existing.unreadMentionCount = chat.unreadMentionCount
@@ -100,35 +99,6 @@ class ChatCache : ChatsCacheDataSource, UserCacheDataSource {
         }
     }
 
-    private fun mergePositionsPreservingStronger(
-        existingPositions: Array<TdApi.ChatPosition>,
-        incomingPositions: Array<TdApi.ChatPosition>
-    ): Array<TdApi.ChatPosition> {
-        val merged = incomingPositions.toMutableList()
-        existingPositions.forEach { oldPos ->
-            val sameListIndex = merged.indexOfFirst { isSameChatList(it.list, oldPos.list) }
-            if (sameListIndex == -1) {
-                merged.add(oldPos)
-            } else {
-                val incomingPos = merged[sameListIndex]
-                if (shouldPreferExistingPosition(oldPos, incomingPos)) {
-                    merged[sameListIndex] = oldPos
-                }
-            }
-        }
-        return merged.toTypedArray()
-    }
-
-    private fun shouldPreferExistingPosition(
-        existing: TdApi.ChatPosition,
-        incoming: TdApi.ChatPosition
-    ): Boolean {
-        if (existing.order == 0L) return false
-        if (incoming.order == 0L) return true
-        if (existing.isPinned && !incoming.isPinned) return true
-        return existing.order > incoming.order
-    }
-
     private fun indexChatByType(chat: TdApi.Chat) {
         when (val type = chat.type) {
             is TdApi.ChatTypePrivate -> if (type.userId != 0L) {
@@ -145,16 +115,6 @@ class ChatCache : ChatsCacheDataSource, UserCacheDataSource {
 
             else -> Unit
         }
-    }
-
-    private fun isSameChatList(a: TdApi.ChatList?, b: TdApi.ChatList?): Boolean {
-        if (a === b) return true
-        if (a == null || b == null) return false
-        if (a.constructor != b.constructor) return false
-        if (a is TdApi.ChatListFolder && b is TdApi.ChatListFolder) {
-            return a.chatFolderId == b.chatFolderId
-        }
-        return true
     }
 
     override fun getUser(userId: Long): TdApi.User? = usersCache[userId]

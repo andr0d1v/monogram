@@ -133,8 +133,13 @@ class DefaultProfileComponent(
                     isGroupOrChannel = isGroupOrChannel,
                     preferredTabKey = preferredTabKey
                 )
+                val currentSelectedTabKey = _state.value.selectedTabKey
                 val selectedTabKey =
-                    visibleTabs.firstOrNull { it.initiallySelected }?.key ?: ProfileTabKey.MEDIA
+                    if (visibleTabs.any { it.key == currentSelectedTabKey }) {
+                        currentSelectedTabKey
+                    } else {
+                        visibleTabs.firstOrNull { it.initiallySelected }?.key ?: ProfileTabKey.MEDIA
+                    }
 
                 _state.update {
                     it.copy(

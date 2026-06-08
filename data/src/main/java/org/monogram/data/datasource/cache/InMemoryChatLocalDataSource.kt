@@ -33,6 +33,18 @@ class InMemoryChatLocalDataSource : ChatLocalDataSource {
             .take(limit)
     }
 
+    override suspend fun getStartupChats(limit: Int): List<ChatEntity> {
+        return chats.value.values
+            .asSequence()
+            .filter { it.order != 0L }
+            .sortedWith(
+                compareByDescending<ChatEntity> { chat -> chat.isPinned }
+                    .thenByDescending { chat -> chat.order }
+            )
+            .take(limit)
+            .toList()
+    }
+
     override suspend fun getChat(chatId: Long): ChatEntity? = chats.value[chatId]
 
     override suspend fun insertChat(chat: ChatEntity) {
@@ -79,6 +91,14 @@ class InMemoryChatLocalDataSource : ChatLocalDataSource {
     override suspend fun getLatestMessages(chatId: Long, limit: Int): List<MessageEntity> {
         val chatMessages = messages[chatId]?.value?.values ?: return emptyList()
         return chatMessages.sortedByDescending { it.date }.take(limit)
+    }
+
+    override suspend fun getMessagesByIds(
+        chatId: Long,
+        messageIds: List<Long>
+    ): List<MessageEntity> {
+        val chatMessages = messages[chatId]?.value ?: return emptyList()
+        return messageIds.mapNotNull { chatMessages[it] }
     }
 
     override suspend fun insertMessage(message: MessageEntity) {

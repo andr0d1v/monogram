@@ -230,19 +230,23 @@ class DefaultChatListComponent(
 
         chatFolderRepository.folderChatsFlow
             .onEach { update ->
-                val distinctList = update.chats.distinctBy { it.id }
-                val pinnedCount = distinctList.count { it.isPinned }
+                val normalizedList = normalizeFolderChats(update.chats)
+                val pinnedCount = normalizedList.count { it.isPinned }
                 if (pinnedCount > 0) {
                     Log.d(
                         TAG,
-                        "folder=${update.folderId} chats=${distinctList.size} pinned=$pinnedCount pinnedIds=${
-                            distinctList.filter { it.isPinned }.take(10).joinToString { it.id.toString() }
+                        "folder=${update.folderId} chats=${normalizedList.size} pinned=$pinnedCount pinnedIds=${
+                            normalizedList.filter { it.isPinned }.take(10)
+                                .joinToString { it.id.toString() }
                         }"
                     )
                 }
                 _state.update {
+                    if (it.chatsByFolder[update.folderId] == normalizedList) {
+                        return@update it
+                    }
                     val newChatsByFolder = it.chatsByFolder.toMutableMap()
-                    newChatsByFolder[update.folderId] = distinctList
+                    newChatsByFolder[update.folderId] = normalizedList
                     it.copy(chatsByFolder = newChatsByFolder)
                 }
             }
@@ -945,4 +949,17 @@ private fun hasUnreadState(chat: ChatModel): Boolean {
             chat.isMarkedAsUnread ||
             chat.unreadMentionCount > 0 ||
             chat.unreadReactionCount > 0
+}
+
+internal fun normalizeFolderChats(chats: List<ChatModel>): List<ChatModel> {
+    if (chats.size < 2) return chats
+
+    val seen = HashSet<Long>(chats.size)
+    val normalized = ArrayList<ChatModel>(chats.size)
+    chats.forEach { chat ->
+        if (seen.add(chat.id)) {
+            normalized.add(chat)
+        }
+    }
+    return if (normalized.size == chats.size) chats else normalized
 }

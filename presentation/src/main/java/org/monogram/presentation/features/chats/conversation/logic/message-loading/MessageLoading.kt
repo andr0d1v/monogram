@@ -27,6 +27,7 @@ import kotlin.math.abs
 
 private const val PAGE_SIZE = 50
 private const val MAX_DOWNLOAD_RETRIES = 3
+private const val SENDER_REFRESH_TTL_MS = 60_000L
 private fun isUsableAvatarPath(path: String?): Boolean {
     if (path.isNullOrBlank()) return false
     return when {
@@ -82,7 +83,11 @@ internal fun DefaultChatComponent.requestSenderRefreshIfNeeded(message: MessageM
 
 internal fun DefaultChatComponent.requestSenderRefresh(senderId: Long) {
     if (senderId <= 0L) return
+    val now = System.currentTimeMillis()
+    val lastRequestedAt = senderRefreshRequestedAtMs[senderId]
+    if (lastRequestedAt != null && now - lastRequestedAt < SENDER_REFRESH_TTL_MS) return
     if (!pendingSenderRefreshes.add(senderId)) return
+    senderRefreshRequestedAtMs[senderId] = now
 
     scope.launch {
         try {
@@ -448,22 +453,34 @@ private suspend fun DefaultChatComponent.loadBottomMessages(
         olderPage.reachedOldest
     }
 
-    _state.update {
-        it.copy(
-            isAtBottom = true,
-            isLatestLoaded = !isRemoteSameAsCachedPreview,
-            isOldestLoaded = isOldestLoaded,
-            scrollToMessageId = null,
-            highlightRequest = null
-        )
+    if (!isRemoteSameAsCachedPreview) {
+        _state.update {
+            it.copy(
+                isAtBottom = true,
+                isLatestLoaded = true,
+                isOldestLoaded = isOldestLoaded,
+                scrollToMessageId = null,
+                highlightRequest = null
+            )
+        }
+        val shouldReplaceCachedPreview = !hasCachedPreview || messages.isNotEmpty()
+        updateMessages(messages, replace = shouldReplaceCachedPreview)
+        refreshCachedSenderProfiles(messages)
+    } else {
+        _state.update {
+            it.copy(
+                isAtBottom = true,
+                isLatestLoaded = true,
+                isOldestLoaded = false,
+                scrollToMessageId = null,
+                highlightRequest = null
+            )
+        }
     }
-    val shouldReplaceCachedPreview = !hasCachedPreview || messages.isNotEmpty()
-    updateMessages(messages, replace = shouldReplaceCachedPreview)
-    refreshCachedSenderProfiles(messages)
     if (scrollCommand != null) {
         _state.update { it.copy(pendingScrollCommand = scrollCommand) }
     }
-    if (!isOldestLoaded) {
+    if (!isRemoteSameAsCachedPreview && !isOldestLoaded) {
         delay(100)
         loadMoreMessages()
     }

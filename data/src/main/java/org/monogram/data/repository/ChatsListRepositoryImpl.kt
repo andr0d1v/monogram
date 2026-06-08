@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import org.monogram.core.DispatcherProvider
@@ -514,13 +513,6 @@ class ChatsListRepositoryImpl(
     }
 
     private fun updateActiveListPositionsFromCache() {
-        val currentActivePositions = HashMap<Long, TdApi.ChatPosition>()
-        cache.activeListPositions.forEach { (chatId, position) ->
-            if (position.order != 0L && listManager.isSameChatList(position.list, activeChatList)) {
-                currentActivePositions[chatId] = position
-            }
-        }
-
         val savedAuthoritative = HashMap<Long, TdApi.ChatPosition>()
         cache.authoritativeActiveListChatIds.forEach { chatId ->
             val currentPos = cache.activeListPositions[chatId] ?: return@forEach
@@ -551,25 +543,9 @@ class ChatsListRepositoryImpl(
             }
         }
 
-        currentActivePositions.forEach { (chatId, position) ->
-            val rebuilt = cache.activeListPositions[chatId]
-            val shouldRestore =
-                rebuilt == null ||
-                        rebuilt.order == 0L ||
-                        (position.isPinned && !rebuilt.isPinned) ||
-                        position.order > rebuilt.order
-
-            if (shouldRestore) {
-                cache.activeListPositions[chatId] = position
-                if (position.isPinned) {
-                    cache.protectedPinnedChatIds.add(chatId)
-                }
-            }
-        }
-
         Log.d(
             TAG,
-            "Active list positions refreshed from cache: list=${activeChatList.debugName()} positions=${cache.activeListPositions.size} chats=${cache.allChats.size} authoritative=${cache.authoritativeActiveListChatIds.size} restoredCurrent=${currentActivePositions.size}"
+            "Active list positions refreshed from cache: list=${activeChatList.debugName()} positions=${cache.activeListPositions.size} chats=${cache.allChats.size} authoritative=${cache.authoritativeActiveListChatIds.size}"
         )
     }
 
@@ -994,34 +970,7 @@ class ChatsListRepositoryImpl(
 
     private suspend fun hydrateCacheFromPersistence() {
         coRunCatching {
-            val topEntities = chatLocalDataSource.getTopChats(INITIAL_CACHE_HYDRATION_LIMIT)
-            if (topEntities.isNotEmpty()) {
-                topEntities.forEach { entity ->
-                    cache.putChatFromEntity(entity)
-                    persistenceManager.rememberSavedEntity(entity)
-                }
-                updateActiveListPositionsFromCache()
-                Log.i(
-                    TAG,
-                    "Cache top hydrated: entities=${topEntities.size} chats=${cache.allChats.size} activePositions=${cache.activeListPositions.size} activeFolder=$activeFolderId list=${activeChatList.debugName()}"
-                )
-                triggerUpdate()
-            } else {
-                Log.i(TAG, "Cache top hydrated: no persisted chats found")
-            }
-        }.onFailure { error ->
-            Log.e(TAG, "Failed to hydrate top chat cache", error)
-        }
-
-        if (!cacheHydrated.isCompleted) {
-            cacheHydrated.complete(Unit)
-        }
-
-        triggerUpdate()
-        scheduleRecoveryIfNeeded("cache_top_hydrated")
-
-        coRunCatching {
-            val entities = chatLocalDataSource.getAllChats().first()
+            val entities = chatLocalDataSource.getStartupChats(initialChatListLimit)
             if (entities.isNotEmpty()) {
                 entities.forEach { entity ->
                     cache.putChatFromEntity(entity)
@@ -1030,15 +979,23 @@ class ChatsListRepositoryImpl(
                 updateActiveListPositionsFromCache()
                 Log.i(
                     TAG,
-                    "Cache hydrated: entities=${entities.size} chats=${cache.allChats.size} activePositions=${cache.activeListPositions.size} activeFolder=$activeFolderId list=${activeChatList.debugName()}"
+                    "Cache startup hydrated: entities=${entities.size} chats=${cache.allChats.size} activePositions=${cache.activeListPositions.size} activeFolder=$activeFolderId list=${activeChatList.debugName()}"
                 )
                 triggerUpdate()
-                scheduleRecoveryIfNeeded("cache_hydrated")
             } else {
-                Log.i(TAG, "Cache hydrated: no persisted chats found")
+                Log.i(TAG, "Cache startup hydrated: no persisted chats found")
             }
         }.onFailure { error ->
-            Log.e(TAG, "Failed to hydrate chat cache", error)
+            Log.e(TAG, "Failed to hydrate startup chat cache", error)
+        }
+
+        if (!cacheHydrated.isCompleted) {
+            cacheHydrated.complete(Unit)
+        }
+
+        triggerUpdate()
+        if (_chatListFlow.value.isEmpty() && cache.activeListPositions.isEmpty()) {
+            scheduleRecoveryIfNeeded("cache_startup_hydrated")
         }
     }
 

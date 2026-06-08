@@ -23,6 +23,9 @@ class RoomChatLocalDataSource(
 
     override suspend fun getTopChats(limit: Int): List<ChatEntity> = chatDao.getTopChats(limit)
 
+    override suspend fun getStartupChats(limit: Int): List<ChatEntity> =
+        chatDao.getStartupChats(limit)
+
     override suspend fun getChat(chatId: Long): ChatEntity? = chatDao.getChat(chatId)
 
     override suspend fun insertChat(chat: ChatEntity) = chatDao.insertChat(chat)
@@ -49,6 +52,9 @@ class RoomChatLocalDataSource(
     override suspend fun getMessagesNewer(chatId: Long, fromMessageId: Long, limit: Int) = messageDao.getMessagesNewer(chatId, fromMessageId, limit)
 
     override suspend fun getLatestMessages(chatId: Long, limit: Int) = messageDao.getLatestMessages(chatId, limit)
+
+    override suspend fun getMessagesByIds(chatId: Long, messageIds: List<Long>) =
+        if (messageIds.isEmpty()) emptyList() else messageDao.getMessagesByIds(chatId, messageIds)
 
     override suspend fun insertMessage(message: MessageEntity) = messageDao.insertMessage(message)
 

@@ -1,5 +1,7 @@
 package org.monogram.data.repository
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -7,7 +9,12 @@ import org.drinkless.tdlib.TdApi
 import org.monogram.data.datasource.cache.ChatLocalDataSource
 import org.monogram.data.datasource.remote.UserRemoteDataSource
 import org.monogram.data.mapper.toEntity
-import org.monogram.data.mapper.user.*
+import org.monogram.data.mapper.user.mapBasicGroupFullInfoToChat
+import org.monogram.data.mapper.user.mapSupergroupFullInfoToChat
+import org.monogram.data.mapper.user.toApi
+import org.monogram.data.mapper.user.toDomain
+import org.monogram.data.mapper.user.toEntity
+import org.monogram.data.mapper.user.toTdApiChat
 import org.monogram.domain.models.ChatFullInfoModel
 import org.monogram.domain.models.ChatModel
 import org.monogram.domain.models.GroupMemberModel
@@ -15,48 +22,80 @@ import org.monogram.domain.repository.ChatInfoRepository
 import org.monogram.domain.repository.ChatMemberStatus
 import org.monogram.domain.repository.ChatMembersFilter
 import org.monogram.domain.repository.UserRepository
+import java.util.concurrent.ConcurrentHashMap
 
 class ChatInfoRepositoryImpl(
     private val remote: UserRemoteDataSource,
     private val chatLocal: ChatLocalDataSource,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val scope: CoroutineScope
 ) : ChatInfoRepository {
+    private val fullInfoRequests = ConcurrentHashMap<Long, Deferred<ChatFullInfoModel?>>()
 
     override suspend fun getChatFullInfo(chatId: Long): ChatFullInfoModel? {
         if (chatId == 0L) return null
 
-        val chat = remote.getChat(chatId)?.also { chatLocal.insertChat(it.toEntity()) }
-            ?: chatLocal.getChat(chatId)?.toTdApiChat()
+        val localChat = chatLocal.getChat(chatId)?.toTdApiChat()
+        val localFullInfo = chatLocal.getChatFullInfo(chatId)?.toDomain()
+        if (localChat != null && localFullInfo != null) {
+            refreshChatFullInfo(chatId, localChat, await = false)
+            return localFullInfo
+        }
 
-        if (chat != null) {
-            val dbFullInfo = chatLocal.getChatFullInfo(chatId)
-            return when (val type = chat.type) {
-                is TdApi.ChatTypePrivate -> {
-                    userRepository.resolveUserChatFullInfo(type.userId) ?: dbFullInfo?.toDomain()
+        val chat = localChat
+            ?: remote.getChat(chatId)?.also { chatLocal.insertChat(it.toEntity()) }
+            ?: return userRepository.resolveUserChatFullInfo(chatId)
+
+        val type = chat.type
+        if (type is TdApi.ChatTypePrivate) {
+            return userRepository.resolveUserChatFullInfo(type.userId) ?: localFullInfo
+        }
+
+        return refreshChatFullInfo(chatId, chat, await = true) ?: localFullInfo
+    }
+
+    private suspend fun refreshChatFullInfo(
+        chatId: Long,
+        chat: TdApi.Chat,
+        await: Boolean
+    ): ChatFullInfoModel? {
+        val deferred = fullInfoRequests.getOrPut(chatId) {
+            scope.async {
+                try {
+                    fetchAndPersistRemoteFullInfo(chatId, chat)
+                } finally {
+                    fullInfoRequests.remove(chatId)
                 }
-
-                is TdApi.ChatTypeSupergroup -> {
-                    val fullInfo = remote.getSupergroupFullInfo(type.supergroupId)
-                    val supergroup = remote.getSupergroup(type.supergroupId)
-                    fullInfo?.let {
-                        chatLocal.insertChatFullInfo(it.toEntity(chatId))
-                    }
-                    fullInfo?.mapSupergroupFullInfoToChat(supergroup) ?: dbFullInfo?.toDomain()
-                }
-
-                is TdApi.ChatTypeBasicGroup -> {
-                    val fullInfo = remote.getBasicGroupFullInfo(type.basicGroupId)
-                    fullInfo?.let {
-                        chatLocal.insertChatFullInfo(it.toEntity(chatId))
-                    }
-                    fullInfo?.mapBasicGroupFullInfoToChat() ?: dbFullInfo?.toDomain()
-                }
-
-                else -> dbFullInfo?.toDomain()
             }
         }
 
-        return userRepository.resolveUserChatFullInfo(chatId)
+        return if (await) deferred.await() else null
+    }
+
+    private suspend fun fetchAndPersistRemoteFullInfo(
+        chatId: Long,
+        chat: TdApi.Chat
+    ): ChatFullInfoModel? {
+        return when (val type = chat.type) {
+            is TdApi.ChatTypeSupergroup -> {
+                val fullInfo = remote.getSupergroupFullInfo(type.supergroupId)
+                val supergroup = remote.getSupergroup(type.supergroupId)
+                fullInfo?.let {
+                    chatLocal.insertChatFullInfo(it.toEntity(chatId))
+                }
+                fullInfo?.mapSupergroupFullInfoToChat(supergroup)
+            }
+
+            is TdApi.ChatTypeBasicGroup -> {
+                val fullInfo = remote.getBasicGroupFullInfo(type.basicGroupId)
+                fullInfo?.let {
+                    chatLocal.insertChatFullInfo(it.toEntity(chatId))
+                }
+                fullInfo?.mapBasicGroupFullInfoToChat()
+            }
+
+            else -> null
+        }
     }
 
     override suspend fun searchPublicChat(username: String): ChatModel? {

@@ -1,9 +1,15 @@
 package org.monogram.data.db.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "user_full_info")
+@Entity(
+    tableName = "user_full_info",
+    indices = [
+        Index(value = ["createdAt"])
+    ]
+)
 data class UserFullInfoEntity(
     @PrimaryKey val userId: Long,
     val bio: String?,

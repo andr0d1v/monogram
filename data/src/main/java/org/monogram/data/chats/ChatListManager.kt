@@ -74,8 +74,8 @@ class ChatListManager(
             )
         }
 
-        val othersLimit = (limit - result.size).coerceAtLeast(0)
-        if (othersLimit == 0) return result
+        val othersLimit = (limit - result.distinctBy { it.id }.size).coerceAtLeast(0)
+        if (othersLimit == 0) return result.distinctBy { it.id }
 
         var loadedOthers = 0
         for ((chatId, position) in otherEntries) {
@@ -85,7 +85,7 @@ class ChatListManager(
             if (loadedOthers >= othersLimit) break
         }
 
-        return result
+        return result.distinctBy { it.id }.take(limit)
     }
 
     fun updateChatPositionInCache(

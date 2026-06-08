@@ -21,6 +21,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY date DESC LIMIT :limit")
     suspend fun getLatestMessages(chatId: Long, limit: Int): List<MessageEntity>
 
+    @Query("SELECT * FROM messages WHERE chatId = :chatId AND id IN (:messageIds)")
+    suspend fun getMessagesByIds(chatId: Long, messageIds: List<Long>): List<MessageEntity>
+
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND id <= :upToMessageId AND isRead = 0")
     suspend fun markAsRead(chatId: Long, upToMessageId: Long)
 

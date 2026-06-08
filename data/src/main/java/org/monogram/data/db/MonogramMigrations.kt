@@ -301,6 +301,18 @@ object MonogramMigrations {
         }
     }
 
+    val MIGRATION_31_32 = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chats_isPinned_order` ON `chats` (`isPinned`, `order`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_chats_createdAt` ON `chats` (`createdAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_chatId_date` ON `messages` (`chatId`, `date`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_chatId_id` ON `messages` (`chatId`, `id`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_createdAt` ON `messages` (`createdAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_users_createdAt` ON `users` (`createdAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_full_info_createdAt` ON `user_full_info` (`createdAt`)")
+        }
+    }
+
     private fun SupportSQLiteDatabase.addColumn(table: String, column: String, definition: String) {
         execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $definition")
     }

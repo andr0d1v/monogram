@@ -259,7 +259,8 @@ val dataModule = module {
                 MonogramMigrations.MIGRATION_27_28,
                 MonogramMigrations.MIGRATION_28_29,
                 MonogramMigrations.MIGRATION_29_30,
-                MonogramMigrations.MIGRATION_30_31
+                MonogramMigrations.MIGRATION_30_31,
+                MonogramMigrations.MIGRATION_31_32
             )
             .build()
     }
@@ -343,7 +344,8 @@ val dataModule = module {
         ChatInfoRepositoryImpl(
             remote = get(),
             chatLocal = get(),
-            userRepository = get()
+            userRepository = get(),
+            scope = get()
         )
     }
 

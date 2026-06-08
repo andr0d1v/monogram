@@ -36,6 +36,7 @@ import org.monogram.domain.models.ChatEventModel
 import org.monogram.domain.models.ChatPermissionsModel
 import org.monogram.domain.models.FileModel
 import org.monogram.domain.models.InlineQueryResultModel
+import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageDownloadEvent
 import org.monogram.domain.models.MessageEntity
 import org.monogram.domain.models.MessageEntityType
@@ -1487,7 +1488,14 @@ class MessageRepositoryImpl(
 
     private fun persistRemoteMessages(chatId: Long, remoteMessages: List<MessageModel>) {
         scope.launch(dispatcherProvider.io) {
+            val existingById = chatLocalDataSource
+                .getMessagesByIds(chatId, remoteMessages.map { it.id })
+                .associateBy { it.id }
             val entities = remoteMessages.mapNotNull { model ->
+                val existing = existingById[model.id]
+                if (existing != null && existing.isSamePersistedMessage(model)) {
+                    return@mapNotNull null
+                }
                 messageRemoteDataSource.getMessage(model.chatId, model.id)?.let { message ->
                     messageMapper.mapToEntity(message, ::resolveSenderName)
                 }
@@ -1497,6 +1505,52 @@ class MessageRepositoryImpl(
             }
         }
     }
+
+    private fun org.monogram.data.db.model.MessageEntity.isSamePersistedMessage(model: MessageModel): Boolean {
+        return id == model.id &&
+                chatId == model.chatId &&
+                date == model.date &&
+                editDate == model.editDate &&
+                content == model.persistedText &&
+                contentType == model.persistedContentType
+    }
+
+    private val MessageModel.persistedText: String
+        get() = when (val messageContent = content) {
+            is MessageContent.Text -> messageContent.text
+            is MessageContent.Photo -> messageContent.caption
+            is MessageContent.Video -> messageContent.caption
+            is MessageContent.Document -> messageContent.caption
+            is MessageContent.Audio -> messageContent.caption
+            is MessageContent.Gif -> messageContent.caption
+            is MessageContent.Contact ->
+                listOf(messageContent.firstName, messageContent.lastName).filter { it.isNotBlank() }
+                    .joinToString(" ")
+
+            is MessageContent.Location -> ""
+            is MessageContent.Poll -> messageContent.question
+            is MessageContent.Sticker -> messageContent.emoji
+            is MessageContent.Service -> messageContent.text
+            else -> ""
+        }
+
+    private val MessageModel.persistedContentType: String
+        get() = when (content) {
+            is MessageContent.Text -> "text"
+            is MessageContent.Photo -> "photo"
+            is MessageContent.Video -> "video"
+            is MessageContent.Document -> "document"
+            is MessageContent.Audio -> "audio"
+            is MessageContent.Gif -> "gif"
+            is MessageContent.Voice -> "voice"
+            is MessageContent.VideoNote -> "video_note"
+            is MessageContent.Sticker -> "sticker"
+            is MessageContent.Poll -> "poll"
+            is MessageContent.Contact -> "contact"
+            is MessageContent.Location -> "location"
+            is MessageContent.Service -> "service"
+            else -> "text"
+        }
 
     private fun resolveSenderName(senderId: Long): String? {
         val user = cache.getUser(senderId)
