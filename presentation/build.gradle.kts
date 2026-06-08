@@ -35,9 +35,11 @@ android {
         }
         create("firebase") {
             dimension = "runtime"
+            buildConfigField("boolean", "HAS_OSS_LICENSES", "true")
         }
         create("libre") {
             dimension = "runtime"
+            buildConfigField("boolean", "HAS_OSS_LICENSES", "false")
         }
     }
 
@@ -92,7 +94,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.security.crypto)
     implementation(libs.maplibre.compose)
-    implementation(libs.play.services.oss.licenses)
+    add("firebaseImplementation", libs.play.services.oss.licenses)
     implementation(libs.unifiedpush.connector)
 
     implementation(libs.androidx.compose.ui.tooling.preview)

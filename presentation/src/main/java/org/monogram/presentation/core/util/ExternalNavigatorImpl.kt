@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.core.net.toUri
-import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import org.monogram.domain.repository.ExternalNavigator
 
 class ExternalNavigatorImpl(
@@ -50,8 +49,6 @@ class ExternalNavigatorImpl(
     }
 
     override fun openOssLicenses() {
-        val intent = Intent(context, OssLicensesMenuActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        OssLicensesNavigator.open(context)
     }
 }

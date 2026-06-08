@@ -14,6 +14,7 @@ interface AboutComponent {
     val updateState: StateFlow<UpdateState>
     val tdLibVersion: StateFlow<String>
     val tdLibCommitHash: StateFlow<String>
+    val hasOpenSourceLicenses: Boolean
     fun onBackClicked()
     fun checkForUpdates()
     fun downloadUpdate()
@@ -33,6 +34,7 @@ class DefaultAboutComponent(
     private val scope = componentScope
     private val isTelemtBuild = BuildConfig.ENABLE_TELEMT_DNS
     private val stringProvider = container.utils.stringProvider()
+    override val hasOpenSourceLicenses: Boolean = BuildConfig.HAS_OSS_LICENSES
 
     private val _tdLibVersion = MutableStateFlow(stringProvider.getString("loading_text"))
     override val tdLibVersion: StateFlow<String> = _tdLibVersion.asStateFlow()

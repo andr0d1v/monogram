@@ -2,7 +2,6 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.FilterConfiguration
 import com.android.build.api.variant.impl.VariantOutputImpl
 import com.google.android.gms.oss.licenses.plugin.DependencyTask
-import org.gradle.api.GradleException
 import java.util.Properties
 
 plugins {
@@ -196,11 +195,11 @@ dependencies {
     implementation(libs.coil.video)
 
     implementation(libs.androidx.biometric)
-    implementation(libs.play.services.oss.licenses)
 
     implementation(libs.unifiedpush.connector)
     add("firebaseImplementation", platform(libs.firebase.bom))
     add("firebaseImplementation", libs.firebase.messaging)
+    add("firebaseImplementation", libs.play.services.oss.licenses)
 
     implementation(libs.maplibre.compose)
 

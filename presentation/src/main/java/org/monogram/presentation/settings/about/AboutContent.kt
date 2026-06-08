@@ -86,6 +86,7 @@ fun AboutContent(component: AboutComponent) {
     val updateState by component.updateState.collectAsState()
     val tdLibVersion by component.tdLibVersion.collectAsState()
     val tdLibCommitHash by component.tdLibCommitHash.collectAsState()
+    val hasOpenSourceLicenses = component.hasOpenSourceLicenses
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val version = remember {
@@ -166,14 +167,16 @@ fun AboutContent(component: AboutComponent) {
                     position = ItemPosition.TOP,
                     onClick = { uriHandler.openUri("https://telegram.org/tos") }
                 )
-                SettingsItem(
-                    icon = Icons.Rounded.Code,
-                    title = stringResource(R.string.open_source_licenses_title),
-                    subtitle = stringResource(R.string.open_source_licenses_subtitle),
-                    iconBackgroundColor = Color(0xFF34A853),
-                    position = ItemPosition.MIDDLE,
-                    onClick = component::onOpenSourceLicensesClicked
-                )
+                if (hasOpenSourceLicenses) {
+                    SettingsItem(
+                        icon = Icons.Rounded.Code,
+                        title = stringResource(R.string.open_source_licenses_title),
+                        subtitle = stringResource(R.string.open_source_licenses_subtitle),
+                        iconBackgroundColor = Color(0xFF34A853),
+                        position = ItemPosition.MIDDLE,
+                        onClick = component::onOpenSourceLicensesClicked
+                    )
+                }
 
                 SettingsItem(
                     icon = Icons.Rounded.Public,
