@@ -9,6 +9,7 @@ import coil3.decode.ImageSource
 import coil3.fetch.SourceFetchResult
 import coil3.request.Options
 import org.monogram.presentation.features.stickers.core.RLottieWrapper
+import org.monogram.presentation.features.stickers.core.StickerBackgroundCleaner
 
 class LottieDecoder(
     private val source: ImageSource
@@ -38,6 +39,7 @@ class LottieDecoder(
             if (!rendered) {
                 throw RuntimeException("Failed to render rlottie frame")
             }
+            StickerBackgroundCleaner.removeBlackEdgeBackground(bitmap)
 
             return DecodeResult(
                 image = bitmap.asImage(),

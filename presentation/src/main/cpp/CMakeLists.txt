@@ -15,7 +15,8 @@ add_library(
         native-lib.cpp
         VpxDecoder.cpp
         RLottieDecoder.cpp
-        RLottieJni.cpp)
+        RLottieJni.cpp
+        StickerBackgroundCleanerJni.cpp)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(LOTTIE_MODULE OFF CACHE BOOL "" FORCE)

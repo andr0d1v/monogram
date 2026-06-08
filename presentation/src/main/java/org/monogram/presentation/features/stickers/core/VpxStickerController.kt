@@ -8,9 +8,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class VpxStickerController(
@@ -31,6 +39,8 @@ class VpxStickerController(
     private var isPaused = false
     private val decoderMutex = Mutex()
     private var renderJob: Job? = null
+    private var backgroundCleanerSession: StickerBackgroundCleaner.Session? = null
+    private var shouldCleanBackground = false
 
     override fun start() {
         val previousJob = renderJob
@@ -85,6 +95,7 @@ class VpxStickerController(
         try {
             frontBitmap = BitmapPool.obtain(w, h)
             backBitmap = BitmapPool.obtain(w, h)
+            backgroundCleanerSession = StickerBackgroundCleaner.Session(w, h)
         } catch (_: OutOfMemoryError) {
             release()
             return
@@ -93,6 +104,11 @@ class VpxStickerController(
         decoderMutex.withLock {
             decoder?.renderFrame(frontBitmap!!)
         }
+        shouldCleanBackground = backgroundCleanerSession
+            ?.removeBlackEdgeBackground(
+                frontBitmap!!,
+                StickerBackgroundCleaner.Mode.BlackOnly
+            ) == StickerBackgroundCleaner.Result.Cleaned
         currentImageBitmap = frontBitmap!!.asImageBitmap()
 
         withContext(Dispatchers.Default) {
@@ -112,6 +128,12 @@ class VpxStickerController(
                 if (isActive && localDecoder != null) {
                     try {
                         delayMs = localDecoder.renderFrame(backBitmap!!)
+                        if (delayMs >= 0 && shouldCleanBackground) {
+                            backgroundCleanerSession?.removeBlackEdgeBackground(
+                                backBitmap!!,
+                                StickerBackgroundCleaner.Mode.BlackOnly
+                            )
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -169,6 +191,9 @@ class VpxStickerController(
             backBitmap?.let { BitmapPool.recycle(it) }
             frontBitmap = null
             backBitmap = null
+            backgroundCleanerSession?.close()
+            backgroundCleanerSession = null
+            shouldCleanBackground = false
         }
     }
 
@@ -186,6 +211,10 @@ class VpxStickerController(
 
             val bitmap = BitmapPool.obtain(w, h)
             tempDecoder.renderFrame(bitmap)
+            StickerBackgroundCleaner.removeBlackEdgeBackground(
+                bitmap,
+                StickerBackgroundCleaner.Mode.BlackOnly
+            )
 
             bitmap.asImageBitmap()
         } catch (e: Exception) {

@@ -105,6 +105,7 @@ class LottieStickerController(
                 BitmapPool.recycle(bitmap)
                 return@withContext null
             }
+            StickerBackgroundCleaner.removeBlackEdgeBackground(bitmap)
 
             createImageBitmapSnapshot(bitmap)
         } catch (e: Exception) {
@@ -157,97 +158,106 @@ class LottieStickerController(
             fBitmap = BitmapPool.obtain(renderWidth, renderHeight)
             bBitmap = BitmapPool.obtain(renderWidth, renderHeight)
             sBitmap = BitmapPool.obtain(renderWidth, renderHeight)
-            val firstBitmap = requireNotNull(fBitmap)
+            val backgroundCleanerSession =
+                StickerBackgroundCleaner.Session(renderWidth, renderHeight)
+            backgroundCleanerSession.use { backgroundCleanerSession ->
+                val firstBitmap = requireNotNull(fBitmap)
 
-            if (!isActiveController) {
-                return
-            }
-
-            frontBitmap = fBitmap
-            backBitmap = bBitmap
-            spareBitmap = sBitmap
-
-            firstBitmap.eraseColor(0)
-            val firstFrameRendered = localDecoder.renderFrame(
-                bitmap = firstBitmap,
-                frameNo = 0,
-                drawLeft = boundsLeft,
-                drawTop = boundsTop,
-                drawWidth = compositionWidth,
-                drawHeight = compositionHeight
-            )
-            if (!firstFrameRendered) {
-                return
-            }
-
-            currentImageBitmap = createImageBitmapSnapshot(firstBitmap)
-
-            val totalFrames = localDecoder.getTotalFrames().coerceAtLeast(1)
-            val frameRate = localDecoder.getFrameRate().takeIf { it > 0.0 }
-                ?: run {
-                    val durationMs = localDecoder.getDurationMs().coerceAtLeast(1L)
-                    max(totalFrames / (durationMs / 1000.0), 1.0)
-                }
-            val normalizedFrameRate = frameRate.coerceIn(1.0, 120.0)
-
-            var lastFrameTime = System.nanoTime()
-            val frameDurationMs = max(1L, (1000.0 / normalizedFrameRate).toLong())
-            var frameAccumulator = 0.0
-            var frameNo = 0
-
-            while (isActiveController && scope.isActive) {
-                val now = System.nanoTime()
-                if (isPaused) {
-                    delay(100)
-                    lastFrameTime = System.nanoTime()
-                    continue
+                if (!isActiveController) {
+                    return
                 }
 
-                val dtMs = (now - lastFrameTime) / 1_000_000.0
-                frameAccumulator += dtMs * normalizedFrameRate / 1000.0
-                val framesToAdvance = frameAccumulator.toInt()
-                if (framesToAdvance <= 0) {
-                    lastFrameTime = now
-                    delay(1)
-                    continue
-                }
-                frameNo = (frameNo + framesToAdvance) % totalFrames
-                frameAccumulator -= framesToAdvance
+                frontBitmap = fBitmap
+                backBitmap = bBitmap
+                spareBitmap = sBitmap
 
-                val localBackBitmap = backBitmap ?: break
-
-                localBackBitmap.eraseColor(0)
-                val rendered = localDecoder.renderFrame(
-                    bitmap = localBackBitmap,
-                    frameNo = frameNo,
+                firstBitmap.eraseColor(0)
+                val firstFrameRendered = localDecoder.renderFrame(
+                    bitmap = firstBitmap,
+                    frameNo = 0,
                     drawLeft = boundsLeft,
                     drawTop = boundsTop,
                     drawWidth = compositionWidth,
                     drawHeight = compositionHeight
                 )
-                if (!rendered) {
-                    break
+                if (!firstFrameRendered) {
+                    return
                 }
+                val shouldCleanBackground =
+                    backgroundCleanerSession.removeBlackEdgeBackground(firstBitmap) == StickerBackgroundCleaner.Result.Cleaned
 
-                val previousFront = frontBitmap
-                frontBitmap = backBitmap
-                backBitmap = spareBitmap
-                spareBitmap = previousFront
+                currentImageBitmap = createImageBitmapSnapshot(firstBitmap)
 
-                val localFrontBitmap = frontBitmap
-                if (localFrontBitmap != null) {
-                    val renderedImage = createImageBitmapSnapshot(localFrontBitmap)
-                    if (renderedImage != null) {
-                        currentImageBitmap = renderedImage
-                        frameVersion++
+                val totalFrames = localDecoder.getTotalFrames().coerceAtLeast(1)
+                val frameRate = localDecoder.getFrameRate().takeIf { it > 0.0 }
+                    ?: run {
+                        val durationMs = localDecoder.getDurationMs().coerceAtLeast(1L)
+                        max(totalFrames / (durationMs / 1000.0), 1.0)
                     }
+                val normalizedFrameRate = frameRate.coerceIn(1.0, 120.0)
+
+                var lastFrameTime = System.nanoTime()
+                val frameDurationMs = max(1L, (1000.0 / normalizedFrameRate).toLong())
+                var frameAccumulator = 0.0
+                var frameNo = 0
+
+                while (isActiveController && scope.isActive) {
+                    val now = System.nanoTime()
+                    if (isPaused) {
+                        delay(100)
+                        lastFrameTime = System.nanoTime()
+                        continue
+                    }
+
+                    val dtMs = (now - lastFrameTime) / 1_000_000.0
+                    frameAccumulator += dtMs * normalizedFrameRate / 1000.0
+                    val framesToAdvance = frameAccumulator.toInt()
+                    if (framesToAdvance <= 0) {
+                        lastFrameTime = now
+                        delay(1)
+                        continue
+                    }
+                    frameNo = (frameNo + framesToAdvance) % totalFrames
+                    frameAccumulator -= framesToAdvance
+
+                    val localBackBitmap = backBitmap ?: break
+
+                    localBackBitmap.eraseColor(0)
+                    val rendered = localDecoder.renderFrame(
+                        bitmap = localBackBitmap,
+                        frameNo = frameNo,
+                        drawLeft = boundsLeft,
+                        drawTop = boundsTop,
+                        drawWidth = compositionWidth,
+                        drawHeight = compositionHeight
+                    )
+                    if (!rendered) {
+                        break
+                    }
+                    if (shouldCleanBackground) {
+                        backgroundCleanerSession.removeBlackEdgeBackground(localBackBitmap)
+                    }
+
+                    val previousFront = frontBitmap
+                    frontBitmap = backBitmap
+                    backBitmap = spareBitmap
+                    spareBitmap = previousFront
+
+                    val localFrontBitmap = frontBitmap
+                    if (localFrontBitmap != null) {
+                        val renderedImage = createImageBitmapSnapshot(localFrontBitmap)
+                        if (renderedImage != null) {
+                            currentImageBitmap = renderedImage
+                            frameVersion++
+                        }
+                    }
+
+                    lastFrameTime = now
+
+                    val workTime = (System.nanoTime() - now) / 1_000_000
+                    val delayTime = (frameDurationMs - workTime).coerceAtLeast(0)
+                    delay(delayTime)
                 }
-
-                lastFrameTime = now
-
-                val workTime = (System.nanoTime() - now) / 1_000_000
-                val delayTime = (frameDurationMs - workTime).coerceAtLeast(0)
-                delay(delayTime)
             }
         } finally {
             withContext(NonCancellable) {
