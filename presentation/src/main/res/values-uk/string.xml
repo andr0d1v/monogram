@@ -286,7 +286,6 @@
     <string name="statistics_subtitle">Детальна статистика чату</string>
     <string name="revenue_subtitle">Статистика доходів чату</string>
     <string name="contact_added_you_yes">Додав(ла) Вас до контактів</string>
-    <string name="contact_added_you_no">Не додав(ла) Вас до контактів</string>
     <string name="contact_saved_by_you">Збережено у Ваших контактах</string>
     <string name="contact_not_saved_by_you">Не збережено у Ваших контактах</string>
     <string name="profile_feature_stories_title">Історії профілю</string>

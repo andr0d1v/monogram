@@ -295,7 +295,6 @@
     <string name="statistics_subtitle">Zobraziť podrobné štatistiky chatu</string>
     <string name="revenue_subtitle">Zobraziť štatistiky príjmov chatu</string>
     <string name="contact_added_you_yes">Pridal vás do kontaktov</string>
-    <string name="contact_added_you_no">Nepridalo vás do kontaktov</string>
     <string name="contact_saved_by_you">Uložené vo vašich kontaktoch</string>
     <string name="contact_not_saved_by_you">Neuložené vo vašich kontaktoch</string>
     <string name="profile_feature_stories_title">Príbehy profilu</string>

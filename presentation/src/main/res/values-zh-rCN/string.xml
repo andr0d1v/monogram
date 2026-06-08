@@ -283,7 +283,6 @@
     <string name="statistics_subtitle">查看详细会话统计</string>
     <string name="revenue_subtitle">查看会话收入统计</string>
     <string name="contact_added_you_yes">已将你加入联系人</string>
-    <string name="contact_added_you_no">未将你加入联系人</string>
     <string name="contact_saved_by_you">已保存到你的联系人</string>
     <string name="contact_not_saved_by_you">未保存到你的联系人</string>
     <string name="profile_feature_stories_title">个人资料动态</string>

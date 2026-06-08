@@ -293,7 +293,6 @@
     <string name="statistics_subtitle">Детальная статистика чата</string>
     <string name="revenue_subtitle">Статистика доходов чата</string>
     <string name="contact_added_you_yes">Добавил(а) Вас в контакты</string>
-    <string name="contact_added_you_no">Не добавил(а) Вас в контакты</string>
     <string name="contact_saved_by_you">Сохранён(а) в Ваших контактах</string>
     <string name="contact_not_saved_by_you">Не сохранён(а) в Ваших контактах</string>
     <string name="profile_badge_admin">Админ</string>

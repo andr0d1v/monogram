@@ -275,7 +275,6 @@
     <string name="statistics_subtitle">Դիտել չատի մանրամասն վիճակագրությունը</string>
     <string name="revenue_subtitle">Դիտել չատի եկամուտների վիճակագրությունը</string>
     <string name="contact_added_you_yes">Ավելացրել է Ձեզ կոնտակտներում</string>
-    <string name="contact_added_you_no">Չի ավելացրել Ձեզ կոնտակտներում</string>
     <string name="contact_saved_by_you">Պահպանված է Ձեր կոնտակտներում</string>
     <string name="contact_not_saved_by_you">Պահպանված չէ Ձեր կոնտակտներում</string>
     <string name="profile_feature_stories_title">Պրոֆիլի սթորիներ</string>

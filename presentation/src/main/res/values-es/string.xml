@@ -285,7 +285,6 @@
     <string name="statistics_subtitle">Ver estadísticas detalladas del chat</string>
     <string name="revenue_subtitle">Ver estadísticas de ingresos del chat</string>
     <string name="contact_added_you_yes">Te añadió a contactos</string>
-    <string name="contact_added_you_no">No te añadió a contactos</string>
     <string name="contact_saved_by_you">Guardado en tus contactos</string>
     <string name="contact_not_saved_by_you">No guardado en tus contactos</string>
     <string name="profile_feature_stories_title">Historias de perfil</string>
