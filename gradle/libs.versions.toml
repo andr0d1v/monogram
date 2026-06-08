@@ -1,24 +1,24 @@
 [versions]
 # Plugins
-agp = "9.1.1"
-kotlin = "2.3.20"
+agp = "9.2.1"
+kotlin = "2.3.21"
 google-services = "4.4.4"
-ossLicensesPlugin = "0.11.0"
+ossLicensesPlugin = "0.12.0"
 ksp = "2.3.6"
-baselineprofile = "1.5.0-alpha05"
+baselineprofile = "1.5.0-alpha06"
 
 javaToolchain = "21"
 
 # AndroidX
 androidx-activityCompose = "1.13.0"
-androidx-biometric = "1.4.0-alpha06"
-androidx-camera = "1.6.0"
-androidx-compose-bom = "2026.03.01"
-androidx-compose-runtime = "1.10.6"
-androidx-compose-ui = "1.11.0-rc01"
-androidx-material3 = "1.4.0"
+androidx-biometric = "1.4.0-alpha07"
+androidx-camera = "1.6.1"
+androidx-compose-bom = "2026.05.01"
+androidx-compose-runtime = "1.11.2"
+androidx-compose-ui = "1.11.2"
+androidx-material3 = "1.5.0-alpha21"
 androidx-adaptive = "1.2.0"
-androidx-media3 = "1.10.0"
+androidx-media3 = "1.10.1"
 androidx-securityCrypto = "1.1.0"
 androidx-room = "2.8.4"
 androidx-uiautomator = "2.3.0"
@@ -28,29 +28,27 @@ androidx-window = "1.5.1"
 androidx-core-splashscreen = "1.2.0"
 
 # KotlinX
-kotlinx-coroutines = "1.10.2"
-kotlinx-serialization = "1.10.0"
+kotlinx-coroutines = "1.11.0"
+kotlinx-serialization = "1.11.0"
 
 # Architecture & DI
 decompose = "3.5.0"
-mvikotlin = "4.3.0"
-koin = "4.2.0"
+mvikotlin = "4.4.0"
+koin = "4.2.1"
 
 # UI & Media
 coil = "3.4.0"
 maplibre = "1.7.0"
 
 # Google & Firebase
-firebase-bom = "34.11.0"
-playServices-location = "21.3.0"
-playServices-mlkit-barcode = "18.3.1"
-playServices-ossLicenses = "17.5.0"
+firebase-bom = "34.14.0"
+playServices-ossLicenses = "17.5.1"
 
 # Others
 zxing = "3.5.4"
 junit = "4.13.2"
-libphonenumber = "9.0.27"
-unifiedpush-connector = "3.3.2"
+libphonenumber = "9.0.31"
+unifiedpush-connector = "3.3.3"
 
 [libraries]
 # AndroidX Activity
@@ -134,8 +132,6 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 
 # Play Services
-play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServices-location" }
-play-services-mlkit-barcode-scanning = { group = "com.google.android.gms", name = "play-services-mlkit-barcode-scanning", version.ref = "playServices-mlkit-barcode" }
 play-services-oss-licenses = { group = "com.google.android.gms", name = "play-services-oss-licenses", version.ref = "playServices-ossLicenses" }
 
 # Others
