@@ -1,9 +1,12 @@
 package org.monogram.data.infra
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import org.monogram.data.core.coRunCatching
@@ -20,10 +23,13 @@ private const val SPONSOR_CHANNEL_ID = -1003640797855L
 private const val SPONSOR_CHANNEL_USERNAME = "ahhfjfbdnejjfbfjdjdj"
 private const val HISTORY_LIMIT = 100
 private const val HISTORY_BATCHES_LIMIT = 20
-private const val SINGLE_RESULT_RETRY_DELAY_MS = 1500L
-private const val AUTH_CHECK_INTERVAL_MS = 5L * 60L * 1000L
-private const val POST_LOGIN_SYNC_DELAY_MS = 60L * 1000L
-private const val ONE_DAY_MS = 24L * 60L * 60L * 1000L
+private const val AUTH_CHECK_INTERVAL_MS = 60L * 1000L
+private const val POST_LOGIN_SYNC_DELAY_MS = 15L * 1000L
+private const val PERIODIC_SYNC_INTERVAL_MS = 60L * 60L * 1000L
+private const val EMPTY_CACHE_RETRY_INTERVAL_MS = 10L * 60L * 1000L
+private const val EVENT_DEBOUNCE_MS = 5L * 1000L
+private const val RETRY_WEAK_RESULT_DELAY_MS = 1500L
+private const val WEAK_RESULT_MIN_OLD_IDS = 3
 
 class SponsorSyncManager(
     private val scope: CoroutineScope,
@@ -34,6 +40,11 @@ class SponsorSyncManager(
     private val started = AtomicBoolean(false)
     private val syncInProgress = AtomicBoolean(false)
 
+    @Volatile
+    private var sponsorChatId = SPONSOR_CHANNEL_ID
+    private var eventSyncJob: Job? = null
+    private var failureCount = 0
+
     init {
         start()
     }
@@ -43,16 +54,18 @@ class SponsorSyncManager(
 
         scope.launch(Dispatchers.IO) {
             loadFromDatabase()
+            watchTelegramUpdates()
 
             var wasAuthorized = authRepository.authState.value is AuthStep.Ready
             if (wasAuthorized) {
-                syncOnce(force = true)
+                runScheduledSync(force = true, reason = "startup")
             }
 
-            while (true) {
+            while (isActive) {
                 val isAuthorized = authRepository.authState.value is AuthStep.Ready
                 if (!isAuthorized) {
                     wasAuthorized = false
+                    failureCount = 0
                     delay(AUTH_CHECK_INTERVAL_MS)
                     continue
                 }
@@ -61,25 +74,20 @@ class SponsorSyncManager(
                     wasAuthorized = true
                     Log.d(TAG, "User authorized, delaying sponsor sync for app init")
                     delay(POST_LOGIN_SYNC_DELAY_MS)
-                    syncOnce(force = true)
+                    runScheduledSync(force = true, reason = "auth_ready")
                     continue
                 }
 
-                if (sponsorDao.getAllIds().isEmpty()) {
-                    Log.d(TAG, "No sponsors in DB, syncing immediately")
-                    syncOnce(force = true)
-                    continue
-                }
-
-                delay(ONE_DAY_MS)
-                syncOnce(force = false)
+                val hasCachedSponsors = sponsorDao.getAllIds().isNotEmpty()
+                delay(nextPeriodicDelayMs(hasCachedSponsors))
+                runScheduledSync(force = !hasCachedSponsors, reason = "periodic")
             }
         }
     }
 
     fun forceSync() {
         scope.launch(Dispatchers.IO) {
-            syncOnce(force = true)
+            syncOnce(force = true, reason = "manual")
         }
     }
 
@@ -89,84 +97,177 @@ class SponsorSyncManager(
         Log.d(TAG, "Loaded ${cachedIds.size} sponsor ids from DB")
     }
 
-    private suspend fun syncOnce(force: Boolean) {
-        if (!syncInProgress.compareAndSet(false, true)) return
+    private suspend fun runScheduledSync(force: Boolean, reason: String) {
+        when (syncOnce(force = force, reason = reason)) {
+            SyncOutcome.SUCCESS,
+            SyncOutcome.SKIPPED -> failureCount = 0
+
+            SyncOutcome.FAILED -> {
+                failureCount++
+                val delayMs = failureBackoffMs(failureCount)
+                Log.w(TAG, "Sponsor sync failed ($reason), retrying in ${delayMs}ms")
+                delay(delayMs)
+                when (syncOnce(force = force, reason = "${reason}_retry")) {
+                    SyncOutcome.SUCCESS,
+                    SyncOutcome.SKIPPED -> failureCount = 0
+
+                    SyncOutcome.FAILED -> failureCount++
+                    SyncOutcome.BUSY -> Unit
+                }
+            }
+
+            SyncOutcome.BUSY -> Unit
+        }
+    }
+
+    private fun nextPeriodicDelayMs(hasCachedSponsors: Boolean): Long {
+        return if (hasCachedSponsors) PERIODIC_SYNC_INTERVAL_MS else EMPTY_CACHE_RETRY_INTERVAL_MS
+    }
+
+    private fun failureBackoffMs(failures: Int): Long {
+        val minutes = when (failures.coerceAtMost(4)) {
+            1 -> 2L
+            2 -> 5L
+            3 -> 15L
+            else -> 30L
+        }
+        return minutes * 60L * 1000L
+    }
+
+    private fun watchTelegramUpdates() {
+        scope.launch(Dispatchers.IO) {
+            gateway.updates.collect { update ->
+                when (update) {
+                    is TdApi.UpdateConnectionState -> {
+                        if (update.state is TdApi.ConnectionStateReady) {
+                            requestEventSync(reason = "connection_ready", force = false)
+                        }
+                    }
+
+                    is TdApi.UpdateNewMessage -> {
+                        if (update.message.chatId == sponsorChatId) {
+                            requestEventSync(reason = "new_message", force = true)
+                        }
+                    }
+
+                    is TdApi.UpdateMessageEdited -> {
+                        if (update.chatId == sponsorChatId) {
+                            requestEventSync(reason = "message_edited", force = true)
+                        }
+                    }
+
+                    is TdApi.UpdateMessageContent -> {
+                        if (update.chatId == sponsorChatId) {
+                            requestEventSync(reason = "message_content", force = true)
+                        }
+                    }
+
+                    is TdApi.UpdateDeleteMessages -> {
+                        if (update.chatId == sponsorChatId) {
+                            requestEventSync(reason = "messages_deleted", force = true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun requestEventSync(reason: String, force: Boolean) {
+        eventSyncJob?.cancel()
+        eventSyncJob = scope.launch(Dispatchers.IO) {
+            delay(EVENT_DEBOUNCE_MS)
+            syncOnce(force = force, reason = reason)
+        }
+    }
+
+    private suspend fun syncOnce(force: Boolean, reason: String): SyncOutcome {
+        if (!syncInProgress.compareAndSet(false, true)) return SyncOutcome.BUSY
 
         try {
             if (authRepository.authState.value !is AuthStep.Ready) {
                 Log.d(TAG, "Skipping sponsor sync: user is not authorized")
-                return
+                return SyncOutcome.SKIPPED
             }
 
             val latestUpdatedAt = sponsorDao.getLatestUpdatedAt() ?: 0L
             val age = System.currentTimeMillis() - latestUpdatedAt
-            if (!force && latestUpdatedAt > 0L && age < ONE_DAY_MS) {
+            if (!force && latestUpdatedAt > 0L && age < PERIODIC_SYNC_INTERVAL_MS) {
                 Log.d(TAG, "Skipping sync: last sync ${age}ms ago")
-                return
+                return SyncOutcome.SKIPPED
             }
 
-            Log.d(TAG, "Sponsor sync started (force=$force)")
-            val sponsorChatId = resolveSponsorChatId()
-            var historyMessages = loadSponsorHistoryMessages(sponsorChatId) ?: run {
-                Log.e(TAG, "Sponsor sync failed: unable to load sponsor history")
-                return
-            }
-
-            var parsedIds = parseSponsorIds(historyMessages)
-            if (parsedIds.size == 1) {
-                Log.w(TAG, "Only one sponsor id parsed, retrying history load")
-                delay(SINGLE_RESULT_RETRY_DELAY_MS)
-                val retryMessages = loadSponsorHistoryMessages(sponsorChatId)
-                if (retryMessages != null) {
-                    val retryParsedIds = parseSponsorIds(retryMessages)
-                    if (retryParsedIds.size > parsedIds.size) {
-                        historyMessages = retryMessages
-                        parsedIds = retryParsedIds
-                        Log.d(TAG, "Retry loaded more sponsor ids: ${parsedIds.size}")
-                    } else {
-                        Log.w(TAG, "Retry didn't improve sponsor ids: ${retryParsedIds.size}")
-                    }
+            Log.d(TAG, "Sponsor sync started (reason=$reason, force=$force)")
+            sponsorChatId = resolveSponsorChatId()
+            var historyMessages = when (val history = loadSponsorHistoryMessages(sponsorChatId)) {
+                is HistoryLoadResult.Success -> history.messages
+                is HistoryLoadResult.Failure -> {
+                    Log.e(TAG, "Sponsor sync failed: unable to load sponsor history", history.error)
+                    return SyncOutcome.FAILED
                 }
             }
 
             val oldIds = sponsorDao.getAllIds().toSet()
+            var parsedIds = parseSponsorIds(historyMessages)
+            if (isWeakResult(parsedIds, oldIds)) {
+                Log.w(
+                    TAG,
+                    "Sponsor history result looks weak: parsed=${parsedIds.size}, cached=${oldIds.size}, retrying"
+                )
+                delay(RETRY_WEAK_RESULT_DELAY_MS)
+                when (val retry = loadSponsorHistoryMessages(sponsorChatId)) {
+                    is HistoryLoadResult.Success -> {
+                        val retryParsedIds = parseSponsorIds(retry.messages)
+                        if (retryParsedIds.size > parsedIds.size) {
+                            historyMessages = retry.messages
+                            parsedIds = retryParsedIds
+                            Log.d(TAG, "Retry loaded more sponsor ids: ${parsedIds.size}")
+                        } else {
+                            Log.w(TAG, "Retry didn't improve sponsor ids: ${retryParsedIds.size}")
+                        }
+                    }
 
-            val now = System.currentTimeMillis()
-            val actualIds = when {
-                parsedIds.isEmpty() && oldIds.isNotEmpty() -> {
-                    Log.w(TAG, "Parsed empty sponsor list, keeping existing ${oldIds.size} ids")
-                    oldIds
-                }
-                parsedIds.isEmpty() -> {
-                    sponsorDao.clearAll()
-                    emptySet()
-                }
-                else -> {
-                    sponsorDao.insertAll(parsedIds.map { userId ->
-                        SponsorEntity(
-                            userId = userId,
-                            sourceChannelId = sponsorChatId,
-                            updatedAt = now
-                        )
-                    })
-                    sponsorDao.deleteNotIn(parsedIds.toList())
-                    parsedIds
+                    is HistoryLoadResult.Failure -> Log.e(TAG, "Sponsor retry failed", retry.error)
                 }
             }
+
+            if (parsedIds.isEmpty()) {
+                Log.w(TAG, "Parsed empty sponsor list, keeping existing ${oldIds.size} ids")
+                updateSponsorIds(oldIds)
+                return SyncOutcome.SUCCESS
+            }
+
+            val actualIds = oldIds + parsedIds
+            val now = System.currentTimeMillis()
+            sponsorDao.insertAll(actualIds.map { userId ->
+                SponsorEntity(
+                    userId = userId,
+                    sourceChannelId = sponsorChatId,
+                    updatedAt = now
+                )
+            })
 
             updateSponsorIds(actualIds)
 
             val added = actualIds - oldIds
-            val removed = oldIds - actualIds
             Log.d(
                 TAG,
-                "Sponsor sync finished: messages=${historyMessages.size}, ids=${actualIds.size}, added=${added.size}, removed=${removed.size}"
+                "Sponsor sync finished: messages=${historyMessages.size}, parsed=${parsedIds.size}, ids=${actualIds.size}, added=${added.size}"
             )
+            return SyncOutcome.SUCCESS
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             Log.e(TAG, "Sponsor sync failed", t)
+            return SyncOutcome.FAILED
         } finally {
             syncInProgress.set(false)
         }
+    }
+
+    private fun isWeakResult(parsedIds: Set<Long>, oldIds: Set<Long>): Boolean {
+        return parsedIds.isNotEmpty() &&
+                oldIds.size >= WEAK_RESULT_MIN_OLD_IDS &&
+                parsedIds.size < oldIds.size / 2
     }
 
     private suspend fun resolveSponsorChatId(): Long {
@@ -182,47 +283,66 @@ class SponsorSyncManager(
         }
     }
 
-    private suspend fun loadSponsorHistoryMessages(chatId: Long): List<TdApi.Message>? {
+    private suspend fun loadSponsorHistoryMessages(chatId: Long): HistoryLoadResult {
         val result = mutableListOf<TdApi.Message>()
         val seenIds = HashSet<Long>()
         var fromMessageId = 0L
 
         repeat(HISTORY_BATCHES_LIMIT) {
-            val batch = gateway.execute(
-                TdApi.GetChatHistory(chatId, fromMessageId, 0, HISTORY_LIMIT, false)
-            ) as? TdApi.Messages ?: return null
+            val batch = coRunCatching {
+                gateway.execute(
+                    TdApi.GetChatHistory(chatId, fromMessageId, 0, HISTORY_LIMIT, false)
+                ) as? TdApi.Messages
+            }.getOrElse { error ->
+                return HistoryLoadResult.Failure(error)
+            }
+                ?: return HistoryLoadResult.Failure(IllegalStateException("Unexpected GetChatHistory result"))
 
             if (batch.messages.isEmpty()) {
-                return result
+                return HistoryLoadResult.Success(result)
             }
 
-            var oldestInBatch = Long.MAX_VALUE
+            val oldestInBatch =
+                batch.messages.minOfOrNull { it.id } ?: return HistoryLoadResult.Success(result)
             batch.messages.forEach { message ->
                 if (seenIds.add(message.id)) {
                     result.add(message)
                 }
-                if (message.id in 1 until oldestInBatch) {
-                    oldestInBatch = message.id
-                }
             }
 
-            if (batch.messages.size < HISTORY_LIMIT || oldestInBatch == Long.MAX_VALUE || oldestInBatch == fromMessageId) {
-                return result
+            if (batch.messages.size < HISTORY_LIMIT || oldestInBatch <= 0L || oldestInBatch == fromMessageId) {
+                return HistoryLoadResult.Success(result)
             }
 
             fromMessageId = oldestInBatch
         }
 
-        return result
+        return HistoryLoadResult.Success(result)
     }
 
     private fun parseSponsorIds(messages: List<TdApi.Message>): Set<Long> {
-        val idRegex = Regex("\\b\\d{5,20}\\b")
-        return messages.asSequence()
+        var invalidTokens = 0
+        val ids = messages.asSequence()
             .mapNotNull { message -> extractText(message.content) }
-            .flatMap { text -> idRegex.findAll(text).map { it.value } }
-            .mapNotNull { it.toLongOrNull() }
+            .flatMap { text -> text.splitToSequence(",") }
+            .mapNotNull { token ->
+                val value = token.trim()
+                if (value.isEmpty()) return@mapNotNull null
+                val id = value.toLongOrNull()
+                if (id == null || id <= 0L) {
+                    invalidTokens++
+                    null
+                } else {
+                    id
+                }
+            }
             .toSet()
+
+        if (invalidTokens > 0) {
+            Log.w(TAG, "Skipped $invalidTokens invalid sponsor id tokens")
+        }
+
+        return ids
     }
 
     private fun extractText(content: TdApi.MessageContent): String? {
@@ -236,5 +356,17 @@ class SponsorSyncManager(
             is TdApi.MessageVoiceNote -> content.caption.text
             else -> null
         }
+    }
+
+    private enum class SyncOutcome {
+        SUCCESS,
+        FAILED,
+        SKIPPED,
+        BUSY
+    }
+
+    private sealed class HistoryLoadResult {
+        data class Success(val messages: List<TdApi.Message>) : HistoryLoadResult()
+        data class Failure(val error: Throwable) : HistoryLoadResult()
     }
 }
