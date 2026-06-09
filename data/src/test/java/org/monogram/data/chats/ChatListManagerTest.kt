@@ -16,7 +16,13 @@ class ChatListManagerTest {
 
         val manager = ChatListManager(cache) {}
         val result = manager.rebuildChatList(limit = 10) { chat, order, isPinned ->
-            ChatModel(id = chat.id, title = chat.title, order = order, isPinned = isPinned)
+            ChatModel(
+                id = chat.id,
+                title = chat.title,
+                unreadCount = 0,
+                order = order,
+                isPinned = isPinned
+            )
         }
 
         assertEquals(listOf(2L, 1L), result.map { it.id })

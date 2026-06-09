@@ -55,6 +55,7 @@ class ConnectionManager(
     val connectionStateFlow = _connectionStateFlow.asStateFlow()
 
     private var retryJob: Job? = null
+    private var pendingStatusJob: Job? = null
     private var proxyModeWatcherJob: Job? = null
     private var autoBestJob: Job? = null
     private var watchdogJob: Job? = null
@@ -62,7 +63,9 @@ class ConnectionManager(
     private var reconnectAttempts = 0
     private var lastRetryAtMs = 0L
     private var lastStateChangeAtMs = System.currentTimeMillis()
+    private var pendingStatusDueAtMs: Long? = null
     private val proxyRuleMutex = Mutex()
+    private val statusStabilizer = ConnectionStatusStabilizer(ConnectionStatus.Connecting)
 
     private val minRetryIntervalMs = 1_200L
     private val maxRetryDelayMs = 60_000L
@@ -101,9 +104,47 @@ class ConnectionManager(
             else -> ConnectionStatus.Connecting
         }
 
+        val now = System.currentTimeMillis()
+        val stabilized = statusStabilizer.onStatus(
+            rawStatus = status,
+            nowMs = now,
+            hasActiveNetwork = hasActiveNetwork()
+        )
+        val publishedStatus = stabilized.status
+        if (publishedStatus == null) {
+            schedulePendingStatus(stabilized.pendingDueAtMs, source)
+            Log.d(
+                tag,
+                "Connection state transient: ${_connectionStateFlow.value} -> $status ($source)"
+            )
+            return
+        }
+
+        pendingStatusJob?.cancel()
+        pendingStatusJob = null
+        pendingStatusDueAtMs = null
+        publishConnectionStatus(publishedStatus, source, now)
+    }
+
+    private fun schedulePendingStatus(dueAtMs: Long?, source: String) {
+        if (dueAtMs == null) return
+        if (pendingStatusDueAtMs == dueAtMs && pendingStatusJob?.isActive == true) return
+
+        pendingStatusDueAtMs = dueAtMs
+        pendingStatusJob?.cancel()
+        pendingStatusJob = scope.launch(dispatchers.default) {
+            delay((dueAtMs - System.currentTimeMillis()).coerceAtLeast(0L))
+            pendingStatusDueAtMs = null
+            val now = System.currentTimeMillis()
+            val status = statusStabilizer.publishPendingIfDue(now) ?: return@launch
+            publishConnectionStatus(status, "delayed:$source", now)
+        }
+    }
+
+    private fun publishConnectionStatus(status: ConnectionStatus, source: String, now: Long) {
         val previous = _connectionStateFlow.value
         if (previous != status) {
-            lastStateChangeAtMs = System.currentTimeMillis()
+            lastStateChangeAtMs = now
             Log.d(tag, "Connection state changed: $previous -> $status ($source)")
         }
 
