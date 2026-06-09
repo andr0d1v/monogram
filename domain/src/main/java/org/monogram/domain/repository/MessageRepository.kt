@@ -44,6 +44,25 @@ data class MessageThreadContext(
     val threadId: Long
 )
 
+data class ForwardTarget(
+    val chatId: Long,
+    val forumTopicId: Int? = null
+)
+
+data class ForwardOptions(
+    val sendCopy: Boolean = false,
+    val removeCaption: Boolean = false,
+    val commentText: String = "",
+    val commentEntities: List<MessageEntity> = emptyList()
+)
+
+data class ForwardRequest(
+    val fromChatId: Long,
+    val messageIds: List<Long>,
+    val targets: List<ForwardTarget>,
+    val options: ForwardOptions = ForwardOptions()
+)
+
 interface MessageRepository :
     FileRepository,
     InlineBotRepository,
@@ -70,8 +89,23 @@ interface MessageRepository :
     suspend fun openChat(chatId: Long)
     suspend fun closeChat(chatId: Long)
 
-    suspend fun sendVideoNote(chatId: Long, videoPath: String, duration: Int, length: Int)
-    suspend fun sendVoiceNote(chatId: Long, voicePath: String, duration: Int, waveform: ByteArray)
+    suspend fun sendVideoNote(
+        chatId: Long,
+        videoPath: String,
+        duration: Int,
+        length: Int,
+        replyToMsgId: Long? = null,
+        threadId: Long? = null
+    )
+
+    suspend fun sendVoiceNote(
+        chatId: Long,
+        voicePath: String,
+        duration: Int,
+        waveform: ByteArray,
+        replyToMsgId: Long? = null,
+        threadId: Long? = null
+    )
 
     suspend fun getMessagesOlder(
         chatId: Long,
@@ -81,24 +115,6 @@ interface MessageRepository :
     ): OlderMessagesPage
 
     suspend fun getCachedMessages(chatId: Long, limit: Int): List<MessageModel>
-
-    suspend fun getCachedMessagesOlder(
-        chatId: Long,
-        fromMessageId: Long,
-        limit: Int
-    ): List<MessageModel>
-
-    suspend fun getCachedMessagesNewer(
-        chatId: Long,
-        fromMessageId: Long,
-        limit: Int
-    ): List<MessageModel>
-
-    suspend fun getCachedMessagesAround(
-        chatId: Long,
-        messageId: Long,
-        limit: Int
-    ): List<MessageModel>
 
     suspend fun getMessagesNewer(
         chatId: Long,
@@ -238,6 +254,7 @@ interface MessageRepository :
         messageId: Long,
         sendCopy: Boolean = false
     )
+    suspend fun forwardMessages(request: ForwardRequest)
     suspend fun deleteMessage(chatId: Long, messageIds: List<Long>, revoke: Boolean = false)
     suspend fun editMessage(chatId: Long, messageId: Long, newText: String, entities: List<MessageEntity> = emptyList())
     suspend fun editMessageCaption(chatId: Long, messageId: Long, newCaption: String, entities: List<MessageEntity> = emptyList())

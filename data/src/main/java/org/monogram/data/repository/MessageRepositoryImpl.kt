@@ -52,6 +52,7 @@ import org.monogram.domain.models.webapp.ThemeParams
 import org.monogram.domain.models.webapp.WebAppInfoModel
 import org.monogram.domain.repository.FixedTextResult
 import org.monogram.domain.repository.FormattedTextResult
+import org.monogram.domain.repository.ForwardRequest
 import org.monogram.domain.repository.InlineBotResultsModel
 import org.monogram.domain.repository.MessageRepository
 import org.monogram.domain.repository.MessageThreadContext
@@ -428,12 +429,26 @@ class MessageRepositoryImpl(
         )
     }
 
-    override suspend fun sendVideoNote(chatId: Long, videoPath: String, duration: Int, length: Int) {
-        messageRemoteDataSource.sendVideoNote(chatId, videoPath, duration, length)
+    override suspend fun sendVideoNote(
+        chatId: Long,
+        videoPath: String,
+        duration: Int,
+        length: Int,
+        replyToMsgId: Long?,
+        threadId: Long?
+    ) {
+        messageRemoteDataSource.sendVideoNote(chatId, videoPath, duration, length, replyToMsgId, threadId)
     }
 
-    override suspend fun sendVoiceNote(chatId: Long, voicePath: String, duration: Int, waveform: ByteArray) {
-        messageRemoteDataSource.sendVoiceNote(chatId, voicePath, duration, waveform)
+    override suspend fun sendVoiceNote(
+        chatId: Long,
+        voicePath: String,
+        duration: Int,
+        waveform: ByteArray,
+        replyToMsgId: Long?,
+        threadId: Long?
+    ) {
+        messageRemoteDataSource.sendVoiceNote(chatId, voicePath, duration, waveform, replyToMsgId, threadId)
     }
 
     override suspend fun forwardMessage(
@@ -443,12 +458,26 @@ class MessageRepositoryImpl(
         sendCopy: Boolean
     ) {
         messageRemoteDataSource.forwardMessages(
-            toChatId,
-            fromChatId,
-            longArrayOf(messageId),
-            false,
-            sendCopy
+            toChatId = toChatId,
+            fromChatId = fromChatId,
+            messageIds = longArrayOf(messageId),
+            forumTopicId = null,
+            removeCaption = false,
+            sendCopy = sendCopy
         )
+    }
+
+    override suspend fun forwardMessages(request: ForwardRequest) {
+        request.targets.forEach { target ->
+            messageRemoteDataSource.forwardMessages(
+                toChatId = target.chatId,
+                fromChatId = request.fromChatId,
+                messageIds = request.messageIds.toLongArray(),
+                forumTopicId = target.forumTopicId,
+                removeCaption = request.options.removeCaption,
+                sendCopy = request.options.sendCopy
+            )
+        }
     }
 
     override suspend fun deleteMessage(chatId: Long, messageIds: List<Long>, revoke: Boolean) {
@@ -513,44 +542,6 @@ class MessageRepositoryImpl(
     override suspend fun getCachedMessages(chatId: Long, limit: Int): List<MessageModel> =
         withContext(dispatcherProvider.io) {
             val local = chatLocalDataSource.getLatestMessages(chatId, limit)
-            mapLocalMessages(local)
-        }
-
-    override suspend fun getCachedMessagesOlder(
-        chatId: Long,
-        fromMessageId: Long,
-        limit: Int
-    ): List<MessageModel> =
-        withContext(dispatcherProvider.io) {
-            val local = chatLocalDataSource.getMessagesOlder(chatId, fromMessageId, limit)
-            mapLocalMessages(local)
-        }
-
-    override suspend fun getCachedMessagesNewer(
-        chatId: Long,
-        fromMessageId: Long,
-        limit: Int
-    ): List<MessageModel> =
-        withContext(dispatcherProvider.io) {
-            val local = chatLocalDataSource.getMessagesNewer(chatId, fromMessageId, limit)
-            mapLocalMessages(local)
-        }
-
-    override suspend fun getCachedMessagesAround(
-        chatId: Long,
-        messageId: Long,
-        limit: Int
-    ): List<MessageModel> =
-        withContext(dispatcherProvider.io) {
-            val halfLimit = (limit / 2).coerceAtLeast(1)
-            val anchor = chatLocalDataSource.getMessage(chatId, messageId)
-            val older = chatLocalDataSource.getMessagesOlder(chatId, messageId, halfLimit)
-            val newer = chatLocalDataSource.getMessagesNewer(chatId, messageId, halfLimit)
-            val local = buildList {
-                addAll(newer)
-                if (anchor != null) add(anchor)
-                addAll(older)
-            }.distinctBy { it.id }
             mapLocalMessages(local)
         }
 
