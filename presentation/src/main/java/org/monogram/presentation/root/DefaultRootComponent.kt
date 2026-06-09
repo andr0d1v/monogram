@@ -504,25 +504,36 @@ class DefaultRootComponent(
                     },
                     onSettingsClick = { navigation.bringToFront(Config.Settings) },
                     onProxySettingsClick = { navigation.bringToFront(Config.Proxy) },
-                    onConfirmForward = { targetChatIds ->
+                    onConfirmForward = { request ->
                         if (config.forwardingMessageIds != null) {
                             scope.launch {
-                                messageRepository.forwardMessages(targetChatIds)
-                                val commentText = targetChatIds.options.commentText.trim()
-                                if (commentText.isNotEmpty()) {
-                                    targetChatIds.targets.forEach { target ->
-                                        messageRepository.sendMessage(
-                                            chatId = target.chatId,
-                                            text = commentText,
-                                            replyToMsgId = null,
-                                            entities = targetChatIds.options.commentEntities,
-                                            threadId = target.forumTopicId?.toLong()
-                                        )
+                                try {
+                                    messageRepository.forwardMessages(request)
+                                    val commentText = request.options.commentText.trim()
+                                    if (commentText.isNotEmpty()) {
+                                        request.targets.forEach { target ->
+                                            messageRepository.sendMessage(
+                                                chatId = target.chatId,
+                                                text = commentText,
+                                                replyToMsgId = null,
+                                                entities = request.options.commentEntities,
+                                                threadId = target.forumTopicId?.toLong()
+                                            )
+                                        }
+                                    }
+                                } catch (error: Throwable) {
+                                    Log.e(
+                                        "DefaultRootComponent",
+                                        "Failed to forward messages",
+                                        error
+                                    )
+                                } finally {
+                                    navigation.pop()
+                                    if (request.targets.size == 1) {
+                                        navigateToChat(request.targets.first().chatId)
                                     }
                                 }
                             }
-                            navigation.pop()
-                            if (targetChatIds.targets.size == 1) navigateToChat(targetChatIds.targets.first().chatId)
                         }
                     },
                     isForwarding = config.forwardingMessageIds != null,

@@ -60,6 +60,17 @@ class RoomChatLocalDataSource(
 
     override suspend fun insertMessages(messages: List<MessageEntity>) = messageDao.insertMessages(messages)
 
+    override suspend fun replaceMessageId(
+        chatId: Long,
+        oldMessageId: Long,
+        message: MessageEntity
+    ) {
+        database.withTransaction {
+            messageDao.deleteMessage(chatId, oldMessageId)
+            messageDao.insertMessage(message)
+        }
+    }
+
     override suspend fun markAsRead(chatId: Long, upToMessageId: Long) = messageDao.markAsRead(chatId, upToMessageId)
 
     override suspend fun updateMessageContent(

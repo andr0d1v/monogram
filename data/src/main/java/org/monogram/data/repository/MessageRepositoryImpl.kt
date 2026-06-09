@@ -186,6 +186,15 @@ class MessageRepositoryImpl(
                 chatLocalDataSource.insertMessage(entity)
             }
 
+            is TdApi.UpdateMessageSendSucceeded -> {
+                val entity = messageMapper.mapToEntity(update.message, ::resolveSenderName)
+                chatLocalDataSource.replaceMessageId(
+                    chatId = update.message.chatId,
+                    oldMessageId = update.oldMessageId,
+                    message = entity
+                )
+            }
+
             is TdApi.UpdateMessageContent -> {
                 val extracted = messageMapper.extractCachedContent(update.newContent)
 

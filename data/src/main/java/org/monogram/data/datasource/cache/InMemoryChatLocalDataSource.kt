@@ -110,6 +110,15 @@ class InMemoryChatLocalDataSource : ChatLocalDataSource {
         messages.forEach { insertMessage(it) }
     }
 
+    override suspend fun replaceMessageId(
+        chatId: Long,
+        oldMessageId: Long,
+        message: MessageEntity
+    ) {
+        messages.getOrPut(chatId) { MutableStateFlow(emptyMap()) }
+            .update { it - oldMessageId + (message.id to message) }
+    }
+
     override suspend fun markAsRead(chatId: Long, upToMessageId: Long) {
         messages[chatId]?.update { current ->
             current.mapValues { (_, msg) ->

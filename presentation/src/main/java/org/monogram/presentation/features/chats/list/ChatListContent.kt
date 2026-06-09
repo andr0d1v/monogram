@@ -89,6 +89,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -820,6 +821,7 @@ fun ChatListContent(component: ChatListComponent) {
         removeCaption = forwardRemoveCaption,
         onRemoveCaptionChange = { forwardRemoveCaption = it },
         onRemoveTarget = component::onRemoveForwardTarget,
+        isSending = uiState.isForwardSubmitInProgress,
         isCollapsed = isForwardPanelCollapsed,
         onCollapsedChange = { isForwardPanelCollapsed = it },
         onSend = {
@@ -1951,6 +1953,7 @@ private fun ForwardTopicPickerSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = { BottomSheetDefaults.DragHandle() },
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -1976,29 +1979,35 @@ private fun ForwardTopicPickerSheet(
             Spacer(Modifier.height(18.dp))
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Column {
-                    ForwardTopicRow(
-                        title = stringResource(R.string.forward_main_chat),
-                        subtitle = stringResource(R.string.forward_main_chat_subtitle),
-                        onClick = { onTopicSelected(chatId, null) }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 68.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                    )
-                    if (isLoading) {
-                        Text(
-                            text = stringResource(R.string.loading_text),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                LazyColumn {
+                    item {
+                        ForwardTopicRow(
+                            title = stringResource(R.string.forward_main_chat),
+                            subtitle = stringResource(R.string.forward_main_chat_subtitle),
+                            onClick = { onTopicSelected(chatId, null) }
                         )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 68.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                    }
+                    if (isLoading) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.loading_text),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     } else {
-                        topics.forEachIndexed { index, topic ->
+                        itemsIndexed(topics) { index, topic ->
                             ForwardTopicRow(
                                 title = topic.name,
                                 subtitle = topic.lastMessageText.takeIf { it.isNotBlank() },
@@ -2079,6 +2088,7 @@ private fun ForwardConfirmationPanel(
     removeCaption: Boolean,
     onRemoveCaptionChange: (Boolean) -> Unit,
     onRemoveTarget: (ForwardTarget) -> Unit,
+    isSending: Boolean,
     isCollapsed: Boolean,
     onCollapsedChange: (Boolean) -> Unit,
     onSend: () -> Unit
@@ -2139,6 +2149,7 @@ private fun ForwardConfirmationPanel(
                             targetsCount = targets.size,
                             onExpand = { onCollapsedChange(false) },
                             onSend = onSend,
+                            isSending = isSending,
                             modifier = Modifier.forwardPanelSwipe()
                         )
                     } else {
@@ -2232,7 +2243,7 @@ private fun ForwardConfirmationPanel(
                                     ForwardOptionRow(
                                         title = stringResource(R.string.forward_without_author),
                                         checked = sendCopy,
-                                        enabled = true,
+                                        enabled = !isSending,
                                         onCheckedChange = onSendCopyChange
                                     )
                                     HorizontalDivider(
@@ -2242,7 +2253,7 @@ private fun ForwardConfirmationPanel(
                                     ForwardOptionRow(
                                         title = stringResource(R.string.forward_without_caption),
                                         checked = removeCaption,
-                                        enabled = sendCopy,
+                                        enabled = sendCopy && !isSending,
                                         onCheckedChange = onRemoveCaptionChange
                                     )
                                 }
@@ -2250,6 +2261,7 @@ private fun ForwardConfirmationPanel(
 
                             Button(
                                 onClick = onSend,
+                                enabled = !isSending,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(ButtonDefaults.MediumContainerHeight),
@@ -2282,6 +2294,7 @@ private fun ForwardCollapsedPanel(
     targetsCount: Int,
     onExpand: () -> Unit,
     onSend: () -> Unit,
+    isSending: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -2304,6 +2317,7 @@ private fun ForwardCollapsedPanel(
         )
         Button(
             onClick = onSend,
+            enabled = !isSending,
             modifier = Modifier.height(40.dp),
             shapes = org.monogram.presentation.core.ui.ExpressiveDefaults.buttonShapesFor(
                 ButtonDefaults.MediumContainerHeight

@@ -109,6 +109,7 @@ class DefaultChatListComponent(
         isArchivePinned = isArchivePinned,
         isArchiveAlwaysVisible = isArchiveAlwaysVisible,
         isForwarding = isForwarding,
+        isForwardSubmitInProgress = isForwardSubmitInProgress,
         instantViewUrl = instantViewUrl,
         isProxyEnabled = isProxyEnabled,
         attachMenuBots = attachMenuBots,
@@ -153,6 +154,7 @@ class DefaultChatListComponent(
             forwardTopicPickerChatTitle = forwardTopicPickerChatTitle,
             forwardTopics = forwardTopics,
             isLoadingForwardTopics = isLoadingForwardTopics,
+            isForwardSubmitInProgress = isForwardSubmitInProgress,
             allPinned = allPinned,
             allMuted = allMuted,
             canMarkUnread = canMarkUnread,
@@ -783,7 +785,9 @@ class DefaultChatListComponent(
     ): ChatListStore.Label.ConfirmForward? {
         val fromChatId = forwardingFromChatId ?: return null
         val messageIds = forwardingMessageIds.takeIf { it.isNotEmpty() } ?: return null
-        val targets = _state.value.selectedForwardTargets.takeIf { it.isNotEmpty() } ?: return null
+        val state = _state.value
+        if (state.isForwardSubmitInProgress) return null
+        val targets = state.selectedForwardTargets.takeIf { it.isNotEmpty() } ?: return null
         val request = ForwardRequest(
             fromChatId = fromChatId,
             messageIds = messageIds,
@@ -795,6 +799,16 @@ class DefaultChatListComponent(
                 commentEntities = commentEntities
             )
         )
+        _state.update {
+            it.copy(
+                isForwardSubmitInProgress = true,
+                selectedForwardTargets = emptyList(),
+                forwardTopicPickerChatId = null,
+                forwardTopicPickerChatTitle = "",
+                forwardTopics = emptyList(),
+                isLoadingForwardTopics = false
+            )
+        }
         return ChatListStore.Label.ConfirmForward(request)
     }
 
