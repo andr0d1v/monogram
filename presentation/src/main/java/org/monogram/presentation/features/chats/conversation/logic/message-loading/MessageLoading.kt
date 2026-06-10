@@ -1495,6 +1495,11 @@ internal fun DefaultChatComponent.handleTopicClick(topicId: Int) {
             pendingScrollCommand = null
         )
     }
+    if (topicId != 0) {
+        scope.launch {
+            forumTopicsRepository.markForumTopicAsRead(chatId, topicId)
+        }
+    }
     loadMessages(force = true)
 }
 

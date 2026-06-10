@@ -218,6 +218,35 @@ class TdChatRemoteSource(
         }
     }
 
+    override suspend fun markForumTopicAsRead(chatId: Long, topicId: Int) {
+        val topic = coRunCatching {
+            gateway.execute(TdApi.GetForumTopic(chatId, topicId))
+        }.getOrNull()
+
+        topic?.lastMessage?.let { lastMessage ->
+            coRunCatching {
+                gateway.execute(
+                    TdApi.ViewMessages(
+                        chatId,
+                        longArrayOf(lastMessage.id),
+                        TdApi.MessageSourceForumTopicHistory(),
+                        true
+                    )
+                )
+            }
+        }
+
+        coRunCatching {
+            gateway.execute(TdApi.ReadAllForumTopicMentions(chatId, topicId))
+        }
+        coRunCatching {
+            gateway.execute(TdApi.ReadAllForumTopicReactions(chatId, topicId))
+        }
+        coRunCatching {
+            gateway.execute(TdApi.ReadAllForumTopicPollVotes(chatId, topicId))
+        }
+    }
+
     override suspend fun deleteChat(chatId: Long) {
         coRunCatching { gateway.execute(TdApi.DeleteChat(chatId)) }
     }

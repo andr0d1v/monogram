@@ -813,6 +813,12 @@ class ChatsListRepositoryImpl(
         )
     }
 
+    override suspend fun markForumTopicAsRead(chatId: Long, topicId: Int) {
+        chatRemoteSource.markForumTopicAsRead(chatId, topicId)
+        forumTopicsManager.getForumTopics(chatId = chatId, limit = 100)
+        refreshChat(chatId)
+    }
+
     override fun clearChatHistory(chatId: Long, revoke: Boolean) {
         scope.launch(dispatchers.io) {
             chatRemoteSource.clearChatHistory(chatId, revoke)

@@ -14,4 +14,6 @@ interface ForumTopicsRepository {
         offsetForumTopicId: Int = 0,
         limit: Int = 20
     ): List<TopicModel>
+
+    suspend fun markForumTopicAsRead(chatId: Long, topicId: Int)
 }

@@ -313,6 +313,29 @@ object MonogramMigrations {
         }
     }
 
+    val MIGRATION_32_33 = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.addColumn("topics", "lastReadInboxMessageId", "INTEGER NOT NULL DEFAULT 0")
+            db.addColumn("topics", "lastReadOutboxMessageId", "INTEGER NOT NULL DEFAULT 0")
+            db.addColumn("topics", "unreadMentionCount", "INTEGER NOT NULL DEFAULT 0")
+            db.addColumn("topics", "unreadReactionCount", "INTEGER NOT NULL DEFAULT 0")
+            db.addColumn("topics", "unreadPollVoteCount", "INTEGER NOT NULL DEFAULT 0")
+
+            db.execSQL(
+                """
+                UPDATE `messages`
+                SET `mediaFileId` = 0,
+                    `mediaPath` = NULL,
+                    `mediaThumbnailPath` = NULL
+                WHERE `mediaFileId` != 0
+                   OR `mediaPath` IS NOT NULL
+                   OR `mediaThumbnailPath` IS NOT NULL
+                """.trimIndent()
+            )
+            db.execSQL("DELETE FROM `sticker_paths`")
+        }
+    }
+
     private fun SupportSQLiteDatabase.addColumn(table: String, column: String, definition: String) {
         execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $definition")
     }
