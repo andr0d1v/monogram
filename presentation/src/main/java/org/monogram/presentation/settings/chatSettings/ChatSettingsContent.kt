@@ -56,6 +56,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.BrightnessLow
 import androidx.compose.material.icons.rounded.Check
@@ -941,8 +942,17 @@ fun ChatSettingsContent(component: ChatSettingsComponent) {
                     subtitle = stringResource(R.string.drag_to_back_subtitle),
                     checked = state.isDragToBackEnabled,
                     iconColor = tealColor,
-                    position = ItemPosition.BOTTOM,
+                    position = ItemPosition.MIDDLE,
                     onCheckedChange = component::onDragToBackChanged
+                )
+                SettingsSwitchTile(
+                    icon = Icons.Rounded.OpenInBrowser,
+                    title = stringResource(R.string.in_app_browser_title),
+                    subtitle = stringResource(R.string.in_app_browser_subtitle),
+                    checked = state.inAppBrowserEnabled,
+                    iconColor = purpleColor,
+                    position = ItemPosition.BOTTOM,
+                    onCheckedChange = component::onInAppBrowserEnabledChanged
                 )
             }
 
