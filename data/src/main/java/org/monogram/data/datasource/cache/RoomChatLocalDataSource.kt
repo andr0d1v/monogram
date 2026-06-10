@@ -88,13 +88,13 @@ class RoomChatLocalDataSource(
         content,
         contentType,
         contentMeta,
-        mediaFileId,
-        mediaPath,
+        0,
+        null,
         editDate
     )
 
     override suspend fun updateMediaPath(chatId: Long, messageId: Long, fileId: Int, path: String) {
-        messageDao.updateMediaPathForMessage(chatId = chatId, messageId = messageId, fileId = fileId, path = path)
+        // TDLib file ids and local paths are session-local
     }
 
     override suspend fun clearCachedMediaPaths() = messageDao.clearCachedMediaPaths()

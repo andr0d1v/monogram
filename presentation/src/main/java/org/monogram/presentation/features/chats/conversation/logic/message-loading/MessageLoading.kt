@@ -265,6 +265,22 @@ private fun MessageModel.deliverySignature(): String? {
     }
 }
 
+private fun MessageModel.hasUnresolvableCachedMedia(): Boolean {
+    return when (val c = content) {
+        is MessageContent.Photo -> c.path.isNullOrBlank() && c.thumbnailPath.isNullOrBlank() &&
+                c.fileId == 0 && c.originalFileId == 0
+
+        is MessageContent.Video -> c.path.isNullOrBlank() && c.thumbnailPath.isNullOrBlank() && c.fileId == 0
+        is MessageContent.Voice -> c.path.isNullOrBlank() && c.fileId == 0
+        is MessageContent.VideoNote -> c.path.isNullOrBlank() && c.thumbnail.isNullOrBlank() && c.fileId == 0
+        is MessageContent.Sticker -> c.path.isNullOrBlank() && c.fileId == 0
+        is MessageContent.Document -> c.path.isNullOrBlank() && c.fileId == 0
+        is MessageContent.Audio -> c.path.isNullOrBlank() && c.fileId == 0
+        is MessageContent.Gif -> c.path.isNullOrBlank() && c.fileId == 0
+        else -> false
+    }
+}
+
 internal fun DefaultChatComponent.loadMessages(force: Boolean = false) {
     val state = _state.value
     if (state.isLoading) return
@@ -445,7 +461,9 @@ private suspend fun DefaultChatComponent.loadBottomMessages(
     val messages = olderPage.messages
     val isRemoteSameAsCachedPreview = hasCachedPreview && cachedMessages.isNotEmpty() &&
             messages.size == cachedMessages.size &&
-            messages.zip(cachedMessages).all { (remote, cached) -> remote.id == cached.id }
+            messages.zip(cachedMessages).all { (remote, cached) ->
+                remote.id == cached.id && !cached.hasUnresolvableCachedMedia()
+            }
 
     val isOldestLoaded = if (isRemoteSameAsCachedPreview) {
         false

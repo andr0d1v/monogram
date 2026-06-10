@@ -175,7 +175,7 @@ class StickerFileManager(
         }
         val liveKnownPath = authoritativeFile?.local?.path?.takeUnless { it.isNullOrBlank() }
         val memoryPath = filePathsCache[fileId]
-        val dbPath = localDataSource.getPath(fileId)
+        val dbPath = null
         val completedPath = fileUpdateHandler.fileDownloadCompleted
             .replayCache
             .firstOrNull { it.first == fileId && isValidFilePath(it.second) }
