@@ -222,10 +222,12 @@
     <string name="report_reason_other_description">Что-то другое, что нарушает наши условия</string>
     <string name="restrict_user_title">Ограничить пользователя</string>
     <string name="permission_send_messages">Отправка сообщений</string>
+    <string name="permission_react_to_messages">Реакции на сообщения</string>
     <string name="permission_send_media">Отправка медиа</string>
     <string name="permission_send_stickers_gifs">Отправка стикеров и GIF</string>
     <string name="permission_send_polls">Отправка опросов</string>
     <string name="permission_embed_links">Предпросмотр ссылок</string>
+    <string name="proxy_comment_placeholder">Комментарий</string>
     <string name="permission_pin_messages">Закрепление сообщений</string>
     <string name="permission_change_chat_info">Изменение данных чата</string>
     <string name="restrict_until">Ограничить до</string>
@@ -634,6 +636,7 @@
     <!-- Chat Settings -->
     <string name="chat_settings_header">Настройки чатов</string>
     <string name="appearance_header">Внешний вид</string>
+    <string name="in_app_browser_subtitle">Открывать сторонние ссылки внутри приложения</string>
     <string name="message_text_size_title">Размер текста</string>
     <string name="message_letter_spacing_title">Межбуквенный интервал</string>
     <string name="bubble_rounding_title">Скругление блоков</string>
@@ -2303,4 +2306,6 @@
     <string name="profile_badge_group">Группа</string>
     <string name="profile_badge_channel">Канал</string>
     <string name="profile_section_overview">Основное</string>
+    <string name="in_app_browser_title">Встроенный браузер</string>
+    <string name="deleted_account">Удаленный аккаунт</string>
 </resources>

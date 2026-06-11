@@ -256,7 +256,7 @@
     <string name="permission_send_stickers_gifs">Send Stickers &amp; GIFs</string>
     <string name="permission_send_polls">Send Polls</string>
     <string name="permission_embed_links">Embed Links</string>
-    <string name="proxy_comment_placeholder">Comment (optional)</string>
+    <string name="proxy_comment_placeholder">Comment</string>
     <string name="permission_pin_messages">Pin Messages</string>
     <string name="permission_change_chat_info">Change Chat Info</string>
     <string name="restrict_until">Restrict until</string>
