@@ -14,6 +14,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -66,6 +67,7 @@ import org.monogram.presentation.features.chats.conversation.logic.loadScheduled
 import org.monogram.presentation.features.chats.conversation.logic.loadWallpapers
 import org.monogram.presentation.features.chats.conversation.logic.observePreferences
 import org.monogram.presentation.features.chats.conversation.logic.observeUserUpdates
+import org.monogram.presentation.features.chats.conversation.logic.refreshDraftLinkPreviewOnPhotoDownloadIfNeeded
 import org.monogram.presentation.features.chats.conversation.logic.setupMessageCollectors
 import org.monogram.presentation.features.chats.conversation.logic.setupPinnedMessageCollector
 import org.monogram.presentation.root.AppComponentContext
@@ -114,6 +116,8 @@ class DefaultChatComponent(
     var loadNewerJob: Job? = null
     var inlineBotJob: Job? = null
     var draftSaveJob: Job? = null
+    var draftLinkPreviewJob: Job? = null
+    var draftLinkPreviewDebounceJob: Job? = null
     private var autoLoadJob: Job? = null
     private var mentionJob: Job? = null
     internal var searchJob: Job? = null
@@ -152,6 +156,8 @@ class DefaultChatComponent(
             autoDownloadFiles = appPreferences.autoDownloadFiles.value,
             autoplayGifs = appPreferences.autoplayGifs.value,
             autoplayVideos = appPreferences.autoplayVideos.value,
+            showLinkPreviews = appPreferences.showLinkPreviews.value,
+            fixLinkPreviews = appPreferences.fixLinkPreviews.value,
             isWhitelistedInAdBlock = appPreferences.adBlockWhitelistedChannels.value.contains(chatId),
             scrollToMessageId = initialMessageId,
             lastScrollPosition = cacheProvider.getChatScrollPosition(chatId),
@@ -244,6 +250,13 @@ class DefaultChatComponent(
         _state.onEach {
             store.accept(ChatStore.Intent.UpdateState(it))
         }.launchIn(scope)
+
+        repositoryMessage.fileDownloadFlow
+            .filterIsInstance<org.monogram.domain.models.FileDownloadEvent.Completed>()
+            .onEach { event ->
+                refreshDraftLinkPreviewOnPhotoDownloadIfNeeded(event.fileId)
+            }
+            .launchIn(scope)
     }
 
     private fun initialLoad() {
@@ -428,6 +441,14 @@ class DefaultChatComponent(
         store.accept(ChatStore.Intent.SaveEditedMessage(text, entities))
 
     override fun onDraftChange(text: String) = store.accept(ChatStore.Intent.DraftChange(text))
+    override fun onSelectDraftLinkPreview(url: String) =
+        store.accept(ChatStore.Intent.SelectDraftLinkPreview(url))
+
+    override fun onDismissDraftLinkPreview() =
+        store.accept(ChatStore.Intent.DismissDraftLinkPreview)
+
+    override fun onRestoreDraftLinkPreview() =
+        store.accept(ChatStore.Intent.RestoreDraftLinkPreview)
 
     override fun onPinMessage(message: MessageModel) = store.accept(ChatStore.Intent.PinMessage(message))
 

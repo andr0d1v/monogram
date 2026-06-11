@@ -6,6 +6,7 @@ import org.monogram.domain.models.ReplyMarkupModel
 import org.monogram.presentation.features.chats.conversation.ChatComponent
 import org.monogram.presentation.features.chats.conversation.ui.inputbar.ChatInputBarActions
 import org.monogram.presentation.features.chats.conversation.ui.inputbar.ChatInputBarState
+import org.monogram.presentation.features.chats.conversation.ui.message.LinkPreviewAction
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -25,6 +26,14 @@ internal fun rememberChatInputBarState(
         state.replyMessage,
         state.editingMessage,
         state.draftText,
+        state.draftLinkTargets,
+        state.selectedDraftLinkPreviewUrl,
+        state.resolvedDraftLinkPreviewUrl,
+        state.dismissedDraftLinkPreviewUrls,
+        state.draftLinkPreview,
+        state.isDraftLinkPreviewLoading,
+        state.draftLinkPreviewError,
+        state.isDraftLinkPreviewDisabledForSend,
         pendingMediaPaths,
         pendingDocumentPaths,
         state.topics,
@@ -55,6 +64,14 @@ internal fun rememberChatInputBarState(
             replyMessage = state.replyMessage,
             editingMessage = state.editingMessage,
             draftText = state.draftText,
+            draftLinkTargets = state.draftLinkTargets,
+            selectedDraftLinkPreviewUrl = state.selectedDraftLinkPreviewUrl,
+            resolvedDraftLinkPreviewUrl = state.resolvedDraftLinkPreviewUrl,
+            dismissedDraftLinkPreviewUrls = state.dismissedDraftLinkPreviewUrls,
+            draftLinkPreview = state.draftLinkPreview,
+            isDraftLinkPreviewLoading = state.isDraftLinkPreviewLoading,
+            draftLinkPreviewError = state.draftLinkPreviewError,
+            isDraftLinkPreviewDisabledForSend = state.isDraftLinkPreviewDisabledForSend,
             pendingMediaPaths = pendingMediaPaths,
             pendingDocumentPaths = pendingDocumentPaths,
             isClosed = state.topics.find { it.id.toLong() == state.currentTopicId }?.isClosed
@@ -92,7 +109,8 @@ internal fun rememberChatInputBarActions(
     onStartRecordingVideo: () -> Unit,
     onSetPendingMediaPaths: (List<String>) -> Unit,
     onSetPendingDocumentPaths: (List<String>) -> Unit,
-    onEditMediaPath: (String) -> Unit
+    onEditMediaPath: (String) -> Unit,
+    onDraftLinkPreviewAction: (LinkPreviewAction) -> Unit
 ): ChatInputBarActions {
     return remember(
         component,
@@ -103,7 +121,8 @@ internal fun rememberChatInputBarActions(
         onStartRecordingVideo,
         onSetPendingMediaPaths,
         onSetPendingDocumentPaths,
-        onEditMediaPath
+        onEditMediaPath,
+        onDraftLinkPreviewAction
     ) {
         ChatInputBarActions(
             onSend = { text, entities, options ->
@@ -121,6 +140,9 @@ internal fun rememberChatInputBarActions(
             onCancelEdit = component::onCancelEdit,
             onSaveEdit = component::onSaveEditedMessage,
             onDraftChange = component::onDraftChange,
+            onSelectDraftLinkPreview = component::onSelectDraftLinkPreview,
+            onDismissDraftLinkPreview = component::onDismissDraftLinkPreview,
+            onRestoreDraftLinkPreview = component::onRestoreDraftLinkPreview,
             onTyping = component::onTyping,
             onCancelMedia = { onSetPendingMediaPaths(emptyList()) },
             onSendMedia = { paths, caption, captionEntities, options ->
@@ -171,6 +193,7 @@ internal fun rememberChatInputBarActions(
                 }
             },
             onMediaClick = onEditMediaPath,
+            onDraftLinkPreviewAction = onDraftLinkPreviewAction,
             onShowBotCommands = {
                 onHideKeyboardAndClearFocus()
                 component.onShowBotCommands()

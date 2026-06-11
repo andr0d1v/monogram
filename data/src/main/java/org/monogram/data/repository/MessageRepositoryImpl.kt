@@ -19,6 +19,7 @@ import org.monogram.data.core.coRunCatching
 import org.monogram.data.datasource.FileDataSource
 import org.monogram.data.datasource.cache.ChatLocalDataSource
 import org.monogram.data.datasource.cache.UserLocalDataSource
+import org.monogram.data.datasource.remote.FxEmbedRemoteDataSource
 import org.monogram.data.datasource.remote.MessageRemoteDataSource
 import org.monogram.data.db.dao.KeyValueDao
 import org.monogram.data.db.dao.StickerPathDao
@@ -35,6 +36,8 @@ import org.monogram.domain.models.ChatEventActionModel
 import org.monogram.domain.models.ChatEventLogFiltersModel
 import org.monogram.domain.models.ChatEventModel
 import org.monogram.domain.models.ChatPermissionsModel
+import org.monogram.domain.models.DraftLinkPreview
+import org.monogram.domain.models.DraftLinkPreviewRequest
 import org.monogram.domain.models.FileModel
 import org.monogram.domain.models.InlineQueryResultModel
 import org.monogram.domain.models.MessageContent
@@ -72,6 +75,8 @@ class MessageRepositoryImpl(
     private val cache: ChatCache,
     private val fileHelper: TdFileHelper,
     private val fileDataSource: FileDataSource,
+    private val fxEmbedRemoteDataSource: FxEmbedRemoteDataSource,
+    private val draftLinkPreviewResolver: DraftLinkPreviewResolver,
     private val dispatcherProvider: DispatcherProvider,
     private val scope: CoroutineScope,
     private val chatLocalDataSource: ChatLocalDataSource,
@@ -80,6 +85,12 @@ class MessageRepositoryImpl(
     private val keyValueDao: KeyValueDao,
     private val textCompositionStyleDao: TextCompositionStyleDao
 ) : MessageRepository {
+    private val fixedDraftLinkPreviewFetcher = FixedDraftLinkPreviewFetcher(
+        draftLinkPreviewResolver = draftLinkPreviewResolver,
+        draftLinkPreviewRemoteDataSource = messageRemoteDataSource,
+        fixedPreviewRemoteDataSource = fxEmbedRemoteDataSource
+    )
+
     private val _textCompositionStyles = MutableStateFlow<List<TextCompositionStyleModel>>(emptyList())
     private val hardResetFlagKey = "cache_hard_reset_v2"
 
@@ -875,6 +886,45 @@ class MessageRepositoryImpl(
         } else {
             null
         }
+    }
+
+    override suspend fun getDraftLinkPreview(request: DraftLinkPreviewRequest): DraftLinkPreview? {
+        val normalizedUrl = draftLinkPreviewResolver.normalizeUrl(request.sourceUrl) ?: run {
+            Log.d(
+                DRAFT_LINK_PREVIEW_TAG,
+                "repo getDraftLinkPreview source=${request.sourceUrl} normalized=null useFixed=${request.useFixedPreview}"
+            )
+            return null
+        }
+        val shouldUseFixedPreview =
+            request.useFixedPreview && draftLinkPreviewResolver.shouldUseFixedPreview(normalizedUrl)
+        Log.d(
+            DRAFT_LINK_PREVIEW_TAG,
+            "repo getDraftLinkPreview source=${request.sourceUrl} normalized=$normalizedUrl useFixed=${request.useFixedPreview} shouldUseFixed=$shouldUseFixedPreview"
+        )
+
+        if (shouldUseFixedPreview) {
+            Log.d(DRAFT_LINK_PREVIEW_TAG, "repo using fixed preview for $normalizedUrl")
+            fixedDraftLinkPreviewFetcher.getFixedDraftLinkPreview(request.sourceUrl, normalizedUrl)
+                ?.let {
+                Log.d(
+                    DRAFT_LINK_PREVIEW_TAG,
+                    "repo fixed preview hit resolvedUrl=${it.resolvedUrl} hasWebPage=${it.webPage != null}"
+                )
+                return it
+            }
+            Log.d(DRAFT_LINK_PREVIEW_TAG, "repo fixed preview miss for $normalizedUrl")
+        }
+
+        Log.d(DRAFT_LINK_PREVIEW_TAG, "repo falling back to td preview for $normalizedUrl")
+        val preview = messageRemoteDataSource.getDraftLinkPreview(
+            request.copy(sourceUrl = normalizedUrl)
+        )
+        Log.d(
+            DRAFT_LINK_PREVIEW_TAG,
+            "repo td preview result success=${preview != null} resolvedUrl=${preview?.resolvedUrl}"
+        )
+        return preview
     }
 
     override suspend fun searchMessages(
@@ -1679,5 +1729,9 @@ class MessageRepositoryImpl(
             customEmojiId = customEmojiId,
             title = title
         )
+    }
+
+    private companion object {
+        private const val DRAFT_LINK_PREVIEW_TAG = "DraftLinkPreview"
     }
 }

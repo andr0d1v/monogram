@@ -20,7 +20,7 @@ import org.monogram.domain.repository.OlderMessagesPage
 import org.monogram.domain.repository.ReadUpdate
 import org.monogram.domain.repository.SearchChatMessagesResult
 
-interface MessageRemoteDataSource {
+interface MessageRemoteDataSource : DraftLinkPreviewRemoteDataSource {
     val fileDownloadFlow: Flow<FileDownloadEvent>
     val newMessageFlow: Flow<MessageModel>
     val messageEditedFlow: Flow<MessageModel>

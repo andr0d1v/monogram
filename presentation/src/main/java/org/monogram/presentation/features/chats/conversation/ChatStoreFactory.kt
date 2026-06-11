@@ -24,6 +24,7 @@ import org.monogram.presentation.features.chats.conversation.logic.handleCopySel
 import org.monogram.presentation.features.chats.conversation.logic.handleDeleteChat
 import org.monogram.presentation.features.chats.conversation.logic.handleDeleteMessage
 import org.monogram.presentation.features.chats.conversation.logic.handleDeleteSelectedMessages
+import org.monogram.presentation.features.chats.conversation.logic.handleDismissDraftLinkPreview
 import org.monogram.presentation.features.chats.conversation.logic.handleDismissInvoice
 import org.monogram.presentation.features.chats.conversation.logic.handleDismissMiniAppTOS
 import org.monogram.presentation.features.chats.conversation.logic.handleDownloadFile
@@ -45,6 +46,7 @@ import org.monogram.presentation.features.chats.conversation.logic.handleRepeatM
 import org.monogram.presentation.features.chats.conversation.logic.handleReplyMarkupButtonClick
 import org.monogram.presentation.features.chats.conversation.logic.handleReportMessage
 import org.monogram.presentation.features.chats.conversation.logic.handleReportReasonSelected
+import org.monogram.presentation.features.chats.conversation.logic.handleRestoreDraftLinkPreview
 import org.monogram.presentation.features.chats.conversation.logic.handleRetractVote
 import org.monogram.presentation.features.chats.conversation.logic.handleSaveEditedMessage
 import org.monogram.presentation.features.chats.conversation.logic.handleSearchDateRangeChange
@@ -54,6 +56,7 @@ import org.monogram.presentation.features.chats.conversation.logic.handleSearchQ
 import org.monogram.presentation.features.chats.conversation.logic.handleSearchResultClick
 import org.monogram.presentation.features.chats.conversation.logic.handleSearchSenderChange
 import org.monogram.presentation.features.chats.conversation.logic.handleSearchToggle
+import org.monogram.presentation.features.chats.conversation.logic.handleSelectDraftLinkPreview
 import org.monogram.presentation.features.chats.conversation.logic.handleSendAlbum
 import org.monogram.presentation.features.chats.conversation.logic.handleSendDocument
 import org.monogram.presentation.features.chats.conversation.logic.handleSendGif
@@ -192,6 +195,9 @@ class ChatStoreFactory(
                 is Intent.CancelEdit -> component._state.update { it.copy(editingMessage = null) }
                 is Intent.SaveEditedMessage -> component.handleSaveEditedMessage(intent.text, intent.entities)
                 is Intent.DraftChange -> component.handleDraftChange(intent.text)
+                is Intent.SelectDraftLinkPreview -> component.handleSelectDraftLinkPreview(intent.url)
+                is Intent.DismissDraftLinkPreview -> component.handleDismissDraftLinkPreview()
+                is Intent.RestoreDraftLinkPreview -> component.handleRestoreDraftLinkPreview()
                 is Intent.PinMessage -> component.handlePinMessage(intent.message)
 
                 is Intent.UnpinMessage -> component.handleUnpinMessage(intent.message)

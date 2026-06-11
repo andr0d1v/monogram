@@ -9,19 +9,30 @@ import org.monogram.domain.models.BotMenuButtonModel
 import org.monogram.domain.models.ChatPermissionsModel
 import org.monogram.domain.models.GifModel
 import org.monogram.domain.models.KeyboardButtonModel
+import org.monogram.domain.models.LinkPreviewTarget
 import org.monogram.domain.models.MessageEntity
 import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.MessageSendOptions
 import org.monogram.domain.models.PollDraft
 import org.monogram.domain.models.ReplyMarkupModel
 import org.monogram.domain.models.UserModel
+import org.monogram.domain.models.WebPage
 import org.monogram.domain.repository.InlineBotResultsModel
+import org.monogram.presentation.features.chats.conversation.ui.message.LinkPreviewAction
 
 @Immutable
 data class ChatInputBarState(
     val replyMessage: MessageModel? = null,
     val editingMessage: MessageModel? = null,
     val draftText: String = "",
+    val draftLinkTargets: List<LinkPreviewTarget> = emptyList(),
+    val selectedDraftLinkPreviewUrl: String? = null,
+    val resolvedDraftLinkPreviewUrl: String? = null,
+    val dismissedDraftLinkPreviewUrls: Set<String> = emptySet(),
+    val draftLinkPreview: WebPage? = null,
+    val isDraftLinkPreviewLoading: Boolean = false,
+    val draftLinkPreviewError: String? = null,
+    val isDraftLinkPreviewDisabledForSend: Boolean = false,
     val pendingMediaPaths: List<String> = emptyList(),
     val pendingDocumentPaths: List<String> = emptyList(),
     val isClosed: Boolean = false,
@@ -48,7 +59,7 @@ data class ChatInputBarState(
 )
 
 @Immutable
-data class ChatInputBarActions(
+internal data class ChatInputBarActions(
     val onSend: (String, List<MessageEntity>, MessageSendOptions) -> Unit,
     val onStickerClick: (String) -> Unit = {},
     val onGifClick: (GifModel) -> Unit = {},
@@ -59,6 +70,9 @@ data class ChatInputBarActions(
     val onCancelEdit: () -> Unit = {},
     val onSaveEdit: (String, List<MessageEntity>) -> Unit = { _, _ -> },
     val onDraftChange: (String) -> Unit = {},
+    val onSelectDraftLinkPreview: (String) -> Unit = {},
+    val onDismissDraftLinkPreview: () -> Unit = {},
+    val onRestoreDraftLinkPreview: () -> Unit = {},
     val onTyping: () -> Unit = {},
     val onCancelMedia: () -> Unit = {},
     val onSendMedia: (List<String>, String, List<MessageEntity>, MessageSendOptions) -> Unit = { _, _, _, _ -> },
@@ -66,6 +80,7 @@ data class ChatInputBarActions(
     val onMediaOrderChange: (List<String>) -> Unit = {},
     val onDocumentOrderChange: (List<String>) -> Unit = {},
     val onMediaClick: (String) -> Unit = {},
+    val onDraftLinkPreviewAction: (LinkPreviewAction) -> Unit = {},
     val onSendPoll: (PollDraft) -> Unit = {},
     val onShowBotCommands: () -> Unit = {},
     val onReplyMarkupButtonClick: (KeyboardButtonModel) -> Unit = {},

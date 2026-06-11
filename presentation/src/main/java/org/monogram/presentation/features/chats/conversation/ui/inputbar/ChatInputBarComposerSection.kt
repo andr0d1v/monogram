@@ -37,18 +37,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.monogram.domain.models.GifModel
 import org.monogram.domain.models.KeyboardButtonModel
+import org.monogram.domain.models.LinkPreviewTarget
 import org.monogram.domain.models.MessageModel
 import org.monogram.domain.models.MessageSendOptions
 import org.monogram.domain.models.ReplyMarkupModel
 import org.monogram.domain.models.StickerModel
 import org.monogram.domain.models.UserModel
+import org.monogram.domain.models.WebPage
 import org.monogram.domain.repository.StickerRepository
 import org.monogram.presentation.R
 import org.monogram.presentation.features.chats.conversation.ui.message.BotCommandSuggestions
+import org.monogram.presentation.features.chats.conversation.ui.message.LinkPreviewAction
 import org.monogram.presentation.features.stickers.ui.menu.StickerEmojiMenu
 
 @Composable
@@ -56,6 +58,12 @@ internal fun ChatInputBarComposerSection(
     modifier: Modifier = Modifier,
     editingMessage: MessageModel?,
     replyMessage: MessageModel?,
+    draftLinkTargets: List<LinkPreviewTarget>,
+    selectedDraftLinkPreviewUrl: String?,
+    draftLinkPreview: WebPage?,
+    isDraftLinkPreviewLoading: Boolean,
+    draftLinkPreviewError: String?,
+    isDraftLinkPreviewDisabledForSend: Boolean,
     attachments: ComposerAttachmentState,
     suggestions: ComposerSuggestionState,
     botState: ComposerBotState,
@@ -72,6 +80,9 @@ internal fun ChatInputBarComposerSection(
     isTablet: Boolean = false,
     onCancelEdit: () -> Unit,
     onCancelReply: () -> Unit,
+    onSelectDraftLinkPreview: (String) -> Unit,
+    onDismissDraftLinkPreview: () -> Unit,
+    onRestoreDraftLinkPreview: () -> Unit,
     onCancelMedia: () -> Unit,
     onCancelDocuments: () -> Unit,
     onAddMedia: () -> Unit,
@@ -79,6 +90,7 @@ internal fun ChatInputBarComposerSection(
     onMediaOrderChange: (List<String>) -> Unit,
     onDocumentOrderChange: (List<String>) -> Unit,
     onMediaClick: (String) -> Unit,
+    onDraftLinkPreviewAction: (LinkPreviewAction) -> Unit,
     onPasteImages: (List<Uri>) -> Unit,
     onMentionClick: (UserModel) -> Unit,
     onMentionQueryClear: () -> Unit,
@@ -188,10 +200,19 @@ internal fun ChatInputBarComposerSection(
             InputPreviewSection(
                 editingMessage = editingMessage,
                 replyMessage = replyMessage,
+                draftLinkTargets = draftLinkTargets,
+                selectedDraftLinkPreviewUrl = selectedDraftLinkPreviewUrl,
+                draftLinkPreview = draftLinkPreview,
+                isDraftLinkPreviewLoading = isDraftLinkPreviewLoading,
+                draftLinkPreviewError = draftLinkPreviewError,
+                isDraftLinkPreviewDisabledForSend = isDraftLinkPreviewDisabledForSend,
                 pendingMediaPaths = attachments.pendingMediaPaths,
                 pendingDocumentPaths = attachments.pendingDocumentPaths,
                 onCancelEdit = onCancelEdit,
                 onCancelReply = onCancelReply,
+                onSelectDraftLinkPreview = onSelectDraftLinkPreview,
+                onDismissDraftLinkPreview = onDismissDraftLinkPreview,
+                onRestoreDraftLinkPreview = onRestoreDraftLinkPreview,
                 onCancelMedia = onCancelMedia,
                 onCancelDocuments = onCancelDocuments,
                 onAddMedia = onAddMedia,
