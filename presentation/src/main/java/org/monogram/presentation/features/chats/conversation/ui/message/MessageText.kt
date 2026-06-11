@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -26,13 +27,24 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import org.monogram.domain.models.MessageEntity
 import org.monogram.domain.models.MessageEntityType
 import org.monogram.presentation.features.chats.conversation.ui.message.model.isBlockElement
 
+internal data class MessageTextLayoutInfo(
+    val width: Int,
+    val height: Int,
+    val lineCount: Int,
+    val lastLineLeft: Float,
+    val lastLineRight: Float,
+    val lastLineBottom: Float,
+    val lastLineDirection: ResolvedTextDirection
+)
+
 @Composable
-fun MessageText(
+internal fun MessageText(
     text: AnnotatedString,
     rawText: String = text.text,
     inlineContent: Map<String, InlineTextContent>,
@@ -44,6 +56,7 @@ fun MessageText(
     entities: List<MessageEntity> = emptyList(),
     isOutgoing: Boolean = false,
     onSpoilerClick: (Int) -> Unit = {},
+    onTextLayoutInfo: (MessageTextLayoutInfo?) -> Unit = {},
     onClick: (Offset) -> Unit = {},
     onLongClick: (Offset) -> Unit = {}
 ) {
@@ -67,6 +80,7 @@ fun MessageText(
                 overflow = overflow,
                 entities = entities,
                 onSpoilerClick = onSpoilerClick,
+                onTextLayoutInfo = onTextLayoutInfo,
                 onClick = onClick,
                 onLongClick = onLongClick,
                 linkHandler = linkHandler,
@@ -75,6 +89,10 @@ fun MessageText(
                 context = context
             )
         } else {
+            SideEffect {
+                onTextLayoutInfo(null)
+            }
+
             var lastOffset = 0
             val displayTextLength = text.length
 
@@ -208,6 +226,7 @@ private fun DefaultTextRender(
     overflow: TextOverflow,
     entities: List<MessageEntity>,
     onSpoilerClick: (Int) -> Unit,
+    onTextLayoutInfo: (MessageTextLayoutInfo) -> Unit = {},
     onClick: (Offset) -> Unit,
     onLongClick: (Offset) -> Unit,
     linkHandler: (String) -> Unit,
@@ -341,6 +360,24 @@ private fun DefaultTextRender(
                     onLongPress = { offset -> onLongClick(offset) }
                 )
             },
-        onTextLayout = { layoutResult.value = it }
+        onTextLayout = {
+            layoutResult.value = it
+            onTextLayoutInfo(it.toMessageTextLayoutInfo())
+        }
+    )
+}
+
+private fun TextLayoutResult.toMessageTextLayoutInfo(): MessageTextLayoutInfo {
+    val lastLineIndex = (lineCount - 1).coerceAtLeast(0)
+    val lineStart = getLineStart(lastLineIndex)
+
+    return MessageTextLayoutInfo(
+        width = size.width,
+        height = size.height,
+        lineCount = lineCount,
+        lastLineLeft = getLineLeft(lastLineIndex),
+        lastLineRight = getLineRight(lastLineIndex),
+        lastLineBottom = getLineBottom(lastLineIndex),
+        lastLineDirection = getParagraphDirection(lineStart)
     )
 }

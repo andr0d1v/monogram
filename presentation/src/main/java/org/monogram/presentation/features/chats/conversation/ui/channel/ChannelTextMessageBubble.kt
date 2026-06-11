@@ -1,23 +1,18 @@
 package org.monogram.presentation.features.chats.conversation.ui.channel
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,11 +27,14 @@ import org.monogram.presentation.core.util.DateFormatManager
 import org.monogram.presentation.features.chats.conversation.ui.message.BigEmojiContent
 import org.monogram.presentation.features.chats.conversation.ui.message.ForwardContent
 import org.monogram.presentation.features.chats.conversation.ui.message.LinkPreview
+import org.monogram.presentation.features.chats.conversation.ui.message.MessageFooterRow
 import org.monogram.presentation.features.chats.conversation.ui.message.MessageReactionsView
-import org.monogram.presentation.features.chats.conversation.ui.message.MessageSendingStatusIcon
 import org.monogram.presentation.features.chats.conversation.ui.message.MessageText
+import org.monogram.presentation.features.chats.conversation.ui.message.MessageTextLayoutInfo
 import org.monogram.presentation.features.chats.conversation.ui.message.ReplyContent
+import org.monogram.presentation.features.chats.conversation.ui.message.TextWithTimestampLayout
 import org.monogram.presentation.features.chats.conversation.ui.message.rememberMessageTextRenderData
+import org.monogram.presentation.features.chats.conversation.ui.message.shouldUseInlineFooter
 
 @Composable
 fun ChannelTextMessageBubble(
@@ -113,6 +111,49 @@ fun ChannelTextMessageBubble(
                 )
 
                 val finalFontSize = if (renderData.isBigEmoji) fontSize * 5f else fontSize
+                val messageTextStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = finalFontSize.sp,
+                    letterSpacing = letterSpacing.sp,
+                    lineHeight = (finalFontSize * 1.1f).sp
+                )
+                val hasLinkPreview = showLinkPreviews && content.webPage != null
+                val hasReply = msg.replyToMsg != null
+                val hasForward = msg.forwardInfo != null
+                val useInlineTimestamp = shouldUseInlineFooter(
+                    hasReply = hasReply,
+                    hasForward = hasForward,
+                    hasLinkPreview = hasLinkPreview,
+                    isBigEmoji = renderData.isBigEmoji
+                )
+                val timeText = formatTime(msg.date, timeFormat)
+                val footerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                val viewsText = msg.views
+                    ?.takeIf { it > 0 }
+                    ?.let { viewsCount -> formatViews(context, viewsCount) }
+                var textLayoutInfo by remember(
+                    content.text,
+                    content.entities,
+                    finalFontSize,
+                    letterSpacing,
+                    hasReply,
+                    hasForward,
+                    useInlineTimestamp
+                ) {
+                    mutableStateOf<MessageTextLayoutInfo?>(null)
+                }
+
+                val footerRow: @Composable (Modifier) -> Unit = { footerModifier ->
+                    MessageFooterRow(
+                        timeText = timeText,
+                        color = footerColor,
+                        isEdited = msg.editDate > 0,
+                        isOutgoing = msg.isOutgoing,
+                        isRead = msg.isRead,
+                        sendingState = msg.sendingState,
+                        modifier = footerModifier,
+                        viewsText = viewsText
+                    )
+                }
 
                 if (renderData.isBigEmoji && renderData.bigEmojiItems.isNotEmpty()) {
                     BigEmojiContent(
@@ -122,16 +163,39 @@ fun ChannelTextMessageBubble(
                             .fillMaxWidth()
                             .padding(bottom = 2.dp)
                     )
+                } else if (useInlineTimestamp) {
+                    TextWithTimestampLayout(
+                        modifier = Modifier.fillMaxWidth(),
+                        textLayoutInfo = textLayoutInfo,
+                        textContent = {
+                            MessageText(
+                                text = renderData.annotatedText,
+                                rawText = content.text,
+                                entities = content.entities,
+                                inlineContent = renderData.inlineContent,
+                                style = messageTextStyle,
+                                modifier = Modifier.fillMaxWidth(),
+                                onSpoilerClick = { index ->
+                                    if (revealedSpoilers.contains(index)) {
+                                        revealedSpoilers.remove(index)
+                                    } else {
+                                        revealedSpoilers.add(index)
+                                    }
+                                },
+                                onTextLayoutInfo = { textLayoutInfo = it },
+                                onClick = onClick,
+                                onLongClick = onLongClick
+                            )
+                        },
+                        timestampContent = { footerRow(Modifier) }
+                    )
                 } else {
                     MessageText(
                         text = renderData.annotatedText,
                         rawText = content.text,
+                        entities = content.entities,
                         inlineContent = renderData.inlineContent,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = finalFontSize.sp,
-                            letterSpacing = letterSpacing.sp,
-                            lineHeight = (finalFontSize * 1.1f).sp
-                        ),
+                        style = messageTextStyle,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 2.dp),
@@ -147,7 +211,7 @@ fun ChannelTextMessageBubble(
                     )
                 }
 
-                if (showLinkPreviews) {
+                if (hasLinkPreview) {
                     content.webPage?.let { webPage ->
                         LinkPreview(
                             webPage = webPage,
@@ -158,42 +222,8 @@ fun ChannelTextMessageBubble(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.align(Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    msg.views?.let { viewsCount ->
-                        if (viewsCount > 0) {
-                            Icon(
-                                imageVector = Icons.Outlined.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = formatViews(context, viewsCount),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                    }
-                    Text(
-                        text = formatTime(msg.date, timeFormat),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
-                    )
-
-                    if (msg.isOutgoing) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        MessageSendingStatusIcon(
-                            sendingState = msg.sendingState,
-                            isRead = msg.isRead,
-                            baseColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
-                            size = 14.dp
-                        )
-                    }
+                if (!useInlineTimestamp) {
+                    footerRow(Modifier.align(Alignment.End))
                 }
             }
         }

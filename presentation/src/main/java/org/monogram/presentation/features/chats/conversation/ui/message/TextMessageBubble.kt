@@ -2,35 +2,28 @@ package org.monogram.presentation.features.chats.conversation.ui.message
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.compose.koinInject
 import org.monogram.domain.models.ForwardInfo
 import org.monogram.domain.models.MessageContent
 import org.monogram.domain.models.MessageModel
-import org.monogram.presentation.R
 import org.monogram.presentation.core.util.DateFormatManager
-
 
 @Composable
 fun TextMessageBubble(
@@ -123,39 +116,44 @@ fun TextMessageBubble(
                 )
 
                 val finalFontSize = if (renderData.isBigEmoji) fontSize * 5f else fontSize
+                val messageTextStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = finalFontSize.sp,
+                    letterSpacing = letterSpacing.sp,
+                    lineHeight = (finalFontSize * 1.1f).sp
+                )
 
                 val hasLinkPreview = showLinkPreviews && content.webPage != null
-                val useInlineTimestamp = !renderData.isBigEmoji && !hasLinkPreview
+                val hasReply = msg.replyToMsg != null
+                val hasForward = msg.forwardInfo != null
+                val useInlineTimestamp = shouldUseInlineFooter(
+                    hasReply = hasReply,
+                    hasForward = hasForward,
+                    hasLinkPreview = hasLinkPreview,
+                    isBigEmoji = renderData.isBigEmoji
+                )
+                val timeText = formatTime(msg.date, timeFormat)
+                var textLayoutInfo by remember(
+                    content.text,
+                    content.entities,
+                    finalFontSize,
+                    letterSpacing,
+                    hasReply,
+                    hasForward,
+                    useInlineTimestamp
+                ) {
+                    mutableStateOf<MessageTextLayoutInfo?>(null)
+                }
 
-                val timestampRow: @Composable () -> Unit = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (msg.editDate > 0) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = stringResource(R.string.info_edited),
-                                modifier = Modifier.size(14.dp),
-                                tint = timeColor
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
-                        Text(
-                            text = formatTime(msg.date, timeFormat),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = timeColor
-                        )
-
-                        if (isOutgoing) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            MessageSendingStatusIcon(
-                                sendingState = msg.sendingState,
-                                isRead = msg.isRead,
-                                baseColor = timeColor,
-                                size = 14.dp
-                            )
-                        }
-                    }
+                val footerRow: @Composable (Modifier) -> Unit = { footerModifier ->
+                    MessageFooterRow(
+                        timeText = timeText,
+                        color = timeColor,
+                        isEdited = msg.editDate > 0,
+                        isOutgoing = isOutgoing,
+                        isRead = msg.isRead,
+                        sendingState = msg.sendingState,
+                        modifier = footerModifier
+                    )
                 }
 
                 if (renderData.isBigEmoji && renderData.bigEmojiItems.isNotEmpty()) {
@@ -166,17 +164,14 @@ fun TextMessageBubble(
                     )
                 } else if (useInlineTimestamp) {
                     TextWithTimestampLayout(
+                        textLayoutInfo = textLayoutInfo,
                         textContent = {
                             MessageText(
                                 text = renderData.annotatedText,
                                 rawText = content.text,
                                 entities = content.entities,
                                 inlineContent = renderData.inlineContent,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontSize = finalFontSize.sp,
-                                    letterSpacing = letterSpacing.sp,
-                                    lineHeight = (finalFontSize * 1.1f).sp
-                                ),
+                                style = messageTextStyle,
                                 isOutgoing = isOutgoing,
                                 onSpoilerClick = { index ->
                                     if (revealedSpoilers.contains(index)) {
@@ -185,11 +180,12 @@ fun TextMessageBubble(
                                         revealedSpoilers.add(index)
                                     }
                                 },
+                                onTextLayoutInfo = { textLayoutInfo = it },
                                 onClick = onClick,
                                 onLongClick = onLongClick
                             )
                         },
-                        timestampContent = timestampRow
+                        timestampContent = { footerRow(Modifier) }
                     )
                 } else {
                     MessageText(
@@ -197,11 +193,7 @@ fun TextMessageBubble(
                         rawText = content.text,
                         entities = content.entities,
                         inlineContent = renderData.inlineContent,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = finalFontSize.sp,
-                            letterSpacing = letterSpacing.sp,
-                            lineHeight = (finalFontSize * 1.1f).sp
-                        ),
+                        style = messageTextStyle,
                         modifier = Modifier.padding(bottom = 2.dp),
                         isOutgoing = isOutgoing,
                         onSpoilerClick = { index ->
@@ -228,12 +220,7 @@ fun TextMessageBubble(
                 }
 
                 if (!useInlineTimestamp) {
-                    Row(
-                        modifier = Modifier.align(Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        timestampRow()
-                    }
+                    footerRow(Modifier.align(Alignment.End))
                 }
             }
         }
